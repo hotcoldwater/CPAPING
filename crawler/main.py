@@ -81,18 +81,23 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
         if removed:
             log.info("게시판에서 사라진 공고 %d건에 removed_at 기록", removed)
 
-        # 5. 알림
+        # 5. 확인 메일 (Pages Function 이 못 보낸 건을 대신 보낸다)
+        if send_mail:
+            _send_pending_confirmations(db)
+
+        # 6. 알림 — 구독자별로 보낸다
+        notified = _notify_subscribers(db, source, send_mail)
+
+        # 관리자에게도 계속 보낸다. 구독자가 없어도 서비스가 살아있는지 확인할 수 있다.
         pending = db.unnotified_targets(source)
-        notified = 0
         if pending and send_mail:
             notify.send_new_postings(pending)
             db.mark_notified([r["id"] for r in pending])
-            notified = len(pending)
-            log.info("알림 발송 %d건", notified)
+            log.info("관리자 알림 %d건", len(pending))
         elif pending:
-            log.info("알림 대상 %d건 (--no-mail 이라 발송 생략)", len(pending))
+            log.info("관리자 알림 대상 %d건 (--no-mail 이라 발송 생략)", len(pending))
 
-        # 6. 정체 감지
+        # 7. 정체 감지
         stale = db.hours_since_last_new_posting(source)
         if stale is not None and stale > STALE_ALERT_HOURS:
             log.warning("%.0f시간째 신규 공고 없음", stale)
@@ -109,6 +114,46 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
         if db:
             db.finish_run(run_id, status="failed", error=f"{type(exc).__name__}: {exc}"[:2000])
         raise
+
+
+def _send_pending_confirmations(db) -> None:
+    """확인 메일을 아직 못 보낸 신청 건을 처리한다."""
+    waiting = db.pending_confirmations()
+    for row in waiting:
+        try:
+            notify.send_confirmation(row["email"], row["confirm_token"])
+            db.mark_confirmation_sent(row["id"])
+        except Exception as exc:
+            log.warning("확인 메일 발송 실패 (%s): %s", row["email"], exc)
+    if waiting:
+        log.info("확인 메일 %d건 발송", len(waiting))
+
+
+def _notify_subscribers(db, source: str, send_mail: bool) -> int:
+    """구독자별로 아직 안 보낸 공고를 골라 발송한다."""
+    subscribers = db.active_subscribers()
+    if not subscribers:
+        return 0
+
+    total = 0
+    for subscriber in subscribers:
+        rows = db.postings_for_subscriber(source, subscriber)
+        if not rows:
+            continue
+        if not send_mail:
+            log.info("%s 에게 보낼 공고 %d건 (--no-mail)", subscriber["email"], len(rows))
+            continue
+        try:
+            notify.send_to_subscriber(subscriber, rows)
+            db.log_notifications(subscriber["id"], [r["id"] for r in rows])
+            total += len(rows)
+        except Exception as exc:
+            # 한 명이 실패해도 나머지는 계속 보낸다
+            log.warning("발송 실패 (%s): %s", subscriber["email"], exc)
+
+    if total:
+        log.info("구독자 %d명에게 공고 %d건 발송", len(subscribers), total)
+    return total
 
 
 def _print_dry_run(postings: list) -> None:

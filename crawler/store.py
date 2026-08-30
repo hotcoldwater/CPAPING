@@ -141,6 +141,88 @@ class Store:
         )
 
     # ------------------------------------------------------------------
+    # 구독자
+    # ------------------------------------------------------------------
+    def pending_confirmations(self, limit: int = 50) -> list[dict]:
+        """확인 메일을 아직 못 보낸 신청 건.
+
+        보통은 Pages Function 이 신청 즉시 보낸다. Resend 키가 없거나
+        발송이 실패한 건을 여기서 주워 담는다.
+        """
+        return self._request(
+            "GET", "subscribers",
+            params={
+                "select": "id,email,confirm_token",
+                "status": "eq.pending",
+                "confirmation_sent_at": "is.null",
+                "order": "created_at.asc",
+                "limit": str(limit),
+            },
+        )
+
+    def mark_confirmation_sent(self, subscriber_id: int) -> None:
+        self._request(
+            "PATCH", "subscribers",
+            params={"id": f"eq.{subscriber_id}"},
+            headers={"Prefer": "return=minimal"},
+            json={"confirmation_sent_at": _now_iso()},
+        )
+
+    def active_subscribers(self) -> list[dict]:
+        return self._request(
+            "GET", "subscribers",
+            params={
+                "select": "id,email,unsubscribe_token,employment_filter,confirmed_at",
+                "status": "eq.active",
+            },
+        )
+
+    def postings_for_subscriber(self, source: str, subscriber: dict) -> list[dict]:
+        """이 구독자에게 아직 보내지 않은, 구독 이후에 올라온 공고.
+
+        구독 시점 이전 공고는 보내지 않는다. 갓 구독한 사람에게 기존 공고를
+        한꺼번에 보내면 스팸으로 보인다. 그건 사이트에서 보면 된다.
+        """
+        params = {
+            "select": "id,title,company_name,region,employment_type,deadline,detail_url",
+            "source": f"eq.{source}",
+            "is_target": "is.true",
+            "is_expired": "is.false",
+            "order": "deadline.asc",
+        }
+        if subscriber.get("confirmed_at"):
+            params["first_seen_at"] = f"gt.{subscriber['confirmed_at']}"
+
+        employment = {"full": "neq.Part Time", "part": "eq.Part Time"}
+        if subscriber.get("employment_filter") in employment:
+            params["employment_type"] = employment[subscriber["employment_filter"]]
+
+        candidates = self._request("GET", "job_postings", params=params)
+        if not candidates:
+            return []
+
+        sent = self._request(
+            "GET", "notification_logs",
+            params={
+                "select": "posting_id",
+                "subscriber_id": f"eq.{subscriber['id']}",
+                "posting_id": f"in.({','.join(str(c['id']) for c in candidates)})",
+            },
+        )
+        already = {row["posting_id"] for row in sent}
+        return [c for c in candidates if c["id"] not in already]
+
+    def log_notifications(self, subscriber_id: int, posting_ids: list[int]) -> None:
+        if not posting_ids:
+            return
+        self._request(
+            "POST", "notification_logs",
+            params={"on_conflict": "subscriber_id,posting_id"},
+            headers={"Prefer": "resolution=ignore-duplicates,return=minimal"},
+            json=[{"subscriber_id": subscriber_id, "posting_id": pid} for pid in posting_ids],
+        )
+
+    # ------------------------------------------------------------------
     def start_run(self, board: str) -> int | None:
         rows = self._request(
             "POST", "crawl_runs",

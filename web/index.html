@@ -129,6 +129,8 @@ body {
 .subscribe button:hover { background: #0F3073; }
 .subscribe button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .hint { margin: 9px 0 0; font-size: 11.5px; color: var(--ink-3); }
+.hint.error { color: var(--urgent); }
+.subscribe button[disabled] { opacity: .6; cursor: default; }
 
 /* 구독 완료 상태 */
 .subscribed { display: flex; flex-direction: column; gap: 4px; }
@@ -273,8 +275,8 @@ footer a { color: var(--ink-2); }
     <p class="hint" id="hint">언제든 한 번의 클릭으로 해지</p>
 
     <div class="subscribed" id="subscribed" hidden>
-      <div class="ok"><span class="check" aria-hidden="true"></span>구독되었습니다. 새 공고가 올라오면 메일로 알려드립니다.</div>
-      <div class="who"><span id="subscribed-email"></span><button type="button" id="change">변경</button></div>
+      <div class="ok"><span class="check" aria-hidden="true"></span><span id="subscribed-msg"></span></div>
+      <div class="who"><span id="subscribed-email"></span><button type="button" id="change">다른 주소로</button></div>
     </div>
   </section>
 
@@ -543,18 +545,67 @@ async function load() {
   }
 }
 
-// TODO(Phase 3): 실제 구독 저장. 지금은 화면 전환만 한다.
-$("subscribe-form").addEventListener("submit", (e) => {
-  e.preventDefault();
-  $("subscribed-email").textContent = $("email").value;
-  $("subscribe-form").hidden = true;
+const MESSAGES = {
+  pending: "확인 메일을 보냈습니다. 메일함에서 링크를 눌러주세요.",
+  already: "이미 구독 중인 주소입니다.",
+};
+
+const form = $("subscribe-form");
+const button = form.querySelector("button");
+
+function showSent(email, status) {
+  $("subscribed-msg").textContent = MESSAGES[status] || MESSAGES.pending;
+  $("subscribed-email").textContent = email;
+  form.hidden = true;
   $("hint").hidden = true;
   $("subscribed").hidden = false;
+}
+
+function showError(message) {
+  const hint = $("hint");
+  hint.textContent = message;
+  hint.classList.add("error");
+}
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = $("email").value.trim();
+  if (!email) return;
+
+  button.disabled = true;
+  button.textContent = "전송 중";
+  $("hint").classList.remove("error");
+
+  try {
+    const res = await fetch("/api/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // 지금 보고 있는 필터를 그대로 구독 조건으로 쓴다
+      body: JSON.stringify({ email, filter: state.filter }),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      showError(data.error || "잠시 후 다시 시도해 주세요.");
+      return;
+    }
+    showSent(email, data.status);
+  } catch {
+    showError("연결에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+  } finally {
+    button.disabled = false;
+    button.textContent = "구독";
+  }
 });
+
 $("change").addEventListener("click", () => {
   $("subscribed").hidden = true;
-  $("subscribe-form").hidden = false;
-  $("hint").hidden = false;
+  form.hidden = false;
+  const hint = $("hint");
+  hint.hidden = false;
+  hint.classList.remove("error");
+  hint.textContent = "언제든 한 번의 클릭으로 해지";
+  $("email").value = "";
   $("email").focus();
 });
 

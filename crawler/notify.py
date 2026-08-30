@@ -37,7 +37,7 @@ def _ssl_context() -> ssl.SSLContext:
 
 
 def send_mail(subject: str, text_body: str, html_body: str | None = None,
-              to: str | None = None) -> None:
+              to: str | None = None, extra_headers: dict | None = None) -> None:
     """메일 1통 발송. 실패하면 예외를 그대로 올린다."""
     user = os.environ.get("CPAPING_SMTP_USER", "")
     password = os.environ.get("CPAPING_SMTP_APP_PASSWORD", "").replace(" ", "")
@@ -53,6 +53,8 @@ def send_mail(subject: str, text_body: str, html_body: str | None = None,
     msg["Subject"] = subject
     msg["From"] = formataddr((SENDER_NAME, user))
     msg["To"] = recipient
+    for key, value in (extra_headers or {}).items():
+        msg[key] = value
     msg.set_content(text_body)
     if html_body:
         msg.add_alternative(html_body, subtype="html")
@@ -136,3 +138,73 @@ def send_new_postings(rows: list[dict], to: str | None = None) -> None:
 def send_alert(subject: str, message: str, to: str | None = None) -> None:
     """크롤러 장애 알림 (관리자용)."""
     send_mail(f"[CPAPING 경고] {subject}", message, to=to)
+
+
+# ----------------------------------------------------------------------
+# 구독자 발송
+# ----------------------------------------------------------------------
+
+SITE = "https://cpaping.com"
+
+
+def send_confirmation(email: str, confirm_token: str) -> None:
+    """더블 옵트인 확인 메일.
+
+    보통은 Pages Function 이 신청 즉시 보낸다. 발송에 실패했거나 Resend 키가
+    없을 때 크롤러가 대신 보낸다.
+    """
+    url = f"{SITE}/api/confirm?token={confirm_token}"
+    text = (
+        "CPAPING 구독을 신청하셨습니다.\n\n"
+        f"아래 링크를 눌러 구독을 확정해 주세요.\n{url}\n\n"
+        "본인이 신청한 것이 아니라면 이 메일을 무시하세요. "
+        "링크를 누르지 않으면 아무 메일도 보내지 않습니다.\n\n— CPAPING"
+    )
+    html = (
+        "<div style='font-family:-apple-system,BlinkMacSystemFont,\"Apple SD Gothic Neo\",sans-serif;"
+        "max-width:600px;margin:0 auto;padding:28px;color:#101317'>"
+        "<div style='font-size:15px;font-weight:600;margin-bottom:14px'>구독을 확정해 주세요</div>"
+        "<p style='font-size:13.5px;color:#5B6472;line-height:1.7;margin:0 0 22px'>"
+        "아래 버튼을 누르면 회계법인 수습 공고가 올라올 때마다 알려드립니다.</p>"
+        f"<a href='{url}' style='display:inline-block;padding:11px 20px;background:#123A8A;"
+        "color:#fff;text-decoration:none;border-radius:4px;font-size:13.5px;font-weight:500'>"
+        "구독 확정하기</a>"
+        "<p style='font-size:11.5px;color:#868D99;line-height:1.7;margin:26px 0 0'>"
+        "본인이 신청한 것이 아니라면 이 메일을 무시하세요. "
+        "링크를 누르지 않으면 아무 메일도 보내지 않습니다.</p>"
+        "<p style='font-size:11.5px;color:#B0B5BD;margin:18px 0 0'>CPAPING</p></div>"
+    )
+    send_mail("[CPAPING] 구독 확정 메일입니다", text, html, to=email)
+
+
+def send_to_subscriber(subscriber: dict, rows: list[dict]) -> None:
+    """구독자 한 명에게 신규 공고 알림. 하단에 원클릭 해지 링크를 넣는다."""
+    if not rows:
+        return
+
+    unsubscribe = f"{SITE}/api/unsubscribe?token={subscriber['unsubscribe_token']}"
+    count = len(rows)
+
+    subject = f"[CPAPING] 신규 수습회계사 공고 {count}건"
+    if count == 1:
+        subject = f"[CPAPING] {rows[0].get('company_name') or '신규'} — {rows[0]['title'][:40]}"
+
+    text = "\n\n".join(_format_posting_text(r) for r in rows)
+    text = (
+        f"새로 올라온 공고 {count}건입니다.\n\n{text}\n\n"
+        f"— CPAPING\n수신 거부: {unsubscribe}"
+    )
+
+    html = (
+        "<div style='font-family:-apple-system,BlinkMacSystemFont,\"Apple SD Gothic Neo\",sans-serif;"
+        "max-width:600px;margin:0 auto;padding:24px'>"
+        f"<div style='font-size:13px;color:#666;margin-bottom:20px'>새로 올라온 공고 {count}건</div>"
+        + "".join(_format_posting_html(r) for r in rows)
+        + "<div style='color:#aaa;font-size:12px;margin-top:8px'>CPAPING · "
+        f"<a href='{unsubscribe}' style='color:#868D99'>수신 거부</a></div></div>"
+    )
+
+    # List-Unsubscribe 헤더가 있으면 메일 클라이언트가 자체 해지 버튼을 띄운다.
+    send_mail(subject, text, html, to=subscriber["email"],
+              extra_headers={"List-Unsubscribe": f"<{unsubscribe}>",
+                             "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"})

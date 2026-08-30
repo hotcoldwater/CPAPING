@@ -143,7 +143,32 @@ Next.js 는 과하다고 보고, 로그인·마이페이지가 필요해지는 P
 - `web/make-og.py` — 공유 카드 이미지 생성 (Pillow, 내용을 바꿀 때만 실행)
 - 고용형태 필터, 마감임박순/최신순 정렬, 등록일과 NEW 배지(3일 이내)
 - 선택은 브라우저에 기억시켜 다음 방문에도 유지된다
-- 남은 일: 이메일 구독 저장(`subscribers` 테이블), 개인정보처리방침 게시
+- 남은 일: 개인정보처리방침 게시
+
+**구독 (더블 옵트인)**
+
+신청하면 `pending` 으로 저장하고 확인 메일을 보낸다. 링크를 눌러야 `active` 가
+된다. 남의 주소를 함부로 등록하는 것을 막고 스팸 신고를 줄이기 위해서다.
+
+브라우저에서 Supabase 로 직접 넣게 두면 공개 키만 알면 누구나 대량 등록할 수
+있으므로, Cloudflare Pages Functions 로 서버를 한 겹 둔다. secret key 는
+여기서만 쓰고 브라우저로 나가지 않는다.
+
+```
+POST /api/subscribe      { email, filter } → pending 저장 + 확인 메일
+GET  /api/confirm?token  → active 로 변경
+GET  /api/unsubscribe?token → 해지 (재확인 없이 한 번에)
+```
+
+발송 경로가 두 가지다.
+
+| 경로 | 언제 | 비고 |
+|---|---|---|
+| Resend (HTTP) | 신청 즉시 | `RESEND_API_KEY` 가 있을 때. Workers 는 SMTP 를 못 쓴다 |
+| Gmail SMTP (크롤러) | 다음 크롤 실행 때 | 위가 실패했거나 키가 없을 때 주워 담는다 |
+
+구독 시점 **이후에 올라온 공고만** 보낸다. 갓 구독한 사람에게 기존 공고를
+한꺼번에 보내면 스팸으로 보인다. 그건 사이트에서 보면 된다.
 
 **공유 카드(OG)**: 카카오는 og:image 를 캐시하므로 `web/og.png` 의 경로를
 함부로 바꾸지 않는다. 내용을 고쳤으면 카카오 디버거에서 캐시를 지워야 반영된다.
@@ -181,6 +206,9 @@ CPAPING/
 ├── db/
 │   ├── schema.sql        # 테이블 + RLS
 │   └── migrations/       # 스키마 변경 이력
+├── functions/            # Cloudflare Pages Functions (리포 루트여야 한다)
+│   ├── _shared.js
+│   └── api/              #   subscribe · confirm · unsubscribe
 ├── web/
 │   ├── index.html        # 공개 페이지 (플레이스홀더 포함)
 │   ├── build.mjs         #   공개 키 주입 + 자산 복사 → dist/
@@ -243,6 +271,6 @@ Supabase SQL Editor 에서 `db/schema.sql` 을 한 번 실행한다.
 | Phase | 직접 해야 할 일 |
 |---|---|
 | 1 | Supabase 프로젝트 생성 / Gmail 앱 비밀번호 발급 / GitHub Secrets 등록 |
-| 2 | Cloudflare Pages 연결 / 도메인 구매(선택) |
+| 2 | Cloudflare Pages 연결 / 도메인 / **Pages 환경변수에 `SUPABASE_SECRET_KEY` 추가** / Resend 계정(선택) |
 | 3 | Google OAuth 클라이언트 / Kakao Developers 앱 등록 |
 | 7 | `brew install poppler` (PDF 텍스트 추출) |
