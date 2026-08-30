@@ -42,7 +42,18 @@ export async function onRequestGet({ request, env }) {
       });
     }
 
-    await supabase(env, `subscribers?id=eq.${row.id}`, {
+    // 해지한 사람이 예전 확인 메일을 다시 눌러 구독이 되살아나면 안 된다.
+    // 본인 의사로 끊은 것을 옛 링크가 뒤집는 셈이기 때문이다.
+    if (row.status === "unsubscribed") {
+      return page({
+        title: "해지된 구독입니다",
+        lead: "예전에 받은 확인 메일의 링크입니다.",
+        sub: "다시 받아보시려면 사이트에서 새로 신청해 주세요.",
+        linkText: "다시 신청하기",
+      });
+    }
+
+    await supabase(env, `subscribers?id=eq.${row.id}&status=eq.pending`, {
       method: "PATCH",
       headers: { Prefer: "return=minimal" },
       body: JSON.stringify({
