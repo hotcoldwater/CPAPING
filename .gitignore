@@ -1,0 +1,25 @@
+# 환경변수
+.env
+.env.local
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.vercel/
+
+# 데이터 / 로그
+data/*.db
+logs/
+
+# OS
+.DS_Store
+
+# 제3자 유료 자료 (면접 컨설팅 PDF 등) — 저작권 문제로 리포에 올리지 않음
+source/

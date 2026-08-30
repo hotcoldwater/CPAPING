@@ -1,0 +1,254 @@
+"""Supabase 저장. PostgREST 를 requests 로 직접 호출한다.
+
+supabase-py 를 쓰지 않는 이유는 의존성을 줄이기 위해서다. 필요한 동작이
+select / upsert / update 세 가지뿐이라 REST 로 충분하다.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import logging
+import os
+from datetime import date, datetime, timezone
+
+import requests
+
+log = logging.getLogger(__name__)
+
+TIMEOUT_SEC = 30
+
+# 공고 내용이 바뀌었는지 볼 때 기준이 되는 필드
+_HASH_FIELDS = (
+    "title", "company_name", "region", "work_region", "employment_type",
+    "hiring_status", "headcount", "career", "salary", "education",
+    "deadline", "body",
+)
+
+
+class SupabaseError(RuntimeError):
+    pass
+
+
+class Store:
+    def __init__(self, url: str | None = None, key: str | None = None):
+        self.url = (url or os.environ.get("SUPABASE_URL", "")).rstrip("/")
+        self.key = key or os.environ.get("SUPABASE_SECRET_KEY", "")
+        if not self.url or not self.key:
+            raise SupabaseError(
+                "SUPABASE_URL / SUPABASE_SECRET_KEY 가 없습니다. .env 를 확인하세요."
+            )
+        self.session = requests.Session()
+        self.session.headers.update({
+            "apikey": self.key,
+            "Authorization": f"Bearer {self.key}",
+            "Content-Type": "application/json",
+        })
+
+    # ------------------------------------------------------------------
+    def _request(self, method: str, table: str, **kwargs) -> list[dict]:
+        res = self.session.request(
+            method, f"{self.url}/rest/v1/{table}", timeout=TIMEOUT_SEC, **kwargs
+        )
+        if not res.ok:
+            raise SupabaseError(f"{method} {table} 실패 ({res.status_code}): {res.text[:400]}")
+        if not res.content or res.status_code == 204:
+            return []
+        return res.json()
+
+    # ------------------------------------------------------------------
+    def existing_ij_ids(self, source: str) -> set[str]:
+        """이미 저장된 공고의 ij_id 집합."""
+        rows = self._request(
+            "GET", "job_postings",
+            params={"select": "ij_id", "source": f"eq.{source}"},
+        )
+        return {r["ij_id"] for r in rows}
+
+    def upsert_postings(self, rows: list[dict]) -> list[dict]:
+        """(source, ij_id) 기준으로 있으면 갱신, 없으면 삽입."""
+        if not rows:
+            return []
+        return self._request(
+            "POST", "job_postings",
+            params={"on_conflict": "source,ij_id"},
+            headers={"Prefer": "resolution=merge-duplicates,return=representation"},
+            json=rows,
+        )
+
+    def mark_removed(self, source: str, alive_ij_ids: list[str]) -> int:
+        """게시판에서 사라진 공고에 removed_at 을 남긴다.
+
+        한공회는 1개월이 지난 글을 자동 삭제한다. 우리 DB 에서는 지우지 않고
+        사라진 시점만 기록해 이력을 보존한다.
+        """
+        params = {
+            "source": f"eq.{source}",
+            "removed_at": "is.null",
+            "select": "ij_id",
+        }
+        if alive_ij_ids:
+            quoted = ",".join(f'"{i}"' for i in alive_ij_ids)
+            params["ij_id"] = f"not.in.({quoted})"
+        rows = self._request(
+            "PATCH", "job_postings",
+            params=params,
+            headers={"Prefer": "return=representation"},
+            json={"removed_at": _now_iso()},
+        )
+        return len(rows)
+
+    def expire_past_deadline(self, source: str) -> int:
+        """마감일이 지난 공고를 만료 처리한다.
+
+        기존 공고는 상세를 다시 조회하지 않으므로(상대 서버 부담) 마감 판정을
+        DB 에 저장된 마감일로 따로 갱신한다.
+        """
+        rows = self._request(
+            "PATCH", "job_postings",
+            params={
+                "source": f"eq.{source}",
+                "deadline": f"lt.{date.today().isoformat()}",
+                "is_expired": "is.false",
+                "select": "id",
+            },
+            headers={"Prefer": "return=representation"},
+            json={"is_expired": True, "is_target": False},
+        )
+        return len(rows)
+
+    def unnotified_targets(self, source: str) -> list[dict]:
+        """아직 알리지 않은 알림 대상 공고."""
+        return self._request(
+            "GET", "job_postings",
+            params={
+                "select": "*",
+                "source": f"eq.{source}",
+                "is_target": "is.true",
+                "is_expired": "is.false",
+                "notified_at": "is.null",
+                "order": "posted_at.desc",
+            },
+        )
+
+    def mark_notified(self, ids: list[int]) -> None:
+        if not ids:
+            return
+        self._request(
+            "PATCH", "job_postings",
+            params={"id": f"in.({','.join(str(i) for i in ids)})"},
+            headers={"Prefer": "return=minimal"},
+            json={"notified_at": _now_iso()},
+        )
+
+    # ------------------------------------------------------------------
+    def start_run(self, board: str) -> int | None:
+        rows = self._request(
+            "POST", "crawl_runs",
+            headers={"Prefer": "return=representation"},
+            json={"board": board},
+        )
+        return rows[0]["id"] if rows else None
+
+    def finish_run(self, run_id: int | None, **fields) -> None:
+        if run_id is None:
+            return
+        self._request(
+            "PATCH", "crawl_runs",
+            params={"id": f"eq.{run_id}"},
+            headers={"Prefer": "return=minimal"},
+            json={"finished_at": _now_iso(), **fields},
+        )
+
+    def hours_since_last_new_posting(self, source: str) -> float | None:
+        """마지막으로 신규 공고를 본 뒤 흐른 시간(시간 단위).
+
+        사이트 구조가 바뀌어 파서가 조용히 빈 결과를 내는 상황을 감지한다.
+        """
+        rows = self._request(
+            "GET", "job_postings",
+            params={
+                "select": "first_seen_at",
+                "source": f"eq.{source}",
+                "order": "first_seen_at.desc",
+                "limit": "1",
+            },
+        )
+        if not rows:
+            return None
+        seen = datetime.fromisoformat(rows[0]["first_seen_at"].replace("Z", "+00:00"))
+        return (datetime.now(timezone.utc) - seen).total_seconds() / 3600
+
+
+# ----------------------------------------------------------------------
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _iso(value) -> str | None:
+    return value.isoformat() if isinstance(value, date) else value
+
+
+def content_hash(posting) -> str:
+    """공고 내용이 바뀌었는지 비교하기 위한 해시."""
+    parts = [str(getattr(posting, f, "") or "") for f in _HASH_FIELDS]
+    return hashlib.sha256("\x1f".join(parts).encode("utf-8")).hexdigest()
+
+
+def to_light_row(posting) -> dict:
+    """이미 아는 공고용. 목록에서만 확인되는 값만 갱신한다.
+
+    상세를 조회하지 않았으므로 마감일·본문·분류 결과를 None 으로 덮어쓰면
+    안 된다. upsert 배치는 모든 행의 키가 같아야 해서 별도 배치로 보낸다.
+
+    NOT NULL 컬럼은 반드시 넣어야 한다. 포스트그레스는 ON CONFLICT 로 넘어가기
+    전에 NOT NULL 을 먼저 검사하기 때문에, 빠지면 갱신이 아니라 오류가 난다.
+    """
+    return {
+        "source": posting.source,
+        "ij_id": posting.ij_id,
+        "detail_url": posting.detail_url,
+        "seq": posting.seq,
+        "title": posting.title,
+        "hiring_status": posting.hiring_status or None,
+        "view_count": posting.view_count,
+        "last_seen_at": _now_iso(),
+    }
+
+
+def to_row(posting) -> dict:
+    """Posting → job_postings 테이블 행 (상세까지 조회한 신규 공고용)."""
+    labels = getattr(posting, "labels", {}) or {}
+    return {
+        "source": posting.source,
+        "ij_id": posting.ij_id,
+        "seq": posting.seq,
+        "detail_url": posting.detail_url,
+        "title": posting.title,
+        "company_name": posting.company_name or None,
+        "region": posting.region or None,
+        "work_region": posting.work_region or None,
+        "employment_type": posting.employment_type or None,
+        "hiring_status": posting.hiring_status or None,
+        "headcount": posting.headcount or None,
+        "career": posting.career or None,
+        "salary": posting.salary or None,
+        "education": posting.education or None,
+        "posted_at": _iso(posting.posted_at),
+        "deadline": _iso(posting.deadline),
+        "view_count": posting.view_count,
+        "body": posting.body or None,
+        "contact_name": posting.contact_name or None,
+        "contact_phone": posting.contact_phone or None,
+        "contact_email": posting.contact_email or None,
+        "homepage": posting.homepage or None,
+        "is_big4": bool(labels.get("is_big4")),
+        "big4_name": labels.get("big4"),
+        "posting_type": labels.get("posting_type"),
+        "job_category": labels.get("job_category"),
+        "job_category_confidence": labels.get("job_category_confidence"),
+        "needs_review": bool(labels.get("needs_review")),
+        "is_expired": bool(labels.get("is_expired")),
+        "is_target": bool(labels.get("is_target")),
+        "content_hash": content_hash(posting),
+        "last_seen_at": _now_iso(),
+    }
