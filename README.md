@@ -135,7 +135,7 @@ https://www.kicpa.or.kr/home/jobOffrSrchNewGnrl/detail.face?ijIdNum=<id>
 Next.js 는 과하다고 보고, 로그인·마이페이지가 필요해지는 Phase 3 에서 옮긴다.
 
 - `web/index.html` — 단일 반응형 페이지. Supabase 를 publishable key 로 직접 조회
-- `web/build.py` — 플레이스홀더에 공개 키를 주입해 `web/dist/` 로 출력
+- `web/build.mjs` — 플레이스홀더에 공개 키를 주입해 `web/dist/` 로 출력 (의존성 없음)
 - 남은 일: 이메일 구독 저장(`subscribers` 테이블), Cloudflare Pages 연결
 
 디자인은 **툴형** 으로 확정했다. 산세리프(IBM Plex Sans KR), 촘촘한 밀도,
@@ -172,7 +172,7 @@ CPAPING/
 │   └── schema.sql        # 테이블 + RLS
 ├── web/
 │   ├── index.html        # 공개 페이지 (플레이스홀더 포함)
-│   └── build.py          #   공개 키 주입 → dist/
+│   └── build.mjs         #   공개 키 주입 → dist/
 ├── docs/
 │   └── stitch-prompt.md  # 디자인 프롬프트와 톤 결정 근거
 ├── source/               # 자소서/면접 원자료 (PDF, git 제외)
@@ -210,7 +210,7 @@ python crawler/test_classify.py
 ### 웹 페이지 미리보기
 
 ```bash
-python web/build.py          # web/dist/index.html 생성
+node web/build.mjs           # web/dist/index.html 생성
 python -m http.server 8899 --directory web/dist
 ```
 
