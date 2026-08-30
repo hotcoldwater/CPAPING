@@ -106,6 +106,10 @@ https://www.kicpa.or.kr/home/jobOffrSrchNewGnrl/detail.face?ijIdNum=<id>
 
 공고 원문은 전재하지 않고 **요약 + 한공회 원문 링크**로 제공한다.
 
+**담당자 개인정보는 수집하지 않는다.** 공고에는 담당자 이름과 개인 휴대폰 번호,
+개인 이메일 주소가 적혀 있다. 게시판이 공개돼 있다고 해도 우리가 이를 따로
+보관하고 알림 메일로 재배포할 이유가 없다. 지원자는 원문 링크에서 확인하면 된다.
+
 ---
 
 ## Phase 로드맵
@@ -175,7 +179,8 @@ CPAPING/
 │   ├── notify.py         #   이메일 발송
 │   └── main.py           #   엔트리포인트
 ├── db/
-│   └── schema.sql        # 테이블 + RLS
+│   ├── schema.sql        # 테이블 + RLS
+│   └── migrations/       # 스키마 변경 이력
 ├── web/
 │   ├── index.html        # 공개 페이지 (플레이스홀더 포함)
 │   ├── build.mjs         #   공개 키 주입 + 자산 복사 → dist/

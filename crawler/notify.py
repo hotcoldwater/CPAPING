@@ -81,8 +81,7 @@ def _format_posting_text(row: dict) -> str:
         bits.append(f"   {meta}")
     if row.get("deadline"):
         bits.append(f"   마감 {row['deadline']}")
-    if row.get("contact_email"):
-        bits.append(f"   문의 {row['contact_email']}")
+    # 담당자 연락처는 싣지 않는다. 원문 링크에서 확인하면 된다.
     bits.append(f"   {row['detail_url']}")
     return "\n".join(bits)
 

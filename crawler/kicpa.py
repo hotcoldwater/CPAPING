@@ -80,12 +80,12 @@ class Posting:
     view_count: int | None = None
 
     # --- 상세에서 ---
+    # 공고에 적힌 담당자 이름·전화번호·이메일은 수집하지 않는다.
+    # 개인 휴대폰과 개인 메일 주소가 섞여 있는데, 우리가 이를 따로 보관하고
+    # 알림 메일로 재배포할 이유가 없다. 지원자는 원문 링크에서 확인하면 된다.
     detail_fetched: bool = False
     co_sep: str = ""                    # 회사구분
-    contact_name: str = ""
-    contact_phone: str = ""
-    contact_email: str = ""
-    homepage: str = ""
+    homepage: str = ""                  # 법인 홈페이지 (개인정보 아님)
     headcount: str = ""                 # 채용인원
     employment_type: str = ""           # 고용형태
     work_region: str = ""               # 근무지역
@@ -249,12 +249,10 @@ def fetch_list(
 # --------------------------------------------------------------------------
 
 # 상세 페이지 th 라벨 → Posting 속성명
+# '담당자' / '전화번호' / '이메일' 은 일부러 뺐다. Posting 주석 참고.
 _DETAIL_FIELDS = {
     "회사구분": "co_sep",
     "회사명": "company_name",
-    "담당자": "contact_name",
-    "전화번호": "contact_phone",
-    "이메일": "contact_email",
     "홈페이지": "homepage",
     "채용인원": "headcount",
     "고용형태": "employment_type",

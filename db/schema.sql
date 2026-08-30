@@ -38,11 +38,10 @@ create table if not exists public.job_postings (
   view_count    integer,
   body          text,
 
-  -- 담당자 (공고에 공개된 정보)
-  contact_name  text,
-  contact_phone text,
-  contact_email text,
-  homepage      text,
+  -- 담당자 이름·전화번호·이메일은 수집하지 않는다. 공고에 개인 휴대폰과
+  -- 개인 메일 주소가 섞여 있는데, 우리가 따로 보관할 이유가 없다.
+  -- 지원자는 detail_url 원문에서 확인하면 된다.
+  homepage      text,                       -- 법인 홈페이지
 
   -- 분류 결과
   is_big4       boolean not null default false,
