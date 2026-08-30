@@ -135,8 +135,14 @@ https://www.kicpa.or.kr/home/jobOffrSrchNewGnrl/detail.face?ijIdNum=<id>
 Next.js 는 과하다고 보고, 로그인·마이페이지가 필요해지는 Phase 3 에서 옮긴다.
 
 - `web/index.html` — 단일 반응형 페이지. Supabase 를 publishable key 로 직접 조회
-- `web/build.mjs` — 플레이스홀더에 공개 키를 주입해 `web/dist/` 로 출력 (의존성 없음)
-- 남은 일: 이메일 구독 저장(`subscribers` 테이블), Cloudflare Pages 연결
+- `web/build.mjs` — 플레이스홀더에 공개 키를 주입하고 자산을 `web/dist/` 로 복사 (의존성 없음)
+- `web/make-og.py` — 공유 카드 이미지 생성 (Pillow, 내용을 바꿀 때만 실행)
+- 고용형태 필터, 마감임박순/최신순 정렬, 등록일과 NEW 배지(3일 이내)
+- 선택은 브라우저에 기억시켜 다음 방문에도 유지된다
+- 남은 일: 이메일 구독 저장(`subscribers` 테이블), 개인정보처리방침 게시
+
+**공유 카드(OG)**: 카카오는 og:image 를 캐시하므로 `web/og.png` 의 경로를
+함부로 바꾸지 않는다. 내용을 고쳤으면 카카오 디버거에서 캐시를 지워야 반영된다.
 
 디자인은 **툴형** 으로 확정했다. 산세리프(IBM Plex Sans KR), 촘촘한 밀도,
 마감 임박(D-7 이내) 빨강 강조, 라이트 온리. 근거는 `docs/stitch-prompt.md` 참고.
@@ -172,7 +178,9 @@ CPAPING/
 │   └── schema.sql        # 테이블 + RLS
 ├── web/
 │   ├── index.html        # 공개 페이지 (플레이스홀더 포함)
-│   └── build.mjs         #   공개 키 주입 → dist/
+│   ├── build.mjs         #   공개 키 주입 + 자산 복사 → dist/
+│   ├── make-og.py        #   공유 카드 이미지 생성
+│   └── og.png, favicon.* #   공유 카드와 파비콘
 ├── docs/
 │   └── stitch-prompt.md  # 디자인 프롬프트와 톤 결정 근거
 ├── source/               # 자소서/면접 원자료 (PDF, git 제외)

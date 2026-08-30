@@ -10,7 +10,7 @@
  *   node web/build.mjs
  */
 
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, existsSync, copyFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -61,4 +61,19 @@ if (missing.length) {
 const out = join(HERE, "dist");
 mkdirSync(out, { recursive: true });
 writeFileSync(join(out, "index.html"), html, "utf8");
-console.log(`빌드 완료 → ${join(out, "index.html")}`);
+
+// 파비콘·OG 이미지 등 그대로 나가는 파일들
+const ASSETS = [
+  "favicon.ico",
+  "favicon.svg",
+  "apple-touch-icon.png",
+  "icon-512.png",
+  "og.png",
+];
+for (const name of ASSETS) {
+  const from = join(HERE, name);
+  if (existsSync(from)) copyFileSync(from, join(out, name));
+  else console.warn(`  (없음) ${name}`);
+}
+
+console.log(`빌드 완료 → ${out} (index.html + 자산 ${ASSETS.length}개)`);
