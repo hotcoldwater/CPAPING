@@ -10,6 +10,15 @@ export const SITE = "https://cpaping.com";
 
 /** Supabase REST 호출. env 는 Pages 의 환경변수. */
 export async function supabase(env, path, options = {}) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY) {
+    // 설정 누락을 네트워크 오류처럼 보이게 두면 원인을 찾기 어렵다
+    throw new Error(
+      "환경변수 누락: " +
+        [!env.SUPABASE_URL && "SUPABASE_URL", !env.SUPABASE_SECRET_KEY && "SUPABASE_SECRET_KEY"]
+          .filter(Boolean)
+          .join(", ")
+    );
+  }
   const url = `${env.SUPABASE_URL}/rest/v1/${path}`;
   const res = await fetch(url, {
     ...options,
