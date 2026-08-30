@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CPAPING — 회계법인 수습 공고 알림</title>
+<meta name="description" content="한국공인회계사회에 회계법인 수습·신입 공고가 올라오면 메일로 알려드립니다.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+/*
+  CPAPING 웹 (Phase 2 프로토타입)
+
+  라이트 온리다. 뷰어 테마를 따라가지 않고 항상 밝게 고정한다.
+  Stitch 초안에서 Material Design 토큰 덤프, 다크모드 클래스, 아이콘 폰트,
+  사이드바를 걷어내고 실제로 쓰는 값만 남겼다.
+*/
+:root {
+  --ink:        #101317;  /* 본문 */
+  --ink-2:      #5B6472;  /* 보조 */
+  --ink-3:      #868D99;  /* 흐린 */
+  --line:       #E4E6EA;  /* 구분선 */
+  --line-2:     #EDEFF2;  /* 행 구분선 */
+  --bg:         #FFFFFF;
+  --bg-subtle:  #FBFBFC;
+  --bg-hover:   #F7F9FC;
+  --accent:     #123A8A;  /* 버튼 */
+  --urgent:     #B4341F;  /* 마감 임박 */
+  --urgent-2:   #C4705F;
+  --live:       #17A05F;  /* 수집 중 표시 */
+  --chip-bg:    #EEF1F6;
+  --chip-fg:    #4A5462;
+  --chip-pt-bg: #FBF0E4;  /* 파트타임 */
+  --chip-pt-fg: #8A5A19;
+
+  --radius: 4px;
+  --pad-x: 18px;
+}
+
+* { box-sizing: border-box; }
+
+/* display 를 지정한 요소는 hidden 속성만으로 숨겨지지 않는다 */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--bg-subtle);
+  color: var(--ink);
+  font-family: 'IBM Plex Sans KR', -apple-system, BlinkMacSystemFont,
+               'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell {
+  max-width: 720px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--bg);
+  border-inline: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+}
+@media (max-width: 720px) { .shell { border-inline: 0; } }
+
+/* ── 상단 바 ─────────────────────────────────────────── */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 44px; padding: 0 var(--pad-x);
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 10;
+}
+.wordmark { font-size: 13.5px; font-weight: 600; letter-spacing: -.01em; }
+.status { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ink-2); }
+.dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--live); animation: breathe 2.4s ease-in-out infinite;
+}
+@keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .dot { animation: none; } }
+
+/* ── 히어로 ──────────────────────────────────────────── */
+.hero { padding: 26px var(--pad-x) 22px; border-bottom: 1px solid var(--line); }
+.hero h1 {
+  margin: 0 0 6px; font-size: 19px; font-weight: 600;
+  letter-spacing: -.02em; line-height: 1.45; text-wrap: balance;
+}
+.hero p.sub { margin: 0 0 16px; font-size: 13px; color: var(--ink-2); }
+
+.subscribe { display: flex; }
+.subscribe input {
+  flex: 1; min-width: 0; font: inherit; font-size: 13.5px;
+  padding: 10px 12px; color: var(--ink); background: var(--bg);
+  border: 1px solid #CFD3DA; border-right: 0;
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+.subscribe input::placeholder { color: #A2A6AD; }
+.subscribe input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.subscribe button {
+  font: inherit; font-size: 13.5px; font-weight: 500; cursor: pointer;
+  padding: 10px 18px; white-space: nowrap;
+  color: #fff; background: var(--accent); border: 1px solid var(--accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.subscribe button:hover { background: #0F3073; }
+.subscribe button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.hint { margin: 9px 0 0; font-size: 11.5px; color: var(--ink-3); }
+
+/* 구독 완료 상태 */
+.subscribed { display: flex; flex-direction: column; gap: 4px; }
+.subscribed .ok { font-size: 13px; display: flex; align-items: center; gap: 7px; }
+.check {
+  width: 15px; height: 15px; flex: none; border-radius: 50%;
+  background: var(--live); position: relative;
+}
+.check::after {
+  content: ""; position: absolute; inset: 0; margin: auto;
+  width: 4px; height: 7px; border: solid #fff;
+  border-width: 0 1.5px 1.5px 0; transform: translateY(-1px) rotate(45deg);
+}
+.subscribed .who { font-size: 11.5px; color: var(--ink-3); padding-left: 22px; }
+.subscribed .who button {
+  font: inherit; font-size: 11.5px; background: none; border: 0; padding: 0 0 0 6px;
+  color: var(--accent); text-decoration: underline; cursor: pointer;
+}
+
+/* ── 목록 ────────────────────────────────────────────── */
+.listhead {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 13px var(--pad-x) 10px; background: var(--bg-subtle);
+  border-bottom: 1px solid var(--line);
+}
+.listhead h2 { margin: 0; font-size: 13px; font-weight: 600; }
+.listhead .count { font-size: 12px; color: var(--ink-2); }
+
+.rows { display: flex; flex-direction: column; }
+
+.row {
+  display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: start;
+  padding: 13px var(--pad-x);
+  border-bottom: 1px solid var(--line-2);
+  color: inherit; text-decoration: none;
+}
+.row:hover { background: var(--bg-hover); }
+.row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.row .firm { font-size: 11.5px; color: var(--ink-2); }
+.row .title {
+  font-size: 13.5px; font-weight: 500; line-height: 1.45;
+  letter-spacing: -.01em; margin-top: 2px;
+}
+.row .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.chip {
+  font-size: 10.5px; line-height: 1.5; padding: 1.5px 7px; border-radius: 3px;
+  background: var(--chip-bg); color: var(--chip-fg);
+}
+.chip.pt { background: var(--chip-pt-bg); color: var(--chip-pt-fg); }
+
+.row .due {
+  text-align: right; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.row .dday { font-size: 12px; font-weight: 500; }
+.row .date { display: block; font-size: 10.5px; color: var(--ink-3); }
+.row.soon .dday { color: var(--urgent); }
+.row.soon .date { color: var(--urgent-2); }
+
+/* ── 더 보기 / 빈 상태 ───────────────────────────────── */
+.more { padding: 14px var(--pad-x); display: flex; justify-content: center; }
+.more button {
+  font: inherit; font-size: 12px; color: var(--ink-2); cursor: pointer;
+  padding: 7px 16px; background: var(--bg);
+  border: 1px solid var(--line); border-radius: var(--radius);
+}
+.more button:hover { background: var(--bg-subtle); color: var(--ink); }
+.more button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.empty {
+  min-height: 120px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 3px; text-align: center;
+  padding: 0 var(--pad-x);
+}
+.empty .lead { font-size: 13.5px; font-weight: 500; }
+.empty .sub { font-size: 12px; color: var(--ink-2); }
+
+/* ── 푸터 ────────────────────────────────────────────── */
+footer {
+  margin-top: auto; padding: 20px var(--pad-x);
+  background: var(--bg-subtle); border-top: 1px solid var(--line);
+  font-size: 11.5px; color: var(--ink-3); text-align: center;
+}
+footer a { color: var(--ink-2); }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <header class="topbar">
+    <div class="wordmark">CPAPING</div>
+    <div class="status"><span class="dot" aria-hidden="true"></span>10분마다 확인 중</div>
+  </header>
+
+  <section class="hero">
+    <h1>회계법인 수습 공고를 놓치지 마세요</h1>
+    <p class="sub">한국공인회계사회에 새 공고가 올라오면 메일로 알려드립니다.</p>
+
+    <form class="subscribe" id="subscribe-form">
+      <label class="visually-hidden" for="email" hidden>이메일 주소</label>
+      <input id="email" type="email" required placeholder="이메일 주소" autocomplete="email">
+      <button type="submit">구독</button>
+    </form>
+    <p class="hint" id="hint">언제든 한 번의 클릭으로 해지</p>
+
+    <div class="subscribed" id="subscribed" hidden>
+      <div class="ok"><span class="check" aria-hidden="true"></span>구독되었습니다. 새 공고가 올라오면 메일로 알려드립니다.</div>
+      <div class="who"><span id="subscribed-email"></span><button type="button" id="change">변경</button></div>
+    </div>
+  </section>
+
+  <section class="listhead">
+    <h2>지원 가능한 공고</h2>
+    <span class="count" id="count"></span>
+  </section>
+
+  <div class="rows" id="rows"></div>
+
+  <div class="more" id="more" hidden><button type="button"></button></div>
+
+  <div class="empty" id="empty" hidden>
+    <div class="lead">지금은 열린 공고가 없습니다</div>
+    <div class="sub">새 공고가 올라오면 바로 알려드릴게요</div>
+  </div>
+
+  <footer>CPAPING · 한국공인회계사회 공고를 수집합니다</footer>
+
+</div>
+
+<script>
+// ── Supabase (publishable key 는 공개용이며 RLS 로 읽기만 허용된다) ──
+const SUPABASE_URL = "__SUPABASE_URL__";
+const SUPABASE_KEY = "__SUPABASE_PUBLISHABLE_KEY__";
+
+// 네트워크를 못 쓰는 환경(미리보기 등)을 위한 대체 데이터.
+// 실제 배포에서는 아래 fetch 가 성공해 이 값이 덮어써진다.
+const FALLBACK = [
+  {company_name:"세영회계법인",title:"수습회계사 모집",region:"대구",deadline:"2026-08-31",employment_type:"Part Time"},
+  {company_name:"정일회계법인",title:"[정일회계법인] 수습 공인회계사 채용",region:"서울",deadline:"2026-08-31",employment_type:"Full Time"},
+  {company_name:"신화회계법인",title:"신화회계법인 수습회계사 모집",region:"서울",deadline:"2026-08-31",employment_type:"Full Time"},
+  {company_name:"대현회게법인",title:"(대현회계법인)--수습회계사파트타임 모집(계약직)",region:"서울",deadline:"2026-08-31",employment_type:"Part Time"},
+  {company_name:"광교회계법인",title:"[광교회계법인] 수습회계사 모십니다.",region:"서울 전체",deadline:"2026-09-04",employment_type:"Full Time"},
+  {company_name:"성현회계법인",title:"[BDO성현회계법인] 2026 신입 공인회계사 공채",region:"지역무관",deadline:"2026-09-04",employment_type:"Full Time"},
+  {company_name:"새빛회계법인",title:"[Forvis Mazars 새빛회계법인] 2026년 신입 공인회계사 모집",region:"서울 용산구",deadline:"2026-09-06",employment_type:"Full Time"},
+  {company_name:"동현회계법인",title:"수습회계사 채용 - 국제조세부문",region:"서울",deadline:"2026-09-07",employment_type:"Full Time"},
+  {company_name:"선일회계법인",title:"[선일회계법인 부산본점] 2026년 신입공인회계사 모집 일정 안내",region:"부산",deadline:"2026-09-08",employment_type:"Full Time"},
+  {company_name:"대주회계법인",title:"[대주회계법인 5사업부] 수습회계사 채용 공고",region:"서울",deadline:"2026-09-30",employment_type:"Full Time"},
+  {company_name:"삼원회계법인(성서지점)",title:"[삼원회계법인] 수습공인회계사 채용",region:"대구",deadline:"2026-09-30",employment_type:"Full Time"},
+  {company_name:"동성회계법인",title:"[동성회계법인] 수습 회계사 채용",region:"지역무관",deadline:"2026-09-30",employment_type:"Full Time"},
+  {company_name:"선진회계법인 대구지점",title:"[선진회계법인 대구지점] 수습 공인회계사 모집공고",region:"대구",deadline:"2026-12-31",employment_type:"Part Time"}
+];
+
+const VISIBLE_AT_FIRST = 5;
+const SOON_DAYS = 7;
+
+const $ = (id) => document.getElementById(id);
+
+/** 오늘 자정 기준 남은 일수. 시간대에 따라 하루가 어긋나는 것을 막는다. */
+function daysLeft(isoDate) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const [y, m, d] = isoDate.split("-").map(Number);
+  return Math.round((new Date(y, m - 1, d) - today) / 86400000);
+}
+
+/**
+ * 제목 앞머리의 법인명 반복을 지운다.
+ * "[광교회계법인] 수습회계사 모십니다." → "수습회계사 모십니다."
+ * 바로 위에 법인명이 이미 있어서 두 번 읽을 이유가 없다.
+ */
+function trimTitle(title, firm) {
+  let out = title.trim();
+  const head = out.match(/^[[(【]([^\])】]{1,30})[\])】]\s*/);
+  if (head) {
+    const inner = head[1].replace(/\s/g, "");
+    const bare = (firm || "").replace(/\s|\(.*\)/g, "");
+    // 괄호 안이 법인명을 담고 있을 때만 지운다 (부서명 등은 남긴다)
+    if (bare && (inner.includes(bare) || inner.includes(bare.slice(0, 3)))) {
+      out = out.slice(head[0].length);
+    }
+  }
+  return out.replace(/^[-—·\s]+/, "").replace(/-{2,}/g, " — ").trim() || title;
+}
+
+function chip(text, extraClass) {
+  const el = document.createElement("span");
+  el.className = "chip" + (extraClass ? " " + extraClass : "");
+  el.textContent = text;
+  return el;
+}
+
+function renderRow(p) {
+  const left = daysLeft(p.deadline);
+  const row = document.createElement(p.detail_url ? "a" : "div");
+  row.className = "row" + (left <= SOON_DAYS ? " soon" : "");
+  if (p.detail_url) {
+    row.href = p.detail_url;
+    row.target = "_blank";
+    row.rel = "noopener";
+  }
+
+  const main = document.createElement("div");
+
+  const firm = document.createElement("div");
+  firm.className = "firm";
+  firm.textContent = p.company_name || "";
+
+  const title = document.createElement("div");
+  title.className = "title";
+  title.textContent = trimTitle(p.title, p.company_name);
+
+  const chips = document.createElement("div");
+  chips.className = "chips";
+  if (p.region) chips.append(chip(p.region));
+  chips.append(p.employment_type === "Part Time" ? chip("파트타임", "pt") : chip("정규직"));
+
+  main.append(firm, title, chips);
+
+  const due = document.createElement("div");
+  due.className = "due";
+  const dday = document.createElement("span");
+  dday.className = "dday";
+  dday.textContent = left === 0 ? "오늘 마감" : "D-" + left;
+  const date = document.createElement("small");
+  date.className = "date";
+  date.textContent = p.deadline.slice(5).replace("-", ".");
+  due.append(dday, date);
+
+  row.append(main, due);
+  return row;
+}
+
+function render(postings) {
+  // 마감일이 지난 건은 크롤러가 걸러주지만, 화면에서도 한 번 더 막는다
+  const open = postings
+    .filter((p) => p.deadline && daysLeft(p.deadline) >= 0)
+    .sort((a, b) => a.deadline.localeCompare(b.deadline));
+
+  const rows = $("rows");
+  rows.replaceChildren();
+  $("count").textContent = open.length ? open.length + "건 · 마감 임박순" : "0건";
+  $("empty").hidden = open.length > 0;
+
+  open.forEach((p, i) => {
+    const row = renderRow(p);
+    if (i >= VISIBLE_AT_FIRST) row.hidden = true;
+    rows.append(row);
+  });
+
+  const hidden = Math.max(0, open.length - VISIBLE_AT_FIRST);
+  const more = $("more");
+  more.hidden = hidden === 0;
+  if (hidden) {
+    const btn = more.querySelector("button");
+    btn.textContent = "외 " + hidden + "건 더 보기";
+    btn.onclick = () => {
+      rows.querySelectorAll(".row[hidden]").forEach((r) => (r.hidden = false));
+      more.hidden = true;
+    };
+  }
+}
+
+async function load() {
+  render(FALLBACK);
+  if (SUPABASE_URL.startsWith("__")) return; // 키가 안 채워진 미리보기
+  try {
+    const url = SUPABASE_URL +
+      "/rest/v1/job_postings?select=company_name,title,region,deadline,employment_type,detail_url" +
+      "&is_target=is.true&is_expired=is.false&order=deadline.asc";
+    const res = await fetch(url, { headers: { apikey: SUPABASE_KEY } });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    if (Array.isArray(data)) render(data);
+  } catch (err) {
+    // 실시간 조회에 실패해도 화면은 그대로 둔다
+    console.warn("공고를 불러오지 못했습니다:", err.message);
+  }
+}
+
+// TODO(Phase 3): 실제 구독 저장. 지금은 화면 전환만 한다.
+$("subscribe-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  $("subscribed-email").textContent = $("email").value;
+  $("subscribe-form").hidden = true;
+  $("hint").hidden = true;
+  $("subscribed").hidden = false;
+});
+$("change").addEventListener("click", () => {
+  $("subscribed").hidden = true;
+  $("subscribe-form").hidden = false;
+  $("hint").hidden = false;
+  $("email").focus();
+});
+
+load();
+</script>
+
+</body>
+</html>

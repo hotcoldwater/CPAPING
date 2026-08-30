@@ -114,7 +114,7 @@ https://www.kicpa.or.kr/home/jobOffrSrchNewGnrl/detail.face?ijIdNum=<id>
 |---|---|---|
 | **0** | 리포 셋업 & README | ✅ 완료 |
 | **1** | 크롤러 + DB + 관리자 알림 (MVP 코어) | ✅ 완료 |
-| **2** | 공개 웹사이트 (공고 목록 + 이메일 구독) | |
+| **2** | 공개 웹사이트 (공고 목록 + 이메일 구독) | 진행 중 |
 | **3** | 로그인 & 개인화 구독 설정 | |
 | **4** | 회계법인 정보 DB | |
 | **5** | 법인 규모 분류 도입 | |
@@ -131,7 +131,15 @@ https://www.kicpa.or.kr/home/jobOffrSrchNewGnrl/detail.face?ijIdNum=<id>
 값(조회수·구직완료 구분)만 갱신해 상대 서버 부담을 줄인다.
 
 ### Phase 2 — 공개 웹사이트
-Next.js + Cloudflare Pages. 공고 목록, 직무·지역 필터, 로그인 없는 이메일 구독 폼.
+**정적 HTML + 클라이언트 조회**로 간다. 공고가 월 14~17건인 단일 페이지라
+Next.js 는 과하다고 보고, 로그인·마이페이지가 필요해지는 Phase 3 에서 옮긴다.
+
+- `web/index.html` — 단일 반응형 페이지. Supabase 를 publishable key 로 직접 조회
+- `web/build.py` — 플레이스홀더에 공개 키를 주입해 `web/dist/` 로 출력
+- 남은 일: 이메일 구독 저장(`subscribers` 테이블), Cloudflare Pages 연결
+
+디자인은 **툴형** 으로 확정했다. 산세리프(IBM Plex Sans KR), 촘촘한 밀도,
+마감 임박(D-7 이내) 빨강 강조, 라이트 온리. 근거는 `docs/stitch-prompt.md` 참고.
 
 ### Phase 3 — 로그인 & 개인화
 Supabase Auth(이메일/Google/Kakao), 온보딩, 구독 조건 설정, 원클릭 구독 해지, 개인정보처리방침.
@@ -162,8 +170,11 @@ CPAPING/
 │   └── main.py           #   엔트리포인트
 ├── db/
 │   └── schema.sql        # 테이블 + RLS
-├── web/                  # Next.js 앱 (Phase 2~)
-├── docs/                 # 조사 자료, 설계 메모
+├── web/
+│   ├── index.html        # 공개 페이지 (플레이스홀더 포함)
+│   └── build.py          #   공개 키 주입 → dist/
+├── docs/
+│   └── stitch-prompt.md  # 디자인 프롬프트와 톤 결정 근거
 ├── source/               # 자소서/면접 원자료 (PDF, git 제외)
 └── .github/workflows/
     └── crawl.yml         # cron 실행
@@ -194,6 +205,13 @@ python crawler/main.py
 
 # 테스트
 python crawler/test_classify.py
+```
+
+### 웹 페이지 미리보기
+
+```bash
+python web/build.py          # web/dist/index.html 생성
+python -m http.server 8899 --directory web/dist
 ```
 
 ### DB 준비
