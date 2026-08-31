@@ -41,6 +41,26 @@ function loadDotEnv() {
 const fromFile = loadDotEnv();
 const read = (name) => process.env[name] || fromFile[name] || "";
 
+/**
+ * Cloudflare Web Analytics.
+ *
+ * 대시보드의 '자동 설정'은 이 사이트에서 동작하지 않았다 — apex·www·
+ * pages.dev 어느 쪽 응답에도 beacon 이 주입되지 않았다. 그래서 토큰을
+ * 받아 직접 심는다. 도메인 설정과 무관하게 확실하다.
+ *
+ * 토큰은 클라이언트 HTML 에 그대로 노출되는 공개 값이라 숨길 것이 없다.
+ * 쿠키를 쓰지 않으므로 개인정보처리방침의 '쿠키 없음' 과도 어긋나지 않는다.
+ * 토큰이 없으면 아무것도 넣지 않는다 (로컬 빌드).
+ */
+function withAnalytics(page) {
+  const token = read("CF_ANALYTICS_TOKEN");
+  if (!token || !page.includes("</body>")) return page;
+  const tag =
+    `<script defer src="https://static.cloudflareinsights.com/beacon.min.js" ` +
+    `data-cf-beacon='{"token":"${token}"}'></script>`;
+  return page.replace("</body>", `${tag}\n</body>`);
+}
+
 let html = readFileSync(join(HERE, "index.html"), "utf8");
 
 /**
@@ -97,7 +117,7 @@ if (missing.length) {
 
 const out = join(HERE, "dist");
 mkdirSync(out, { recursive: true });
-writeFileSync(join(out, "index.html"), html, "utf8");
+writeFileSync(join(out, "index.html"), withAnalytics(html), "utf8");
 
 // 방침 페이지, 파비콘, OG 이미지 등 그대로 나가는 파일들
 const ASSETS = [
@@ -111,8 +131,14 @@ const ASSETS = [
 ];
 for (const name of ASSETS) {
   const from = join(HERE, name);
-  if (existsSync(from)) copyFileSync(from, join(out, name));
-  else console.warn(`  (없음) ${name}`);
+  if (!existsSync(from)) { console.warn(`  (없음) ${name}`); continue; }
+  // HTML 은 beacon 을 넣어야 하므로 그냥 복사하지 않는다
+  if (name.endsWith(".html")) {
+    writeFileSync(join(out, name),
+                  withAnalytics(readFileSync(from, "utf8")), "utf8");
+  } else {
+    copyFileSync(from, join(out, name));
+  }
 }
 
 // ── sitemap ──────────────────────────────────────────────
@@ -169,7 +195,8 @@ if (!missing.length) {
       const dir = join(out, "firm", firm.slug);
       mkdirSync(dir, { recursive: true });
       writeFileSync(join(dir, "index.html"),
-                    renderFirmPage({ firm, financials: fin, postings: mine }), "utf8");
+                    withAnalytics(renderFirmPage({ firm, financials: fin, postings: mine })),
+                    "utf8");
       pages.push({ loc: `/firm/${encodeURIComponent(firm.slug)}`, freq: "weekly" });
       built++;
     }
