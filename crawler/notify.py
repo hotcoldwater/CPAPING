@@ -15,6 +15,7 @@ import logging
 import os
 import smtplib
 import ssl
+import time
 
 import requests
 from email.message import EmailMessage
@@ -27,6 +28,9 @@ SMTP_PORT = 465
 SENDER_NAME = "CPAPING"
 
 RESEND_URL = "https://api.resend.com/emails"
+# Resend 는 초당 2건까지 받는다. 구독자가 늘면 연속 호출로 금방 429 가 난다.
+RESEND_MIN_INTERVAL = 0.6
+RESEND_MAX_RETRIES = 4
 DEFAULT_FROM = "CPAPING <noreply@cpaping.com>"
 # 답장이 곧 피드백이 되도록. 사이트로 돌아올 필요가 없다.
 REPLY_TO = "contact@cpaping.com"
@@ -48,9 +52,25 @@ def _ssl_context() -> ssl.SSLContext:
         return ssl.create_default_context()
 
 
+_last_sent_at = 0.0
+
+
+def _throttle() -> None:
+    """직전 발송과 최소 간격을 둔다. 호출 쪽에서 신경 쓰지 않아도 되게 한다."""
+    global _last_sent_at
+    gap = time.monotonic() - _last_sent_at
+    if gap < RESEND_MIN_INTERVAL:
+        time.sleep(RESEND_MIN_INTERVAL - gap)
+    _last_sent_at = time.monotonic()
+
+
 def send_mail(subject: str, text_body: str, html_body: str | None = None,
               to: str | None = None, extra_headers: dict | None = None) -> None:
-    """구독자에게 메일 1통 발송 (Resend). 실패하면 예외를 그대로 올린다."""
+    """구독자에게 메일 1통 발송 (Resend). 실패하면 예외를 그대로 올린다.
+
+    속도 제한은 이 안에서 처리한다. 429 가 오면 재시도하고, 연속 발송은
+    초당 2건 아래로 스스로 늦춘다.
+    """
     api_key = os.environ.get("RESEND_API_KEY", "")
     recipient = to or os.environ.get("CPAPING_MAIL_TO", "")
     if not api_key:
@@ -72,16 +92,25 @@ def send_mail(subject: str, text_body: str, html_body: str | None = None,
     if extra_headers:
         payload["headers"] = extra_headers
 
-    res = requests.post(
-        RESEND_URL,
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        json=payload,
-        timeout=30,
-    )
-    if not res.ok:
-        raise RuntimeError(f"Resend {res.status_code}: {res.text[:300]}")
+    _throttle()
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
-    log.info("메일 발송: %s → %s", subject, recipient)
+    for attempt in range(1, RESEND_MAX_RETRIES + 1):
+        res = requests.post(RESEND_URL, headers=headers, json=payload, timeout=30)
+        if res.ok:
+            log.info("메일 발송: %s → %s", subject, recipient)
+            return
+
+        # 429(속도 제한)와 5xx 는 잠시 뒤 다시 시도한다.
+        # 400 대는 우리 쪽 문제라 재시도해도 같은 결과다.
+        retryable = res.status_code == 429 or res.status_code >= 500
+        if not retryable or attempt == RESEND_MAX_RETRIES:
+            raise RuntimeError(f"Resend {res.status_code}: {res.text[:300]}")
+
+        wait = float(res.headers.get("retry-after") or 0) or (2 ** attempt) * 0.5
+        log.warning("Resend %d — %.1f초 뒤 재시도 (%d/%d)",
+                    res.status_code, wait, attempt, RESEND_MAX_RETRIES)
+        time.sleep(wait)
 
 
 def send_mail_smtp(subject: str, text_body: str, to: str | None = None) -> None:

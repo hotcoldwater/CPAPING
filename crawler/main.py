@@ -31,6 +31,11 @@ STALE_ALERT_HOURS = 72
 # 확인하지 않은 구독 신청의 보유기간. 개인정보처리방침 제3조와 같아야 한다.
 PENDING_RETENTION_DAYS = 7
 
+# Resend 무료 티어는 하루 100통이다. 공고 1건이 뜨면 구독자 수만큼 나가므로
+# 구독자가 이 수를 넘으면 하루에 공고가 두 번만 떠도 한도를 넘긴다.
+# 넘기 전에 알아야 유료 전환을 준비할 수 있다.
+SUBSCRIBER_WARN_THRESHOLD = 70
+
 
 def crawl(dry_run: bool = False, send_mail: bool = True,
           board: str = kicpa.BOARD_TRAINEE) -> int:
@@ -178,6 +183,12 @@ def _notify_subscribers(db, source: str, send_mail: bool) -> int:
     subscribers = db.active_subscribers()
     if not subscribers:
         return 0
+
+    if len(subscribers) >= SUBSCRIBER_WARN_THRESHOLD:
+        log.warning(
+            "구독자 %d명 — Resend 무료 티어(하루 100통)에 가까워졌습니다. "
+            "유료 전환을 검토하세요.", len(subscribers)
+        )
 
     total = 0
     for subscriber in subscribers:
