@@ -339,8 +339,20 @@ npx wrangler deploy
 
 ### GitHub Actions 시크릿
 
-`SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `CPAPING_SMTP_USER`,
-`CPAPING_SMTP_APP_PASSWORD`, `CPAPING_MAIL_TO`
+`SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `RESEND_API_KEY`, `CPAPING_MAIL_TO`,
+`CPAPING_SMTP_USER`, `CPAPING_SMTP_APP_PASSWORD`
+
+변수(Variables)로 `MAIL_FROM` 도 둔다. 없으면 `CPAPING <noreply@cpaping.com>` 을 쓴다.
+
+### 메일 발송 경로
+
+| 대상 | 경로 | 이유 |
+|---|---|---|
+| 구독자 (확인·알림) | **Resend** | Gmail SMTP 로 보내면 발신자에 운영자 개인 주소가 찍혀 모든 구독자에게 노출된다. 도메인 인증(SPF·DKIM)이 걸린 주소라야 스팸함에도 덜 들어간다 |
+| 관리자 장애 알림 | Resend → 실패 시 Gmail SMTP | Resend 가 죽으면 그 사실을 알릴 길이 없어진다. 이 경로에는 구독자 정보가 실리지 않으므로 방침의 수탁자와 무관하다 |
+
+모든 발신 메일에 `Reply-To: contact@cpaping.com` 을 넣는다. 답장이 곧 피드백이
+되게 하려는 것이다. 사이트로 돌아와 주소를 찾을 필요가 없다.
 
 ---
 

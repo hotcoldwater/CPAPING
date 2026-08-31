@@ -1,7 +1,12 @@
-"""이메일 알림 발송 (Gmail SMTP).
+"""이메일 발송.
 
-Phase 1 에서는 관리자(CPAPING_MAIL_TO) 한 명에게만 보낸다.
-구독자별 발송은 Phase 3 에서 이 모듈을 재사용한다.
+구독자에게 나가는 메일은 **Resend** 로 보낸다. Gmail SMTP 로 보내면
+발신자에 운영자 개인 주소가 그대로 찍혀 모든 구독자에게 노출된다.
+도메인 인증(SPF·DKIM)이 걸린 주소로 보내야 스팸함에도 덜 들어간다.
+
+관리자 장애 알림만 Gmail SMTP 를 예비로 남겨 둔다. Resend 자체가 죽으면
+그 사실을 알릴 길이 없어지기 때문이다. 이 경로에는 구독자 정보가 실리지
+않으므로 개인정보처리방침의 수탁자와는 무관하다.
 """
 
 from __future__ import annotations
@@ -10,6 +15,8 @@ import logging
 import os
 import smtplib
 import ssl
+
+import requests
 from email.message import EmailMessage
 from email.utils import formataddr
 
@@ -18,6 +25,11 @@ log = logging.getLogger(__name__)
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 465
 SENDER_NAME = "CPAPING"
+
+RESEND_URL = "https://api.resend.com/emails"
+DEFAULT_FROM = "CPAPING <noreply@cpaping.com>"
+# 답장이 곧 피드백이 되도록. 사이트로 돌아올 필요가 없다.
+REPLY_TO = "contact@cpaping.com"
 
 # 파이썬을 python.org 설치본으로 쓰면 CA 인증서가 없을 수 있다.
 # certifi 가 있으면 그것을 쓰고, 없으면 macOS 시스템 번들로 넘어간다.
@@ -38,7 +50,42 @@ def _ssl_context() -> ssl.SSLContext:
 
 def send_mail(subject: str, text_body: str, html_body: str | None = None,
               to: str | None = None, extra_headers: dict | None = None) -> None:
-    """메일 1통 발송. 실패하면 예외를 그대로 올린다."""
+    """구독자에게 메일 1통 발송 (Resend). 실패하면 예외를 그대로 올린다."""
+    api_key = os.environ.get("RESEND_API_KEY", "")
+    recipient = to or os.environ.get("CPAPING_MAIL_TO", "")
+    if not api_key:
+        raise RuntimeError(
+            "RESEND_API_KEY 가 없습니다. GitHub Secrets 와 .env 를 확인하세요."
+        )
+    if not recipient:
+        raise RuntimeError("받는 주소가 없습니다.")
+
+    payload = {
+        "from": os.environ.get("MAIL_FROM") or DEFAULT_FROM,
+        "to": [recipient],
+        "subject": subject,
+        "text": text_body,
+        "reply_to": REPLY_TO,
+    }
+    if html_body:
+        payload["html"] = html_body
+    if extra_headers:
+        payload["headers"] = extra_headers
+
+    res = requests.post(
+        RESEND_URL,
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json=payload,
+        timeout=30,
+    )
+    if not res.ok:
+        raise RuntimeError(f"Resend {res.status_code}: {res.text[:300]}")
+
+    log.info("메일 발송: %s → %s", subject, recipient)
+
+
+def send_mail_smtp(subject: str, text_body: str, to: str | None = None) -> None:
+    """Gmail SMTP 직접 발송. 관리자 장애 알림 예비 경로로만 쓴다."""
     user = os.environ.get("CPAPING_SMTP_USER", "")
     password = os.environ.get("CPAPING_SMTP_APP_PASSWORD", "").replace(" ", "")
     recipient = to or os.environ.get("CPAPING_MAIL_TO", "")
@@ -53,17 +100,13 @@ def send_mail(subject: str, text_body: str, html_body: str | None = None,
     msg["Subject"] = subject
     msg["From"] = formataddr((SENDER_NAME, user))
     msg["To"] = recipient
-    for key, value in (extra_headers or {}).items():
-        msg[key] = value
     msg.set_content(text_body)
-    if html_body:
-        msg.add_alternative(html_body, subtype="html")
 
     with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=_ssl_context(), timeout=30) as smtp:
         smtp.login(user, password)
         smtp.send_message(msg)
 
-    log.info("메일 발송: %s → %s", subject, recipient)
+    log.info("SMTP 예비 발송: %s → %s", subject, recipient)
 
 
 # ----------------------------------------------------------------------
@@ -153,8 +196,17 @@ def send_new_postings(rows: list[dict], to: str | None = None) -> None:
 
 
 def send_alert(subject: str, message: str, to: str | None = None) -> None:
-    """크롤러 장애 알림 (관리자용)."""
-    send_mail(f"[CPAPING 경고] {subject}", message, to=to)
+    """크롤러 장애 알림 (관리자용).
+
+    Resend 가 죽어서 실패했을 수도 있으므로 SMTP 로 한 번 더 시도한다.
+    장애를 알리는 경로가 장애와 함께 죽으면 안 된다.
+    """
+    title = f"[CPAPING 경고] {subject}"
+    try:
+        send_mail(title, message, to=to)
+    except Exception as exc:
+        log.warning("Resend 로 경고를 못 보냈습니다 (%s). SMTP 로 재시도합니다.", exc)
+        send_mail_smtp(title, message, to=to)
 
 
 # ----------------------------------------------------------------------
@@ -223,7 +275,9 @@ def send_to_subscriber(subscriber: dict, rows: list[dict]) -> None:
     text = "\n\n".join(_format_posting_text(r) for r in rows)
     text = (
         f"새로 올라온 공고 {count}건입니다.\n\n{text}\n\n"
-        f"— CPAPING\n수신 거부: {unsubscribe}"
+        f"— CPAPING\n"
+        f"의견이나 요청은 이 메일에 그대로 답장해 주세요.\n"
+        f"수신 거부: {unsubscribe}"
     )
 
     html = (
@@ -231,7 +285,9 @@ def send_to_subscriber(subscriber: dict, rows: list[dict]) -> None:
         "max-width:600px;margin:0 auto;padding:24px'>"
         f"<div style='font-size:13px;color:#666;margin-bottom:20px'>새로 올라온 공고 {count}건</div>"
         + "".join(_format_posting_html(r) for r in rows)
-        + "<div style='color:#aaa;font-size:12px;margin-top:8px'>CPAPING · "
+        + "<div style='color:#868D99;font-size:12px;margin-top:14px;line-height:1.7'>"
+        "의견이나 요청은 이 메일에 그대로 답장해 주세요.<br>"
+        "CPAPING · "
         f"<a href='{unsubscribe}' style='color:#868D99'>수신 거부</a> · "
         f"<a href='{SITE}/privacy' style='color:#868D99'>개인정보처리방침</a></div></div>"
     )

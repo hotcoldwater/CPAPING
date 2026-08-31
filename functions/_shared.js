@@ -76,6 +76,8 @@ export async function sendMail(env, { to, subject, html, text, headers }) {
     body: JSON.stringify({
       from: env.MAIL_FROM || "CPAPING <noreply@cpaping.com>",
       to: [to],
+      // 답장이 곧 피드백이 되도록. 사이트로 돌아올 필요가 없다.
+      reply_to: env.REPLY_TO || "contact@cpaping.com",
       subject,
       html,
       text,

@@ -40,8 +40,13 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          # 구독자에게 나가는 메일은 Resend 로 보낸다.
+          # Gmail SMTP 로 보내면 발신자에 운영자 개인 주소가 노출된다.
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          MAIL_FROM: ${{ vars.MAIL_FROM }}
+          CPAPING_MAIL_TO: ${{ secrets.CPAPING_MAIL_TO }}
+          # 관리자 장애 알림 예비 경로. 구독자 정보는 지나지 않는다.
           CPAPING_SMTP_USER: ${{ secrets.CPAPING_SMTP_USER }}
           CPAPING_SMTP_APP_PASSWORD: ${{ secrets.CPAPING_SMTP_APP_PASSWORD }}
-          CPAPING_MAIL_TO: ${{ secrets.CPAPING_MAIL_TO }}
         run: |
           python crawler/main.py ${{ inputs.dry_run && '--dry-run' || '' }}

@@ -274,6 +274,8 @@ footer {
 footer a { color: var(--ink-2); text-decoration: none; }
 footer a:hover { text-decoration: underline; }
 footer .sep { margin: 0 7px; opacity: .5; }
+footer .footer-links { margin-top: 6px; }
+footer .footer-mail { margin-top: 4px; font-size: 11px; opacity: .75; user-select: all; }
 </style>
 </head>
 <body>
@@ -330,7 +332,12 @@ footer .sep { margin: 0 7px; opacity: .5; }
 
   <footer>
     <span>CPAPING · 한국공인회계사회 공고를 수집합니다</span>
-    <span class="sep">·</span><a href="/privacy">개인정보처리방침</a>
+    <div class="footer-links">
+      <a href="mailto:contact@cpaping.com?subject=CPAPING%20의견">의견 보내기</a>
+      <span class="sep">·</span><a href="/privacy">개인정보처리방침</a>
+    </div>
+    <!-- 모바일에서 mailto 가 안 열리는 경우가 있어 주소도 함께 보여준다 -->
+    <div class="footer-mail">contact@cpaping.com</div>
   </footer>
 
 </div>
