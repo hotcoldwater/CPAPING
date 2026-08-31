@@ -11,6 +11,7 @@
  */
 
 import { mkdirSync, readFileSync, writeFileSync, existsSync, copyFileSync } from "node:fs";
+import { renderFirmPage } from "./firm-page.mjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -134,6 +135,50 @@ const pages = [
   { loc: "/", freq: "hourly" },
   { loc: "/privacy", freq: "yearly" },
 ];
+
+// ── 법인 페이지 ───────────────────────────────────────────
+// 클라이언트에서 그리면 검색엔진이 못 읽는다. "OO회계법인 규모" 같은
+// 검색으로 들어오게 하는 것이 목적이라 정적으로 찍어낸다.
+async function fetchAll(url, key, path) {
+  const res = await fetch(url.replace(/\/$/, "") + "/rest/v1/" + path,
+                          { headers: { apikey: key } });
+  if (!res.ok) throw new Error(`HTTP ${res.status} — ${path}`);
+  return res.json();
+}
+
+if (!missing.length) {
+  try {
+    const url = read("NEXT_PUBLIC_SUPABASE_URL");
+    const key = read("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
+
+    const [firms, financials, postings] = await Promise.all([
+      fetchAll(url, key, "firms?select=*&order=name.asc"),
+      fetchAll(url, key, "firm_financials?select=*"),
+      fetchAll(url, key,
+        "job_postings?select=company_name,title,region,deadline,posted_at," +
+        "employment_type,detail_url,removed_at,is_big4&order=posted_at.desc"),
+    ]);
+
+    let built = 0;
+    for (const firm of firms) {
+      // 별칭까지 훑어야 지점 표기('삼원회계법인(성서지점)')가 붙는다
+      const names = new Set([firm.name, ...(firm.aliases || [])]);
+      const mine = postings.filter((p) => names.has(p.company_name));
+      const fin = financials.filter((f) => f.firm_id === firm.id);
+
+      const dir = join(out, "firm", firm.slug);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, "index.html"),
+                    renderFirmPage({ firm, financials: fin, postings: mine }), "utf8");
+      pages.push({ loc: `/firm/${encodeURIComponent(firm.slug)}`, freq: "weekly" });
+      built++;
+    }
+    console.log(`  법인 페이지 ${built}개 생성`);
+  } catch (err) {
+    console.warn(`  법인 페이지를 만들지 못했습니다 (${err.message})`);
+  }
+}
+
 writeFileSync(join(out, "sitemap.xml"), sitemap(pages), "utf8");
 
 console.log(`빌드 완료 → ${out} (index.html + 자산 ${ASSETS.length}개 + sitemap ${pages.length}건)`);

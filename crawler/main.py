@@ -18,6 +18,7 @@ import traceback
 from dotenv import load_dotenv
 
 import classify
+import firms
 import kicpa
 import notify
 import repost
@@ -89,6 +90,10 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
         expired = db.expire_past_deadline(source)
         if expired:
             log.info("마감일이 지난 공고 %d건 만료 처리", expired)
+
+        # 4-1. 공고에서 법인을 추려 firms 를 갱신한다.
+        # 사람이 채운 재무 컬럼은 건드리지 않는다.
+        firms.sync(db, source)
 
         removed = db.mark_removed(source, [p.ij_id for p in postings])
         if removed:
