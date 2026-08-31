@@ -62,8 +62,9 @@ const out = join(HERE, "dist");
 mkdirSync(out, { recursive: true });
 writeFileSync(join(out, "index.html"), html, "utf8");
 
-// 파비콘·OG 이미지 등 그대로 나가는 파일들
+// 방침 페이지, 파비콘, OG 이미지 등 그대로 나가는 파일들
 const ASSETS = [
+  "privacy.html",
   "favicon.ico",
   "favicon.svg",
   "apple-touch-icon.png",

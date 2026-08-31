@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import requests
 
@@ -185,6 +185,33 @@ class Store:
             headers={"Prefer": "return=minimal"},
             json={"confirmation_sent_at": _now_iso()},
         )
+
+    def purge_stale_pending(self, days: int = 7) -> int:
+        """확인하지 않은 구독 신청을 지운다.
+
+        개인정보처리방침 제3조가 정한 보유기간이다. 링크를 누르지 않은
+        신청은 동의가 완성되지 않은 것이므로 오래 들고 있을 이유가 없다.
+        """
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        rows = self._request(
+            "DELETE", "subscribers",
+            params={"status": "eq.pending", "created_at": f"lt.{cutoff}"},
+            headers={"Prefer": "return=representation"},
+        )
+        return len(rows or [])
+
+    def purge_unsubscribed(self) -> int:
+        """해지 표시만 남은 행을 지운다.
+
+        해지는 Pages Function 이 행을 바로 지우므로 보통은 0건이다.
+        그 이전에 쌓였거나 발송이 중간에 끊긴 경우를 위한 보정이다.
+        """
+        rows = self._request(
+            "DELETE", "subscribers",
+            params={"status": "eq.unsubscribed"},
+            headers={"Prefer": "return=representation"},
+        )
+        return len(rows or [])
 
     def active_subscribers(self) -> list[dict]:
         return self._request(

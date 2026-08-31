@@ -28,6 +28,9 @@ log = logging.getLogger("cpaping")
 # 이 시간 넘게 신규 공고가 하나도 없으면 파서가 깨졌을 가능성을 의심한다.
 STALE_ALERT_HOURS = 72
 
+# 확인하지 않은 구독 신청의 보유기간. 개인정보처리방침 제3조와 같아야 한다.
+PENDING_RETENTION_DAYS = 7
+
 
 def crawl(dry_run: bool = False, send_mail: bool = True,
           board: str = kicpa.BOARD_TRAINEE) -> int:
@@ -86,11 +89,14 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
         if removed:
             log.info("게시판에서 사라진 공고 %d건에 removed_at 기록", removed)
 
-        # 5. 확인 메일 (Pages Function 이 못 보낸 건을 대신 보낸다)
+        # 5. 보유기간이 지난 개인정보 정리 (개인정보처리방침 제3조)
+        _purge_expired_personal_data(db)
+
+        # 6. 확인 메일 (Pages Function 이 못 보낸 건을 대신 보낸다)
         if send_mail:
             _send_pending_confirmations(db)
 
-        # 6. 알림 — 구독자별로 보낸다
+        # 7. 알림 — 구독자별로 보낸다
         notified = _notify_subscribers(db, source, send_mail)
 
         # 관리자에게도 계속 보낸다. 구독자가 없어도 서비스가 살아있는지 확인할 수 있다.
@@ -102,7 +108,7 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
         elif pending:
             log.info("관리자 알림 대상 %d건 (--no-mail 이라 발송 생략)", len(pending))
 
-        # 7. 정체 감지
+        # 8. 정체 감지
         stale = db.hours_since_last_new_posting(source)
         if stale is not None and stale > STALE_ALERT_HOURS:
             log.warning("%.0f시간째 신규 공고 없음", stale)
@@ -136,6 +142,21 @@ def _detect_reposts(db, source: str, postings: list) -> None:
                      p.repost["original_posted_at"], p.repost["repost_count"])
     if postings and not found:
         log.info("끌올 없음 (신규 %d건 모두 최초 공고)", len(postings))
+
+
+def _purge_expired_personal_data(db) -> None:
+    """개인정보처리방침이 정한 보유기간이 지난 정보를 지운다.
+
+    방침에 적어만 두고 지우지 않으면 지키지 않는 약속이 된다.
+    크롤이 10분마다 도니 사실상 상시 정리된다.
+    """
+    stale = db.purge_stale_pending(days=PENDING_RETENTION_DAYS)
+    if stale:
+        log.info("미확인 신청 %d건 삭제 (신청 후 %d일 경과)", stale, PENDING_RETENTION_DAYS)
+
+    leftover = db.purge_unsubscribed()
+    if leftover:
+        log.info("해지 후 남아 있던 %d건 삭제", leftover)
 
 
 def _send_pending_confirmations(db) -> None:

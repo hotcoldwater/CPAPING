@@ -54,6 +54,7 @@
   --chip-fg:    #4A5462;
   --chip-pt-bg: #FBF0E4;  /* 파트타임 */
   --chip-pt-fg: #8A5A19;
+  --link:       #123A8A;
 
   --radius: 4px;
   --pad-x: 18px;
@@ -129,6 +130,7 @@ body {
 .subscribe button:hover { background: #0F3073; }
 .subscribe button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .hint { margin: 9px 0 0; font-size: 11.5px; color: var(--ink-3); }
+.hint a { color: var(--link); }
 .hint.error { color: var(--urgent); }
 .subscribe button[disabled] { opacity: .6; cursor: default; }
 
@@ -269,7 +271,9 @@ footer {
   background: var(--bg-subtle); border-top: 1px solid var(--line);
   font-size: 11.5px; color: var(--ink-3); text-align: center;
 }
-footer a { color: var(--ink-2); }
+footer a { color: var(--ink-2); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+footer .sep { margin: 0 7px; opacity: .5; }
 </style>
 </head>
 <body>
@@ -290,7 +294,7 @@ footer a { color: var(--ink-2); }
       <input id="email" type="email" required placeholder="이메일 주소" autocomplete="email">
       <button type="submit">구독</button>
     </form>
-    <p class="hint" id="hint">언제든 한 번의 클릭으로 해지</p>
+    <p class="hint" id="hint">구독 시 <a href="/privacy">개인정보처리방침</a>에 따라 이메일 주소가 처리됩니다. 언제든 한 번의 클릭으로 해지할 수 있습니다.</p>
 
     <div class="subscribed" id="subscribed" hidden>
       <div class="ok"><span class="check" aria-hidden="true"></span><span id="subscribed-msg"></span></div>
@@ -324,7 +328,10 @@ footer a { color: var(--ink-2); }
     <div class="sub">새 공고가 올라오면 바로 알려드릴게요</div>
   </div>
 
-  <footer>CPAPING · 한국공인회계사회 공고를 수집합니다</footer>
+  <footer>
+    <span>CPAPING · 한국공인회계사회 공고를 수집합니다</span>
+    <span class="sep">·</span><a href="/privacy">개인정보처리방침</a>
+  </footer>
 
 </div>
 
@@ -633,6 +640,7 @@ const MESSAGES = {
 
 const form = $("subscribe-form");
 const button = form.querySelector("button");
+const HINT_DEFAULT = $("hint").innerHTML;
 
 function showSent(email, status) {
   $("subscribed-msg").textContent = MESSAGES[status] || MESSAGES.pending;
@@ -694,7 +702,7 @@ $("change").addEventListener("click", () => {
   const hint = $("hint");
   hint.hidden = false;
   hint.classList.remove("error");
-  hint.textContent = "언제든 한 번의 클릭으로 해지";
+  hint.innerHTML = HINT_DEFAULT;
   $("email").value = "";
   $("email").focus();
 });

@@ -42,8 +42,8 @@ export async function onRequestGet({ request, env }) {
       });
     }
 
-    // 해지한 사람이 예전 확인 메일을 다시 눌러 구독이 되살아나면 안 된다.
-    // 본인 의사로 끊은 것을 옛 링크가 뒤집는 셈이기 때문이다.
+    // 해지하면 행 자체를 지우므로 보통은 위에서 "만료된 링크" 로 끝난다.
+    // 그래도 남아 있는 경우에 대비해 되살아나지 않게 막아 둔다.
     if (row.status === "unsubscribed") {
       return page({
         title: "해지된 구독입니다",

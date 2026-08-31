@@ -175,7 +175,9 @@ def send_confirmation(email: str, confirm_token: str) -> None:
         "CPAPING 구독을 신청하셨습니다.\n\n"
         f"아래 링크를 눌러 구독을 확정해 주세요.\n{url}\n\n"
         "본인이 신청한 것이 아니라면 이 메일을 무시하세요. "
-        "링크를 누르지 않으면 아무 메일도 보내지 않습니다.\n\n— CPAPING"
+        "링크를 누르지 않으면 아무 메일도 보내지 않습니다.\n"
+        "신청 후 7일 안에 확인하지 않으면 입력하신 주소는 자동으로 삭제됩니다.\n\n"
+        f"개인정보처리방침: {SITE}/privacy\n\n— CPAPING"
     )
     html = (
         "<div style='font-family:-apple-system,BlinkMacSystemFont,\"Apple SD Gothic Neo\",sans-serif;"
@@ -188,8 +190,10 @@ def send_confirmation(email: str, confirm_token: str) -> None:
         "구독 확정하기</a>"
         "<p style='font-size:11.5px;color:#868D99;line-height:1.7;margin:26px 0 0'>"
         "본인이 신청한 것이 아니라면 이 메일을 무시하세요. "
-        "링크를 누르지 않으면 아무 메일도 보내지 않습니다.</p>"
-        "<p style='font-size:11.5px;color:#B0B5BD;margin:18px 0 0'>CPAPING</p></div>"
+        "링크를 누르지 않으면 아무 메일도 보내지 않습니다. "
+        "신청 후 7일 안에 확인하지 않으면 입력하신 주소는 자동으로 삭제됩니다.</p>"
+        f"<p style='font-size:11.5px;color:#B0B5BD;margin:18px 0 0'>CPAPING · "
+        f"<a href='{SITE}/privacy' style='color:#868D99'>개인정보처리방침</a></p></div>"
     )
     send_mail("[CPAPING] 구독 확정 메일입니다", text, html, to=email)
 
@@ -218,7 +222,8 @@ def send_to_subscriber(subscriber: dict, rows: list[dict]) -> None:
         f"<div style='font-size:13px;color:#666;margin-bottom:20px'>새로 올라온 공고 {count}건</div>"
         + "".join(_format_posting_html(r) for r in rows)
         + "<div style='color:#aaa;font-size:12px;margin-top:8px'>CPAPING · "
-        f"<a href='{unsubscribe}' style='color:#868D99'>수신 거부</a></div></div>"
+        f"<a href='{unsubscribe}' style='color:#868D99'>수신 거부</a> · "
+        f"<a href='{SITE}/privacy' style='color:#868D99'>개인정보처리방침</a></div></div>"
     )
 
     # List-Unsubscribe 헤더가 있으면 메일 클라이언트가 자체 해지 버튼을 띄운다.
