@@ -285,7 +285,7 @@ def send_confirmation(email: str, confirm_token: str, unsubscribe_token: str = "
         "List-Unsubscribe": f"<{unsubscribe}>",
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
     } if unsubscribe else None
-    send_mail("[CPAPING] 구독 확정 메일입니다", text, html, to=email,
+    send_mail("CPAPING 구독을 완료하려면 링크를 눌러주세요", text, html, to=email,
               extra_headers=headers)
 
 

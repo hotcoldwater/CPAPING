@@ -100,7 +100,9 @@ export async function onRequestPost({ request, env }) {
     const mail = confirmMail(url, unsubscribeUrl);
     const sent = await sendMail(env, {
       to: parsed.email,
-      subject: "[CPAPING] 구독 확정 메일입니다",
+      // 대괄호로 시작하는 제목은 스팸 필터가 광고로 보기 쉽다.
+      // 받는 사람이 무엇을 해야 하는지 제목에서 바로 알게 한다.
+      subject: "CPAPING 구독을 완료하려면 링크를 눌러주세요",
       ...mail,
       // 확인 메일에도 해지 수단을 둔다. 확정만 하고 알림을 아직 못 받은
       // 사람은 이 메일 말고는 해지할 방법이 없다.
