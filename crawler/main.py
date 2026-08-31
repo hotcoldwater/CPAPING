@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 import classify
 import kicpa
 import notify
+import repost
 import store
 
 log = logging.getLogger("cpaping")
@@ -60,6 +61,10 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
         # 3. 분류
         for p in postings:
             classify.classify(p)
+
+        # 3-1. 끌올 판정 — 신규 건만. 같은 법인의 과거 공고와 대조한다.
+        if not dry_run:
+            _detect_reposts(db, source, fresh)
 
         if dry_run:
             _print_dry_run(postings)
@@ -114,6 +119,23 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
         if db:
             db.finish_run(run_id, status="failed", error=f"{type(exc).__name__}: {exc}"[:2000])
         raise
+
+
+def _detect_reposts(db, source: str, postings: list) -> None:
+    """신규 공고가 같은 법인의 과거 공고를 다시 올린 것인지 판정한다."""
+    seen: dict[str, list] = {}
+    found = 0
+    for p in postings:
+        if p.company_name not in seen:
+            seen[p.company_name] = db.company_history(source, p.company_name)
+        p.repost = repost.repost_fields(p, seen[p.company_name])
+        if p.repost["original_id"]:
+            found += 1
+            log.info("끌올 감지: %s — %s (최초 %s, %d번째 재등록)",
+                     p.company_name, p.title[:30],
+                     p.repost["original_posted_at"], p.repost["repost_count"])
+    if postings and not found:
+        log.info("끌올 없음 (신규 %d건 모두 최초 공고)", len(postings))
 
 
 def _send_pending_confirmations(db) -> None:

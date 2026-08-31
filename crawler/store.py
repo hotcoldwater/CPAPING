@@ -64,6 +64,24 @@ class Store:
         )
         return {r["ij_id"] for r in rows}
 
+    def company_history(self, source: str, company_name: str) -> list[dict]:
+        """같은 법인의 과거 공고. 끌올 판정에 쓴다.
+
+        게시판에서 내려간 공고도 우리는 지우지 않고 보존하므로, 한공회가
+        1개월 뒤 지워버린 글도 여기서 찾을 수 있다.
+        """
+        if not company_name:
+            return []
+        return self._request(
+            "GET", "job_postings",
+            params={
+                "select": "id,ij_id,company_name,title,posted_at,original_id,original_posted_at,repost_count",
+                "source": f"eq.{source}",
+                "company_name": f"eq.{company_name}",
+                "order": "posted_at.asc",
+            },
+        )
+
     def upsert_postings(self, rows: list[dict]) -> list[dict]:
         """(source, ij_id) 기준으로 있으면 갱신, 없으면 삽입."""
         if not rows:
@@ -184,7 +202,7 @@ class Store:
         한꺼번에 보내면 스팸으로 보인다. 그건 사이트에서 보면 된다.
         """
         params = {
-            "select": "id,title,company_name,region,employment_type,deadline,detail_url",
+            "select": "id,title,company_name,region,employment_type,deadline,detail_url,original_posted_at",
             "source": f"eq.{source}",
             "is_target": "is.true",
             "is_expired": "is.false",
@@ -330,4 +348,7 @@ def to_row(posting) -> dict:
         "is_target": bool(labels.get("is_target")),
         "content_hash": content_hash(posting),
         "last_seen_at": _now_iso(),
+        # 끌올 판정 결과. main 에서 채워 넣는다.
+        **(getattr(posting, "repost", None) or
+           {"original_id": None, "original_posted_at": None, "repost_count": 0}),
     }

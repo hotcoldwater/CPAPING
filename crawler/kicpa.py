@@ -109,7 +109,14 @@ class Posting:
 
     @property
     def is_closed(self) -> bool:
-        return "마감" in self.hiring_status
+        """게시판이 스스로 끝났다고 표시한 공고.
+
+        '구직완료 구분' 컬럼 값이다. 지금까지 본 값은 '채용중' 뿐이지만,
+        법인이 '채용완료' 로 바꾸면 글이 내려가지 않고 상태만 바뀔 수 있다.
+        '마감' 만 보면 그걸 놓친다.
+        """
+        status = self.hiring_status or ""
+        return any(word in status for word in ("마감", "완료", "종료"))
 
 
 def _clean(text: str) -> str:

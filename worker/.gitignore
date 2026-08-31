@@ -1,0 +1,3 @@
+# wrangler 로컬 캐시 (계정 식별자 등이 담긴다)
+.wrangler/
+node_modules/

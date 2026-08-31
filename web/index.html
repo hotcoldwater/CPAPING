@@ -188,12 +188,30 @@ body {
 
 /* 등록일 · NEW */
 .row .posted { color: var(--ink-3); }
-.badge-new {
+.badge {
   display: inline-block; margin-left: 6px; padding: 0 5px;
   font-size: 9.5px; font-weight: 600; letter-spacing: .04em;
-  border-radius: 2px; background: #E7EDF9; color: var(--accent);
-  vertical-align: 1px;
+  border-radius: 2px; vertical-align: 1px; white-space: nowrap;
 }
+.badge.new  { background: #E7EDF9; color: var(--accent); }
+/* 끌올은 '새 소식' 이 아니라 '오래 안 채워진 자리' 라는 신호다.
+   NEW 와 색을 나눠 한눈에 구분되게 한다. */
+.badge.repost { background: var(--chip-pt-bg); color: var(--chip-pt-fg); }
+
+/* 게시판에서 내려간 공고 — 지원 흐름을 방해하지 않도록 하단에 접어 둔다 */
+.closed-section { border-top: 1px solid var(--line); }
+.closed-toggle {
+  width: 100%; font: inherit; font-size: 12px; text-align: left; cursor: pointer;
+  padding: 13px var(--pad-x); color: var(--ink-2);
+  background: var(--bg-subtle); border: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.closed-toggle:hover { color: var(--ink); }
+.closed-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.closed-toggle .caret { color: var(--ink-3); font-size: 10px; }
+.closed-list .row { opacity: .62; }
+.closed-list .row:hover { opacity: 1; }
+.closed-list .dday { color: var(--ink-3); font-weight: 400; }
 
 .rows { display: flex; flex-direction: column; }
 
@@ -294,6 +312,13 @@ footer a { color: var(--ink-2); }
 
   <div class="more" id="more" hidden><button type="button"></button></div>
 
+  <section class="closed-section" id="closed-section" hidden>
+    <button type="button" class="closed-toggle" id="closed-toggle" aria-expanded="false">
+      <span id="closed-label"></span><span class="caret" id="closed-caret">▾</span>
+    </button>
+    <div class="rows closed-list" id="closed-rows" hidden></div>
+  </section>
+
   <div class="empty" id="empty" hidden>
     <div class="lead">지금은 열린 공고가 없습니다</div>
     <div class="sub">새 공고가 올라오면 바로 알려드릴게요</div>
@@ -337,11 +362,14 @@ const FILTERS = [
 ];
 
 const SORTS = {
-  deadline: { label: "마감 임박순", compare: (a, b) => a.deadline.localeCompare(b.deadline) },
+  // 목록이 하는 일은 "지난번 이후 뭐가 바뀌었나" 를 보여주는 것이라
+  // 최신순을 기본으로 둔다. 마감 임박 건은 D-day 가 빨갛게 표시된다.
   posted:   { label: "최신순",      compare: (a, b) => (b.posted_at || "").localeCompare(a.posted_at || "") },
+  deadline: { label: "마감 임박순", compare: (a, b) => a.deadline.localeCompare(b.deadline) },
 };
+const DEFAULT_SORT = "posted";
 
-const state = { postings: [], filter: "all", sort: "deadline" };
+const state = { postings: [], filter: "all", sort: DEFAULT_SORT };
 
 const $ = (id) => document.getElementById(id);
 
@@ -400,10 +428,10 @@ function chip(text, extraClass) {
   return el;
 }
 
-function renderRow(p) {
+function renderRow(p, options = {}) {
   const left = daysLeft(p.deadline);
   const row = document.createElement(p.detail_url ? "a" : "div");
-  row.className = "row" + (left <= SOON_DAYS ? " soon" : "");
+  row.className = "row" + (!options.closed && left <= SOON_DAYS ? " soon" : "");
   if (p.detail_url) {
     row.href = p.detail_url;
     row.target = "_blank";
@@ -421,9 +449,16 @@ function renderRow(p) {
     posted.textContent = " · " + shortDate(p.posted_at) + " 등록";
     firm.append(posted);
   }
-  if (daysSincePosted(p.posted_at) <= NEW_DAYS) {
+  // 끌올은 "오래 안 채워진 자리" 라는 신호라 기간과 무관하게 계속 보여준다.
+  // NEW 는 최근에 처음 올라온 것에만 붙인다.
+  if (p.original_posted_at) {
     const badge = document.createElement("span");
-    badge.className = "badge-new";
+    badge.className = "badge repost";
+    badge.textContent = "끌올 · 최초 " + shortDate(p.original_posted_at);
+    firm.append(badge);
+  } else if (daysSincePosted(p.posted_at) <= NEW_DAYS) {
+    const badge = document.createElement("span");
+    badge.className = "badge new";
     badge.textContent = "NEW";
     firm.append(badge);
   }
@@ -443,19 +478,61 @@ function renderRow(p) {
   due.className = "due";
   const dday = document.createElement("span");
   dday.className = "dday";
-  dday.textContent = left === 0 ? "오늘 마감" : "D-" + left;
   const date = document.createElement("small");
   date.className = "date";
-  date.textContent = shortDate(p.deadline);
+  if (options.closed) {
+    dday.textContent = "공고 내림";
+    date.textContent = shortDate(p.removed_at.slice(0, 10));
+  } else {
+    dday.textContent = left === 0 ? "오늘 마감" : "D-" + left;
+    date.textContent = shortDate(p.deadline);
+  }
   due.append(dday, date);
 
   row.append(main, due);
   return row;
 }
 
-/** 마감된 건은 크롤러가 걸러주지만, 화면에서도 한 번 더 막는다 */
+const CLOSED_WINDOW_DAYS = 30;   // 내려간 지 이만큼 지나면 목록에서 뺀다
+
+/** 지금 지원할 수 있는 공고. 마감된 건은 크롤러가 걸러주지만 화면에서도 한 번 더 막는다 */
 function openPostings() {
-  return state.postings.filter((p) => p.deadline && daysLeft(p.deadline) >= 0);
+  return state.postings.filter(
+    (p) => !p.removed_at && p.deadline && daysLeft(p.deadline) >= 0
+  );
+}
+
+/**
+ * 한공회 게시판에서 내려간 공고.
+ *
+ * 내려간 이유는 세 가지인데 구분할 수 없다 — 채용이 됐거나, 마감일이
+ * 지났거나, 한공회가 등록 1개월 뒤 자동으로 지웠거나. 그래서 "채용 완료"
+ * 라고 단정하지 않고 "공고 내림" 이라고만 적는다.
+ */
+function closedPostings() {
+  return state.postings
+    .filter((p) => p.removed_at)
+    .filter((p) => {
+      const days = (Date.now() - new Date(p.removed_at)) / 86400000;
+      return days <= CLOSED_WINDOW_DAYS;
+    })
+    .sort((a, b) => b.removed_at.localeCompare(a.removed_at));
+}
+
+function renderClosed() {
+  const list = closedPostings();
+  const section = $("closed-section");
+  section.hidden = list.length === 0;
+  if (!list.length) return;
+
+  $("closed-label").textContent = `최근 내려간 공고 ${list.length}건`;
+
+  const rows = $("closed-rows");
+  rows.replaceChildren();
+  for (const p of list) {
+    const row = renderRow(p, { closed: true });
+    rows.append(row);
+  }
 }
 
 function renderFilters() {
@@ -512,6 +589,7 @@ function renderList() {
   }
 
   renderFilters();
+  renderClosed();
 }
 
 function render(postings) {
@@ -521,10 +599,11 @@ function render(postings) {
 
 async function load() {
   state.filter = remember.get("filter", "all");
-  state.sort = SORTS[remember.get("sort", "deadline")] ? remember.get("sort", "deadline") : "deadline";
+  const savedSort = remember.get("sort", DEFAULT_SORT);
+  state.sort = SORTS[savedSort] ? savedSort : DEFAULT_SORT;
 
   $("sort").onclick = () => {
-    state.sort = state.sort === "deadline" ? "posted" : "deadline";
+    state.sort = state.sort === "posted" ? "deadline" : "posted";
     remember.set("sort", state.sort);
     renderList();
   };
@@ -532,9 +611,11 @@ async function load() {
   render(FALLBACK);
   if (SUPABASE_URL.startsWith("__")) return; // 키가 안 채워진 미리보기
   try {
+    // 내려간 공고도 함께 받아 하단 구역에 보여준다
     const url = SUPABASE_URL +
-      "/rest/v1/job_postings?select=company_name,title,region,deadline,posted_at,employment_type,detail_url" +
-      "&is_target=is.true&is_expired=is.false&order=deadline.asc";
+      "/rest/v1/job_postings?select=company_name,title,region,deadline,posted_at," +
+      "employment_type,detail_url,removed_at,original_posted_at,repost_count" +
+      "&is_target=is.true&order=posted_at.desc";
     const res = await fetch(url, { headers: { apikey: SUPABASE_KEY } });
     if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
@@ -596,6 +677,15 @@ form.addEventListener("submit", async (e) => {
     button.disabled = false;
     button.textContent = "구독";
   }
+});
+
+// 내려간 공고 구역 접기/펼치기
+$("closed-toggle").addEventListener("click", () => {
+  const rows = $("closed-rows");
+  const open = rows.hidden;
+  rows.hidden = !open;
+  $("closed-toggle").setAttribute("aria-expanded", String(open));
+  $("closed-caret").textContent = open ? "▴" : "▾";
 });
 
 $("change").addEventListener("click", () => {

@@ -70,6 +70,15 @@ def send_mail(subject: str, text_body: str, html_body: str | None = None,
 # 공고 알림
 # ----------------------------------------------------------------------
 
+def _repost_note(row: dict) -> str:
+    """끌올이면 최초 등록일을 알려준다.
+
+    "두 달째 안 채워지는 자리" 라는 신호라 지원자에게 쓸모가 있다.
+    """
+    first = row.get("original_posted_at")
+    return f"끌올 · 최초 {first}" if first else ""
+
+
 def _format_posting_text(row: dict) -> str:
     bits = [f"■ {row['title']}"]
     meta = " / ".join(
@@ -83,6 +92,9 @@ def _format_posting_text(row: dict) -> str:
         bits.append(f"   {meta}")
     if row.get("deadline"):
         bits.append(f"   마감 {row['deadline']}")
+    note = _repost_note(row)
+    if note:
+        bits.append(f"   {note}")
     # 담당자 연락처는 싣지 않는다. 원문 링크에서 확인하면 된다.
     bits.append(f"   {row['detail_url']}")
     return "\n".join(bits)
@@ -99,13 +111,18 @@ def _format_posting_html(row: dict) -> str:
         ) if v
     )
     deadline = f"<div style='color:#888'>마감 {h.escape(str(row['deadline']))}</div>" if row.get("deadline") else ""
+    note = _repost_note(row)
+    repost = (
+        f"<div style='display:inline-block;margin-top:5px;padding:1px 6px;border-radius:2px;"
+        f"background:#FBF0E4;color:#8A5A19;font-size:11px'>{h.escape(note)}</div>"
+    ) if note else ""
     return (
         "<div style='margin:0 0 22px;padding:0 0 18px;border-bottom:1px solid #eee'>"
         f"<div style='font-size:15px;font-weight:600;margin-bottom:6px'>"
         f"<a href='{h.escape(row['detail_url'])}' style='color:#111;text-decoration:none'>"
         f"{h.escape(row['title'])}</a></div>"
         f"<div style='color:#666;font-size:13px'>{meta}</div>"
-        f"{deadline}"
+        f"{deadline}{repost}"
         f"<div style='margin-top:8px'><a href='{h.escape(row['detail_url'])}' "
         "style='color:#2563eb;font-size:13px;text-decoration:none'>공고 보기 →</a></div>"
         "</div>"
