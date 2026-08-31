@@ -19,10 +19,17 @@
 | §3 발송 이력은 함께 삭제 | `notification_logs` 의 외래키 cascade |
 | §9 메일의 해지 링크 | 원클릭. `List-Unsubscribe` 헤더의 POST 도 처리한다 |
 | §8 쿠키 없음, localStorage 2개 | `cpaping.filter`, `cpaping.sort` |
-| §12 privacy@cpaping.com | Cloudflare Email Routing 으로 수신 (설정 완료) |
+| §12 contact@cpaping.com | Cloudflare Email Routing 으로 수신 (설정 완료) |
 | §6·§7 수탁자 목록 | 코드가 실제로 쓰는 서비스와 같아야 한다 |
 
 ## 변경 이력
+
+**2026-08-31 제3판** — 제12조의 개인정보 문의처를 `privacy@cpaping.com` 에서
+`contact@cpaping.com` 으로 바꿨다. 서비스 문의 창구와 하나로 합쳤다. 창구가 둘이면
+이용자가 어디로 보낼지 망설이고, 운영자도 두 곳을 확인해야 한다.
+
+`privacy@` 라우팅은 지우지 않고 남겨 둔다. 짧게나마 공개됐던 주소라 그리로 오는
+메일이 반송되면 안 된다.
 
 **2026-08-31 제2판** — 알림 메일 발송을 Gmail(Google LLC) 에서 Resend 로 옮겼다.
 

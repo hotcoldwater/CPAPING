@@ -43,7 +43,9 @@ jobs:
           # 구독자에게 나가는 메일은 Resend 로 보낸다.
           # Gmail SMTP 로 보내면 발신자에 운영자 개인 주소가 노출된다.
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          MAIL_FROM: ${{ vars.MAIL_FROM }}
+          # Variables 든 Secrets 든 어느 쪽에 넣어도 잡히게 한다.
+          # 둘 다 없으면 코드의 기본값(CPAPING <noreply@cpaping.com>)을 쓴다.
+          MAIL_FROM: ${{ vars.MAIL_FROM || secrets.MAIL_FROM }}
           CPAPING_MAIL_TO: ${{ secrets.CPAPING_MAIL_TO }}
           # 관리자 장애 알림 예비 경로. 구독자 정보는 지나지 않는다.
           CPAPING_SMTP_USER: ${{ secrets.CPAPING_SMTP_USER }}

@@ -205,7 +205,7 @@ Next.js 는 과하다고 보고, 로그인·마이페이지가 필요해지는 P
 | §3 발송 이력은 함께 삭제 | `notification_logs` 의 외래키 cascade |
 | §9 원클릭 해지 | GET(사람) 과 POST(RFC 8058 메일 클라이언트) 를 모두 처리 |
 | §8 쿠키 없음, localStorage 2개 | `cpaping.filter`, `cpaping.sort` |
-| §12 privacy@cpaping.com | Cloudflare Email Routing 으로 수신 |
+| §12 contact@cpaping.com | Cloudflare Email Routing 으로 수신. 서비스 문의와 같은 주소를 쓴다 |
 
 **구독 (더블 옵트인)**
 
@@ -342,7 +342,19 @@ npx wrangler deploy
 `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `RESEND_API_KEY`, `CPAPING_MAIL_TO`,
 `CPAPING_SMTP_USER`, `CPAPING_SMTP_APP_PASSWORD`
 
-변수(Variables)로 `MAIL_FROM` 도 둔다. 없으면 `CPAPING <noreply@cpaping.com>` 을 쓴다.
+`MAIL_FROM` 은 Variables 든 Secrets 든 어느 쪽에 넣어도 된다. 둘 다 없으면
+코드의 기본값 `CPAPING <noreply@cpaping.com>` 을 쓴다.
+
+### 구독자 현황 보기
+
+```bash
+python crawler/subscribers.py          # 요약 (이메일 가림)
+python crawler/subscribers.py --full   # 이메일 전체
+```
+
+Supabase 대시보드의 Table Editor > subscribers 에서도 같은 것을 볼 수 있다.
+기본적으로 이메일을 가리는 이유는 대개 "몇 명인지" 만 알면 되기 때문이고,
+방침 제10조의 "개인정보에 접근할 수 있는 기능의 최소화" 와도 같은 방향이다.
 
 ### 메일 발송 경로
 
