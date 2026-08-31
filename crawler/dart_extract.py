@@ -84,10 +84,14 @@ def parse_revenue(text: str) -> dict:
 
     SECTIONS = {"회계감사": "audit", "세무자문": "tax",
                 "경영자문": "deal", "기타": "other"}
+    # 전기·전전기 칸은 '-' 일 수 있다. 신설·분할된 부문이 그렇다.
+    # 동현 2022.03 의 '기타' 소계가 '260,236,696 1.00 77,380,339 0.38 - -' 라
+    # 세 기간 모두 숫자를 요구하면 이 부문이 통째로 0 이 된다.
+    PAST = rf"(?:{NUM}|-)\s+(?:[\d.]+|-)"
     sub = re.compile(
-        rf"^\s*소계\s+({NUM})\s+([\d.]+)\s+{NUM}\s+[\d.]+\s+{NUM}\s+[\d.]+\s*$")
+        rf"^\s*소계\s+({NUM})\s+([\d.]+)\s+{PAST}\s+{PAST}\s*$")
     total = re.compile(
-        rf"^\s*합계\s+({NUM})\s+([\d.]+)\s+{NUM}\s+[\d.]+\s+{NUM}\s+[\d.]+\s*$")
+        rf"^\s*합계\s+({NUM})\s+([\d.]+)\s+{PAST}\s+{PAST}\s*$")
 
     # 부문명이 첫 행과 한 줄에 붙어 나오기도 한다
     # ('경영자문 감사대상회사 4,845,704,576 …').
@@ -295,6 +299,7 @@ def extract_one(path: Path, firm: str) -> dict:
         # 검증용 (CSV 에는 안 넣는다)
         "_member": member,
         "_foreign": foreign,
+        "_cpa_total": hc.get("cpa_total"),
         "_months": period[2] if period else None,
     }
 
@@ -339,6 +344,136 @@ def write_csv(firm: str, rows: list[dict]) -> Path:
 
 
 # ---------------------------------------------------------------------------
+# 검산 — 대조본 없이 스스로 걸러낸다
+#
+# 손으로 만든 CSV 가 있는 법인은 다섯 곳뿐이다. 나머지 300 곳은 대조할
+# 것이 없으므로 "추출이 성공한 척하고 틀린 값을 내놓는" 경우를 보고서
+# 안에서 잡아야 한다. 다행히 사업보고서에는 서로 맞아떨어져야 하는
+# 값이 여럿 있다.
+#
+#   부문 매출의 합 == 합계        (성현의 잘못된 수기 CSV 를 잡은 규칙)
+#   부문 비중의 합 == 100
+#   사원 + 등록 + 수습 == 소계     (71 개 보고서에서 예외 없이 성립)
+#
+# 어긋나면 그 행은 DB 에 넣지 않고 격리한다. 빈칸으로 통과시키면
+# 실명 법인 페이지에 틀린 매출액이 올라간다.
+# ---------------------------------------------------------------------------
+
+HARD, SOFT = "격리", "확인"
+
+# 반올림 때문에 정확히 0 이 되지는 않는다. 정상 71 행의 최대 오차가
+# 0.02% 였다. 0.5% 는 반올림은 통과시키고 부문 누락은 잡는 폭이다.
+TOL_SUM_PCT = 0.5      # 부문합 vs 합계 (%)
+TOL_PCT_POINT = 0.5    # 비중합 vs 100 (%p)
+SWING_PCT = 60.0       # 전년 대비 매출 급변 (합병·분할·결산기 변경 신호)
+
+PARTS = ["감사매출_억원", "세무매출_억원", "딜자문매출_억원", "기타매출_억원"]
+PART_PCTS = ["감사비중_pct", "세무비중_pct", "딜자문비중_pct", "기타비중_pct"]
+
+
+def check_row(r: dict) -> list[tuple[str, str]]:
+    """한 해치 값의 자체 모순을 찾는다. [(등급, 사유)] 를 돌려준다."""
+    out = []
+    year = r.get("기준연도") or "?"
+
+    if not re.fullmatch(r"\d{4}\.\d{2}", year):
+        out.append((HARD, f"기준연도를 못 읽음({year!r})"))
+
+    total = r.get("매출액_억원")
+    if total is None:
+        out.append((HARD, "매출액 없음"))
+    elif total <= 0:
+        out.append((HARD, f"매출액이 0 이하({total})"))
+    else:
+        parts = [r.get(k) for k in PARTS]
+        if any(v is None for v in parts):
+            out.append((HARD, "부문별 매출에 빈 값"))
+        else:
+            gap = abs(sum(parts) - total) / total * 100
+            if gap > TOL_SUM_PCT:
+                out.append((HARD, f"부문합 {sum(parts):.2f} ≠ 합계 {total:.2f} "
+                                  f"({gap:.2f}% 차이)"))
+        pcts = [r.get(k) for k in PART_PCTS]
+        if all(v is not None for v in pcts):
+            gap = abs(sum(pcts) - 100)
+            if gap > TOL_PCT_POINT:
+                out.append((HARD, f"비중합 {sum(pcts):.2f} ≠ 100 ({gap:.2f}%p 차이)"))
+
+    cpa, tr = r.get("회계사수"), r.get("수습CPA수")
+    member, subtotal = r.get("_member"), r.get("_cpa_total")
+    if cpa is None:
+        out.append((HARD, "회계사 수 없음"))
+    elif None not in (tr, member, subtotal):
+        # 사원 + 등록 + 수습 == 인력총괄표 소계
+        if (cpa + tr) != subtotal:
+            out.append((HARD, f"인력 소계 안 맞음: 회계사 {cpa} + 수습 {tr} "
+                              f"≠ 소계 {subtotal}"))
+
+    partners = r.get("파트너수")
+    if partners is not None and cpa is not None and partners > cpa:
+        out.append((SOFT, f"파트너 {partners} > 회계사 {cpa}"))
+
+    return out
+
+
+def check_series(rows: list[dict]) -> dict[str, list[tuple[str, str]]]:
+    """여러 해를 나란히 놓고 본다. 기준연도별 사유를 돌려준다."""
+    out: dict[str, list[tuple[str, str]]] = {}
+    seen: dict[str, int] = {}
+    prev = None
+    for r in sorted(rows, key=lambda x: x.get("기준연도") or ""):
+        year = r.get("기준연도") or "?"
+        seen[year] = seen.get(year, 0) + 1
+        if seen[year] > 1:
+            out.setdefault(year, []).append((HARD, f"기준연도 {year} 가 중복"))
+
+        cur = r.get("매출액_억원")
+        if prev and cur and prev[1]:
+            swing = (cur - prev[1]) / prev[1] * 100
+            if abs(swing) > SWING_PCT:
+                out.setdefault(year, []).append(
+                    (SOFT, f"{prev[0]} 대비 매출 {swing:+.0f}%"))
+        if cur:
+            prev = (year, cur)
+    return out
+
+
+def audit_rows(firm: str, rows: list[dict]) -> tuple[list[dict], list[dict]]:
+    """검산해서 (통과, 격리) 로 가른다. 격리 사유는 행에 붙여 둔다."""
+    series = check_series(rows)
+    clean, held = [], []
+    for r in rows:
+        issues = check_row(r) + series.get(r.get("기준연도") or "?", [])
+        hard = [m for lvl, m in issues if lvl == HARD]
+        soft = [m for lvl, m in issues if lvl == SOFT]
+        for m in soft:
+            print(f"   ⚠️  {r.get('기준연도')} {m}")
+        if hard:
+            r["_격리사유"] = " / ".join(hard)
+            for m in hard:
+                print(f"   ⛔ {r.get('기준연도')} {m}")
+            held.append(r)
+        else:
+            clean.append(r)
+    if len(rows) < 5:
+        print(f"   ⚠️  {len(rows)}개년뿐 (5개년 미만)")
+    return clean, held
+
+
+def write_quarantine(firm: str, held: list[dict]) -> Path:
+    """격리된 행은 따로 남긴다. 서식을 고칠 때 여기부터 본다."""
+    folder = DATA / "_격리"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{firm}.csv"
+    with path.open("w", newline="", encoding="utf-8-sig") as f:
+        w = csv.DictWriter(f, fieldnames=HEADERS + ["_격리사유"],
+                           extrasaction="ignore")
+        w.writeheader()
+        w.writerows(held)
+    return path
+
+
+# ---------------------------------------------------------------------------
 # 검증 — 손으로 만든 CSV 와 대조한다
 # ---------------------------------------------------------------------------
 
@@ -347,8 +482,13 @@ CHECK_FIELDS = ["매출액_억원", "감사매출_억원", "세무매출_억원"
 
 
 def load_manual(firm: str) -> dict[str, dict]:
-    """이미 손으로 만든 CSV. 기준연도별로 담는다."""
-    for folder in (DATA, SOURCE / firm):
+    """손으로 만든 CSV. 기준연도별로 담는다.
+
+    **source/<법인>/ 안만 본다.** data/ 는 이 도구가 CSV 를 내놓는 곳이라
+    거기까지 뒤지면 --write 를 한 번 돌린 뒤부터 자기 출력과 자기를
+    비교하게 된다. 그러면 무슨 값을 뽑든 항상 전부 일치로 나온다.
+    """
+    for folder in (SOURCE / firm,):
         for p in folder.glob(f"*{firm}*.csv") if folder.exists() else []:
             rows = list(csv.DictReader(p.open(encoding="utf-8-sig")))
             if rows and "기준연도" in rows[0]:
@@ -402,11 +542,15 @@ def main() -> int:
                     help="이미 CSV 가 있는 법인으로 추출 정확도를 확인한다")
     ap.add_argument("--all", action="store_true", help="CSV 없는 법인 전부")
     ap.add_argument("--write", action="store_true", help="CSV 파일로 저장")
+    ap.add_argument("--check", action="store_true",
+                    help="검산만 돌린다 (파일을 쓰지 않는다)")
     args = ap.parse_args()
 
     if args.verify:
         targets = [nfc(d.name) for d in sorted(SOURCE.iterdir())
                    if d.is_dir() and list(d.glob("*.csv"))]
+    elif args.check and not args.firms:
+        targets = firms_with_pdf(only_missing_csv=False)
     elif args.all:
         targets = firms_with_pdf()
     else:
@@ -416,6 +560,8 @@ def main() -> int:
         print("대상이 없습니다."); return 1
 
     total_ok = total_bad = 0
+    total_clean = total_held = 0
+    held_firms = []
     for firm in targets:
         print(f"── {firm}")
         rows = extract_firm(firm)
@@ -427,17 +573,32 @@ def main() -> int:
                   f"회계사 {str(r['회계사수']):>3}명  수습 {str(r['수습CPA수']):>2}명  "
                   f"파트너 {str(r['파트너수']):>3}명")
 
+        # 검산은 늘 돈다. 격리된 행은 CSV 로 내보내지 않는다.
+        clean, held = audit_rows(firm, rows)
+        total_clean += len(clean); total_held += len(held)
+        if held:
+            held_firms.append(firm)
+
         if args.verify:
             ok, bad = verify(firm, rows)
             total_ok += ok; total_bad += bad
             print(f"   → 일치 {ok} / 불일치 {bad}")
         elif args.write:
-            print(f"   → {write_csv(firm, rows)}")
+            if clean:
+                print(f"   → {write_csv(firm, clean)}")
+            if held:
+                print(f"   ⛔ 격리 {len(held)}행 → {write_quarantine(firm, held)}")
         print()
 
+    print(f"검산: 통과 {total_clean}행 / 격리 {total_held}행")
+    if held_firms:
+        print(f"   격리된 법인: {', '.join(held_firms)}")
+
     if args.verify:
-        print(f"전체: 일치 {total_ok} / 불일치 {total_bad}")
+        print(f"대조: 일치 {total_ok} / 불일치 {total_bad}")
         return 0 if total_bad == 0 else 1
+    if args.check:
+        return 0 if total_held == 0 else 1
     return 0
 
 
