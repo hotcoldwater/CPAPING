@@ -164,20 +164,22 @@ def send_alert(subject: str, message: str, to: str | None = None) -> None:
 SITE = "https://cpaping.com"
 
 
-def send_confirmation(email: str, confirm_token: str) -> None:
+def send_confirmation(email: str, confirm_token: str, unsubscribe_token: str = "") -> None:
     """더블 옵트인 확인 메일.
 
     보통은 Pages Function 이 신청 즉시 보낸다. 발송에 실패했거나 Resend 키가
     없을 때 크롤러가 대신 보낸다.
     """
     url = f"{SITE}/api/confirm?token={confirm_token}"
+    unsubscribe = f"{SITE}/api/unsubscribe?token={unsubscribe_token}" if unsubscribe_token else ""
     text = (
         "CPAPING 구독을 신청하셨습니다.\n\n"
         f"아래 링크를 눌러 구독을 확정해 주세요.\n{url}\n\n"
         "본인이 신청한 것이 아니라면 이 메일을 무시하세요. "
         "링크를 누르지 않으면 아무 메일도 보내지 않습니다.\n"
         "신청 후 7일 안에 확인하지 않으면 입력하신 주소는 자동으로 삭제됩니다.\n\n"
-        f"개인정보처리방침: {SITE}/privacy\n\n— CPAPING"
+        + (f"바로 구독을 취소하려면: {unsubscribe}\n" if unsubscribe else "")
+        + f"개인정보처리방침: {SITE}/privacy\n\n— CPAPING"
     )
     html = (
         "<div style='font-family:-apple-system,BlinkMacSystemFont,\"Apple SD Gothic Neo\",sans-serif;"
@@ -193,9 +195,17 @@ def send_confirmation(email: str, confirm_token: str) -> None:
         "링크를 누르지 않으면 아무 메일도 보내지 않습니다. "
         "신청 후 7일 안에 확인하지 않으면 입력하신 주소는 자동으로 삭제됩니다.</p>"
         f"<p style='font-size:11.5px;color:#B0B5BD;margin:18px 0 0'>CPAPING · "
-        f"<a href='{SITE}/privacy' style='color:#868D99'>개인정보처리방침</a></p></div>"
+        + (f"<a href='{unsubscribe}' style='color:#868D99'>구독 취소</a> · " if unsubscribe else "")
+        + f"<a href='{SITE}/privacy' style='color:#868D99'>개인정보처리방침</a></p></div>"
     )
-    send_mail("[CPAPING] 구독 확정 메일입니다", text, html, to=email)
+    # 확인 메일에도 해지 수단을 둔다. 확정만 하고 알림을 아직 못 받은 사람은
+    # 이 메일 말고는 해지할 방법이 없다.
+    headers = {
+        "List-Unsubscribe": f"<{unsubscribe}>",
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    } if unsubscribe else None
+    send_mail("[CPAPING] 구독 확정 메일입니다", text, html, to=email,
+              extra_headers=headers)
 
 
 def send_to_subscriber(subscriber: dict, rows: list[dict]) -> None:

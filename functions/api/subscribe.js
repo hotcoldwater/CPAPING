@@ -7,13 +7,14 @@
 
 import { supabase, json, token, normalizeEmail, sendMail, SITE } from "../_shared.js";
 
-function confirmMail(url) {
+function confirmMail(url, unsubscribeUrl) {
   const text =
     `CPAPING 구독을 신청하셨습니다.\n\n` +
     `아래 링크를 눌러 구독을 확정해 주세요.\n${url}\n\n` +
     `본인이 신청한 것이 아니라면 이 메일을 무시하세요. ` +
     `링크를 누르지 않으면 아무 메일도 보내지 않습니다.\n` +
     `신청 후 7일 안에 확인하지 않으면 입력하신 주소는 자동으로 삭제됩니다.\n\n` +
+    `바로 구독을 취소하려면: ${unsubscribeUrl}\n` +
     `개인정보처리방침: ${SITE}/privacy\n\n— CPAPING`;
 
   const html =
@@ -29,6 +30,7 @@ function confirmMail(url) {
     `본인이 신청한 것이 아니라면 이 메일을 무시하세요. 링크를 누르지 않으면 아무 메일도 보내지 않습니다. ` +
     `신청 후 7일 안에 확인하지 않으면 입력하신 주소는 자동으로 삭제됩니다.</p>` +
     `<p style="font-size:11.5px;color:#B0B5BD;margin:18px 0 0">CPAPING · ` +
+    `<a href="${unsubscribeUrl}" style="color:#868D99">구독 취소</a> · ` +
     `<a href="${SITE}/privacy" style="color:#868D99">개인정보처리방침</a></p></div>`;
 
   return { text, html };
@@ -52,7 +54,7 @@ export async function onRequestPost({ request, env }) {
   try {
     const existing = await supabase(
       env,
-      `subscribers?select=id,status,confirm_token&email_normalized=eq.${encodeURIComponent(parsed.normalized)}`
+      `subscribers?select=id,status,confirm_token,unsubscribe_token&email_normalized=eq.${encodeURIComponent(parsed.normalized)}`
     );
 
     let row = existing[0];
@@ -94,11 +96,18 @@ export async function onRequestPost({ request, env }) {
     }
 
     const url = `${SITE}/api/confirm?token=${row.confirm_token}`;
-    const mail = confirmMail(url);
+    const unsubscribeUrl = `${SITE}/api/unsubscribe?token=${row.unsubscribe_token}`;
+    const mail = confirmMail(url, unsubscribeUrl);
     const sent = await sendMail(env, {
       to: parsed.email,
       subject: "[CPAPING] 구독 확정 메일입니다",
       ...mail,
+      // 확인 메일에도 해지 수단을 둔다. 확정만 하고 알림을 아직 못 받은
+      // 사람은 이 메일 말고는 해지할 방법이 없다.
+      headers: {
+        "List-Unsubscribe": `<${unsubscribeUrl}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
     });
 
     if (sent) {

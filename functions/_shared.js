@@ -65,7 +65,7 @@ export function normalizeEmail(raw) {
  * Resend 로 메일을 보낸다. 키가 없으면 조용히 건너뛴다.
  * 그 경우 크롤러가 다음 실행 때 확인 메일을 대신 보낸다.
  */
-export async function sendMail(env, { to, subject, html, text }) {
+export async function sendMail(env, { to, subject, html, text, headers }) {
   if (!env.RESEND_API_KEY) return false;
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -79,6 +79,7 @@ export async function sendMail(env, { to, subject, html, text }) {
       subject,
       html,
       text,
+      ...(headers ? { headers } : {}),
     }),
   });
   if (!res.ok) {

@@ -170,7 +170,7 @@ class Store:
         return self._request(
             "GET", "subscribers",
             params={
-                "select": "id,email,confirm_token",
+                "select": "id,email,confirm_token,unsubscribe_token",
                 "status": "eq.pending",
                 "confirmation_sent_at": "is.null",
                 "order": "created_at.asc",

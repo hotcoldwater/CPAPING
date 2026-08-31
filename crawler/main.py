@@ -164,7 +164,8 @@ def _send_pending_confirmations(db) -> None:
     waiting = db.pending_confirmations()
     for row in waiting:
         try:
-            notify.send_confirmation(row["email"], row["confirm_token"])
+            notify.send_confirmation(row["email"], row["confirm_token"],
+                                     row.get("unsubscribe_token", ""))
             db.mark_confirmation_sent(row["id"])
         except Exception as exc:
             log.warning("확인 메일 발송 실패 (%s): %s", row["email"], exc)
