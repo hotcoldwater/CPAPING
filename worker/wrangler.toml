@@ -1,0 +1,29 @@
+# CPAPING 크롤 트리거
+#
+# GitHub Actions 의 schedule 은 실행을 보장하지 않는다. 실측 결과 하루 89회
+# 예약 중 12% 만 돌았고 간격도 2~3시간으로 벌어졌다. 공고를 빨리 확인하는 것이
+# 이 서비스의 핵심이라 스케줄러만 Cloudflare 로 옮긴다.
+#
+# 크롤러 자체(Python)는 그대로 GitHub Actions 에서 돈다. 이 Worker 는 정시에
+# workflow_dispatch 를 호출하는 일만 한다. dispatch 로 띄운 실행은 큐에 걸리지
+# 않고 즉시 시작한다(실측 20초 내 완료).
+
+name = "cpaping-cron"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+[triggers]
+# UTC 기준. KST = UTC + 9
+# 업무 시간(KST 08:00~20:59)에는 10분마다
+# 그 외에는 1시간마다
+crons = ["*/10 23,0-11 * * *", "0 12-22 * * *"]
+
+[vars]
+GITHUB_REPO = "hotcoldwater/CPAPING"
+GITHUB_WORKFLOW = "crawl.yml"
+GITHUB_REF = "main"
+
+# 시크릿은 파일에 두지 않는다. 배포 후 아래로 등록한다.
+#   npx wrangler secret put GITHUB_TOKEN
+#   npx wrangler secret put RESEND_API_KEY   (선택 - 트리거 실패 알림용)
+#   npx wrangler secret put ALERT_MAIL_TO    (선택)

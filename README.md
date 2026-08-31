@@ -71,8 +71,29 @@
 
 상대 서버 부하를 배려해 업무 시간에만 촘촘히 조회한다.
 
-- 평일 08~20시 — **10분** 간격
+- KST 08~21시 — **10분** 간격
 - 그 외 — **60분** 간격
+
+### 스케줄러를 Cloudflare 로 옮긴 이유
+
+GitHub Actions 의 `schedule` 은 실행을 보장하지 않는다. 실측한 결과가 이렇다.
+
+```
+설정: 하루 89회
+실제: 3회 (19:11 → 22:33 → 01:17 UTC)
+실행률 약 12%, 간격 2~3시간, 시각도 예약과 무관
+```
+
+공고를 빨리 확인하는 것이 이 서비스의 핵심이라 10분 간격은 타협할 수 없다.
+그래서 **시계 역할만 Cloudflare Worker 가 맡고, 크롤러(Python)는 그대로
+GitHub Actions 에서 돈다.** Worker 가 정시에 `workflow_dispatch` 를 호출하는데,
+dispatch 로 띄운 실행은 큐에 걸리지 않고 즉시 시작한다(실측 20초 내 완료).
+
+크롤러를 JS 로 다시 쓰지 않은 이유는, 검증된 파싱·분류 코드와 테스트를
+그대로 두는 편이 위험이 적기 때문이다.
+
+`crawl.yml` 의 `schedule` 은 예비로 남겨 둔다. 둘 다 떠도 워크플로의
+`concurrency` 와 `notification_logs` 의 유니크 제약이 중복 발송을 막는다.
 
 ---
 
@@ -209,6 +230,9 @@ CPAPING/
 ├── functions/            # Cloudflare Pages Functions (리포 루트여야 한다)
 │   ├── _shared.js
 │   └── api/              #   subscribe · confirm · unsubscribe
+├── worker/               # Cloudflare Worker — 크롤 트리거(시계 역할)
+│   ├── wrangler.toml
+│   └── src/index.js
 ├── web/
 │   ├── index.html        # 공개 페이지 (플레이스홀더 포함)
 │   ├── build.mjs         #   공개 키 주입 + 자산 복사 → dist/
@@ -258,6 +282,19 @@ python -m http.server 8899 --directory web/dist
 ### DB 준비
 
 Supabase SQL Editor 에서 `db/schema.sql` 을 한 번 실행한다.
+
+### 크롤 트리거 Worker 배포
+
+```bash
+cd worker
+npx wrangler login              # 브라우저에서 Cloudflare 로그인
+npx wrangler secret put GITHUB_TOKEN   # Fine-grained PAT (Actions: read+write)
+npx wrangler deploy
+```
+
+선택으로 트리거 실패 알림을 켜려면 `RESEND_API_KEY` 와 `ALERT_MAIL_TO` 도
+`wrangler secret put` 으로 넣는다. 트리거가 실패하면 크롤러가 아예 돌지 않아
+크롤러 쪽 장애 알림이 나갈 수 없기 때문에 따로 둔 것이다.
 
 ### GitHub Actions 시크릿
 
