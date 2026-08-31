@@ -48,17 +48,31 @@ def find_corp_codes(s: requests.Session, name: str) -> list[str]:
 
     같은 이름으로 코드가 여러 개인 경우가 있다(법인 전환·재등록 등).
     선일회계법인이 그렇다. 전부 돌려주고 공시가 있는 쪽을 고른다.
+
+    이름을 다는 방식이 두 가지다. '세일원회계법인' 이 아니라
+    **'회계법인세일원'** 으로 등록된 곳이 있어서 접미사형으로만 찾으면
+    "회사를 못 찾음" 이 된다. 둘 다 시도한다.
     """
-    # 요청이 몰리면 DART 가 잠시 빈 응답을 준다. 몇 초 쉬고 다시 묻는다.
-    for attempt in range(3):
-        res = s.get(f"{BASE}/dsae001/search.ax",
-                    params={"currentPage": 1, "maxResults": 15, "textCrpNm": name},
-                    timeout=TIMEOUT)
-        res.raise_for_status()
-        codes = re.findall(r"select\('(\d{8})'\)", res.text)
-        if codes:
-            return codes
-        time.sleep(2 + attempt * 2)
+    stem = re.sub(r"회계법인", "", name).strip()
+    variants = [name]
+    for v in (f"{stem}회계법인", f"회계법인{stem}", stem):
+        if v and v not in variants:
+            variants.append(v)
+
+    for variant in variants:
+        # 요청이 몰리면 DART 가 잠시 빈 응답을 준다. 몇 초 쉬고 다시 묻는다.
+        for attempt in range(3):
+            res = s.get(f"{BASE}/dsae001/search.ax",
+                        params={"currentPage": 1, "maxResults": 15,
+                                "textCrpNm": variant},
+                        timeout=TIMEOUT)
+            res.raise_for_status()
+            codes = re.findall(r"select\('(\d{8})'\)", res.text)
+            if codes:
+                if variant != name:
+                    print(f"   (DART 등록명 '{variant}')")
+                return codes
+            time.sleep(2 + attempt * 2)
     return []
 
 

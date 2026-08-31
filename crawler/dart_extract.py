@@ -75,9 +75,13 @@ def parse_revenue(text: str) -> dict:
     #   '2025(당기)'  '27기(당기)'  '2025.06.30(당기)'  '제32(당)기'
     #   '당기 전기 전전기'  '제18기 제17기 제16기'
     # 변하지 않는 것은 그 다음 줄이 '금액 비중' 세 쌍이라는 점뿐이다.
+    # 기간 표기가 한 줄이 아닐 수 있다. 신한은 여섯 줄에 걸쳐 적는다.
+    #   구분 / 제57기(당기) / 2025.04.01~2026.03.31 / 제56기(전기) / ...
+    # '금액 비중' 세 쌍이 나오기 전까지 여러 줄을 허용한다.
     head = None
     for m in re.finditer(
-            r"구\s*분\s*\n[^\n]+\n\s*금액\s+비중\s+금액\s+비중\s+금액\s+비중", text):
+            r"구\s*분\s*\n(?:(?!구\s*분)[^\n]*\n){1,8}?"
+            r"\s*금액\s+비중\s+금액\s+비중\s+금액\s+비중", text):
         head = m.start()
     if head is None:
         return {}
@@ -87,11 +91,14 @@ def parse_revenue(text: str) -> dict:
     # 전기·전전기 칸은 '-' 일 수 있다. 신설·분할된 부문이 그렇다.
     # 동현 2022.03 의 '기타' 소계가 '260,236,696 1.00 77,380,339 0.38 - -' 라
     # 세 기간 모두 숫자를 요구하면 이 부문이 통째로 0 이 된다.
+    # 비중을 아예 안 적고 '-' 로 두는 법인이 있다(다산). 금액만 있으면
+    # 비중은 합계로 나눠 채운다 — 보고서에 없는 값을 지어내는 게 아니라
+    # 있는 값에서 계산하는 것이다.
     PAST = rf"(?:{NUM}|-)\s+(?:[\d.]+|-)"
     sub = re.compile(
-        rf"^\s*소계\s+({NUM})\s+([\d.]+)\s+{PAST}\s+{PAST}\s*$")
+        rf"^\s*소계\s+({NUM})\s+([\d.]+|-)\s+{PAST}\s+{PAST}\s*$")
     total = re.compile(
-        rf"^\s*합계\s+({NUM})\s+([\d.]+)\s+{PAST}\s+{PAST}\s*$")
+        rf"^\s*합계\s+({NUM})\s+([\d.]+|-)\s+{PAST}\s+{PAST}\s*$")
 
     # 부문명이 첫 행과 한 줄에 붙어 나오기도 한다
     # ('경영자문 감사대상회사 4,845,704,576 …').
@@ -109,7 +116,7 @@ def parse_revenue(text: str) -> dict:
         m = sub.match(line)
         if m and current:
             out[current] = won_to_eok(m.group(1))
-            out[current + "_pct"] = float(m.group(2))
+            out[current + "_pct"] = None if m.group(2) == "-" else float(m.group(2))
             current = None
             continue
         m = total.match(line)
@@ -118,10 +125,15 @@ def parse_revenue(text: str) -> dict:
             break
 
     # 표에 없는 부문은 0 이다. 자료가 없는 것과 구분해야 한다.
-    if out.get("total") is not None:
+    total_v = out.get("total")
+    if total_v is not None:
         for key in SECTIONS.values():
             out.setdefault(key, 0.0)
             out.setdefault(key + "_pct", 0.0)
+            # 보고서가 비중을 '-' 로 비워 둔 자리는 금액에서 계산한다
+            if out[key + "_pct"] is None:
+                out[key + "_pct"] = (round(out[key] / total_v * 100, 2)
+                                     if total_v else 0.0)
     return out
 
 
@@ -205,6 +217,33 @@ def parse_ceo(text: str) -> str | None:
         return None
     m = re.search(r"^\s*1\s+(\S+(?:\s\S+)?)\s+대표이사", text[idx[-1]:], re.M)
     return m.group(1).strip() if m else None
+
+
+def canonical_firm_name(raw: str) -> str:
+    """보고서 표지의 법인명을 하나의 표기로 맞춘다.
+
+    '(유)정일회계법인' '회계법인 세일원' '회계법인리안' 이 전부 나온다.
+    법적 형태 표기를 떼고 접두사형을 접미사형으로 돌려놓는다.
+    """
+    name = nfc(raw).strip()
+    name = re.sub(r"^\((?:유|주|합|유한)\)\s*", "", name)
+    name = re.sub(r"\s+", "", name)
+    m = re.match(r"^회계법인(.+)$", name)
+    if m:
+        name = f"{m.group(1)}회계법인"
+    return name
+
+
+def parse_firm_name(text: str) -> str | None:
+    """표지의 '회계법인명 : XXX'.
+
+    폴더 이름은 우리가 찾을 때 쓴 검색어라 실제 법인명과 다를 수 있다.
+    DART 는 **옛 이름으로 검색해도 지금 법인을 돌려준다.** 그래서
+    '영앤진회계법인' 을 찾으면 동현회계법인의 보고서가 온다. 폴더 이름을
+    믿으면 같은 법인이 두 이름으로 중복 등록된다.
+    """
+    m = re.search(r"회계법인명\s*:\s*([^\n]+)", text)
+    return canonical_firm_name(m.group(1)) if m else None
 
 
 def parse_listed_auditor(text: str) -> str:
@@ -300,6 +339,7 @@ def extract_one(path: Path, firm: str) -> dict:
         "_member": member,
         "_foreign": foreign,
         "_cpa_total": hc.get("cpa_total"),
+        "_보고서법인명": parse_firm_name(text),
         "_months": period[2] if period else None,
     }
 
@@ -330,7 +370,18 @@ def extract_firm(firm: str) -> list[dict]:
         if r not in full:
             print(f"   ⏭️  {r['기준연도']} 는 {r['_months']}개월 결산(결산기 변경)이라 뺍니다"
                   f" — 매출 {r['매출액_억원']}억")
-    return sorted(full, key=lambda r: r["기준연도"])
+    full.sort(key=lambda r: r["기준연도"])
+
+    # 법인 이름은 **가장 최근 보고서**의 것을 쓴다. 개명한 곳이 있다.
+    # 대성삼경 → 대성(2025), 진일 → 태일(2025). 폴더 이름은 우리가 찾을 때
+    # 쓴 검색어일 뿐이라 지금 이름이 아닐 수 있다.
+    identity = next((r["_보고서법인명"] for r in reversed(full)
+                     if r.get("_보고서법인명")), None)
+    if identity and identity != nfc(firm):
+        print(f"   ℹ️  보고서상 법인명은 '{identity}' (폴더는 '{nfc(firm)}')")
+    for r in full:
+        r["법인명"] = identity or nfc(firm)
+    return full
 
 
 def write_csv(firm: str, rows: list[dict]) -> Path:
@@ -562,11 +613,24 @@ def main() -> int:
     total_ok = total_bad = 0
     total_clean = total_held = 0
     held_firms = []
+    # 같은 법인이 두 폴더로 들어오는 일이 잦다. DART 가 옛 이름 검색에도
+    # 지금 법인을 돌려주기 때문이다(영앤진→동현, 성도이현→성현,
+    # 동아송강→동성, 예교지성→예지). 보고서상 법인명으로 걸러낸다.
+    seen: dict[str, str] = {}
+    dupes: list[tuple[str, str]] = []
     for firm in targets:
         print(f"── {firm}")
         rows = extract_firm(firm)
         if not rows:
             print(); continue
+
+        identity = rows[0]["법인명"]
+        if identity in seen and seen[identity] != firm:
+            print(f"   ⛔ '{seen[identity]}' 와 같은 법인({identity}) — 건너뜁니다")
+            dupes.append((firm, seen[identity]))
+            total_held += len(rows); held_firms.append(firm)
+            print(); continue
+        seen[identity] = firm
 
         for r in rows:
             print(f"   {r['기준연도']}  매출 {str(r['매출액_억원']):>7}억  "
@@ -593,6 +657,9 @@ def main() -> int:
     print(f"검산: 통과 {total_clean}행 / 격리 {total_held}행")
     if held_firms:
         print(f"   격리된 법인: {', '.join(held_firms)}")
+    if dupes:
+        print(f"   중복 {len(dupes)}곳: "
+              + ", ".join(f"{a}={b}" for a, b in dupes))
 
     if args.verify:
         print(f"대조: 일치 {total_ok} / 불일치 {total_bad}")
