@@ -72,6 +72,11 @@ def build(postings: list[dict]) -> list[dict]:
 
     grouped: dict[str, list[dict]] = defaultdict(list)
     for p in postings:
+        # 빅4 는 알림에서 빼기로 했으므로 법인 페이지도 만들지 않는다.
+        # 이 걸러내기가 없으면 알림에는 안 나오는 EY한영·PwC 의
+        # 빈 소개 페이지가 sitemap 에까지 올라간다.
+        if p.get("is_big4"):
+            continue
         name = canonical_name(p.get("company_name", ""))
         if name:
             grouped[name].append(p)
@@ -104,7 +109,7 @@ def sync(db, source: str) -> int:
     postings = db._request(
         "GET", "job_postings",
         params={
-            "select": "company_name,region,work_region,homepage,posted_at,original_id",
+            "select": "company_name,region,work_region,homepage,posted_at,original_id,is_big4",
             "source": f"eq.{source}",
         },
     )
