@@ -57,7 +57,7 @@ function daysLeft(iso) {
 // 조각들
 // ---------------------------------------------------------------------------
 
-function statTiles(firm, latest, first) {
+function statTiles(firm, latest, first, prev) {
   const tiles = [];
 
   if (latest?.revenue != null) {
@@ -66,9 +66,12 @@ function statTiles(firm, latest, first) {
   }
   if (latest?.revenue != null && first?.revenue != null && first !== latest) {
     const growth = (latest.revenue / first.revenue - 1) * 100;
+    // 첫 해 대비 늘었어도 최근에 꺾였으면 초록으로 칠하지 않는다.
+    // 정점을 찍고 3년째 줄어드는 법인을 "성장" 으로 보이게 하면 안 된다.
+    const rising = latest.revenue >= (prev?.revenue ?? 0);
     tiles.push({ label: `${yearOf(first.fiscal_year)}년 대비`,
                  value: `${growth >= 0 ? "+" : ""}${Math.round(growth)}%`, unit: "",
-                 note: "매출 성장", positive: growth >= 0 });
+                 note: "매출 변화", positive: growth >= 0 && rising });
   }
   if (latest?.cpa_count != null) {
     tiles.push({ label: "회계사 수", value: fmt(latest.cpa_count, 0), unit: "명",
@@ -118,8 +121,34 @@ function revenueSection(fin) {
     ${legend(keys, SERIES)}
     <div class="chart">${stackedBars({ rows, series: SERIES, unit: "억",
                                        totalLabel: (t) => fmt(t, 1) })}</div>
+    ${revenueCaption(withRevenue)}
     <details class="table-toggle"><summary>표로 보기</summary>${table}</details>
   </section>`;
+}
+
+/**
+ * 매출 흐름을 한 줄로 요약한다.
+ *
+ * 막대만 보고 흐름을 읽지 못하는 사람도 있고, 정점을 찍고 줄어드는 경우가
+ * 특히 눈에 잘 안 띈다. 숫자로 못 박아 둔다.
+ */
+function revenueCaption(rows) {
+  if (rows.length < 3) return "";
+  const peak = rows.reduce((a, b) => (Number(b.revenue) > Number(a.revenue) ? b : a));
+  const last = rows[rows.length - 1];
+  const first = rows[0];
+
+  let text;
+  if (peak !== last && Number(last.revenue) < Number(peak.revenue) * 0.97) {
+    const drop = (1 - Number(last.revenue) / Number(peak.revenue)) * 100;
+    text = `${yearOf(peak.fiscal_year)}년 ${fmt(peak.revenue, 1)}억으로 가장 높았고, ` +
+           `이후 ${Math.round(drop)}% 줄었습니다.`;
+  } else if (Number(last.revenue) > Number(first.revenue)) {
+    text = `${yearOf(first.fiscal_year)}년 이후 꾸준히 늘었습니다.`;
+  } else {
+    return "";
+  }
+  return `<p class="caption">${esc(text)}</p>`;
 }
 
 function shareSection(latest) {
@@ -180,16 +209,30 @@ function traineeSection(fin) {
   const hired = data.filter((d) => d.value > 0);
   const zeros = data.filter((d) => d.value === 0).map((d) => d.label);
 
-  let caption = "";
-  if (hired.length && zeros.length) {
-    const last = hired[hired.length - 1];
-    caption = `${zeros.join("·")}년에는 수습회계사를 뽑지 않았고, ` +
-              `${last.label}년에 ${last.value}명을 채용했습니다.`;
-  } else if (hired.length) {
-    const total = hired.reduce((s, d) => s + d.value, 0);
-    caption = `최근 ${data.length}년간 수습회계사 ${total}명을 채용했습니다.`;
+  // 최근 흐름을 정확히 말한다. 마지막 해만 보고 쓰면 중간에 많이 뽑은
+  // 해를 건너뛰어 사실과 다른 인상을 준다.
+  const total = hired.reduce((s, d) => s + d.value, 0);
+  const last = data[data.length - 1];
+  let caption;
+
+  if (!hired.length) {
+    caption = `최근 ${data.length}년간 수습회계사 채용 기록이 없습니다.`;
+  } else if (last.value > 0) {
+    let run = 0;
+    for (let i = data.length - 1; i >= 0 && data[i].value > 0; i--) run++;
+    caption = run >= 2
+      ? `최근 ${run}년 연속 채용했습니다. ` +
+        `${data.slice(-run).map((d) => `${d.label}년 ${d.value}명`).join(", ")}.`
+      : `${last.label}년에 ${last.value}명을 채용했습니다.` +
+        (zeros.length ? ` 그 전 ${zeros.length}년간은 채용이 없었습니다.` : "");
   } else {
-    caption = "최근 자료에서는 수습회계사 채용 기록이 없습니다.";
+    const recent = [...data].reverse().find((d) => d.value > 0);
+    const since = data.length - 1 - data.findIndex((d) => d === recent);
+    caption = `가장 최근 채용은 ${recent.label}년 ${recent.value}명이며, ` +
+              `이후 ${since}년간 채용이 없었습니다.`;
+  }
+  if (hired.length > 1) {
+    caption += ` ${data.length}년간 모두 ${total}명입니다.`;
   }
 
   return `
@@ -422,7 +465,7 @@ ${CHART_CSS}
     ${firm.address ? `<p class="addr">${esc(firm.address)}</p>` : ""}
   </div>
 
-  ${statTiles(firm, latest, first)}
+  ${statTiles(firm, latest, first, fin[fin.length - 2] || null)}
 
   <main>
     ${revenueSection(fin)}

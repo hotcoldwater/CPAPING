@@ -59,13 +59,22 @@ def import_financials(db, path: Path) -> None:
 
     # 법인 단위 정보 — 가장 최근 연도 행에서 가져온다
     last = rows[-1]
+    note = last.get("비고") or ""
+
+    # 등록번호와 등록일이 비고에 묻혀 있는 경우가 있다.
+    # "주권상장법인 감사인 2019-11-25 등록(회계법인 등록번호 제159호)"
+    reg_date = re.search(r"감사인\s*(\d{4}-\d{2}-\d{2})\s*등록", note)
+    reg_no = re.search(r"등록번호\s*(제\s*\d+\s*호)", note)
+
     profile = {
+        "auditor_reg_no": reg_no.group(1).replace(" ", "") if reg_no else None,
+        "auditor_reg_date": reg_date.group(1) if reg_date else None,
         "brand": last.get("브랜드") or None,
         "ceo": last.get("현재대표이사") or None,
         "address": last.get("본사소재지") or None,
         "is_listed_auditor": (last.get("상장감사인등록") or "").strip().upper() == "O",
         "data_source": "회계법인 사업보고서",
-        "note": last.get("비고") or None,
+        "note": note or None,
         "manual_updated_at": "now()",
     }
     profile = {k: v for k, v in profile.items() if v is not None}
