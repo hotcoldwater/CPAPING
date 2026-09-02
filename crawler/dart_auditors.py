@@ -166,8 +166,12 @@ def audit_section(s: requests.Session, rcp: str) -> str | None:
 
 
 # 회계법인 이름. '삼정회계법인', '회계법인 세일원', '(유)정일회계법인' 이 다 나온다.
-_FIRM = re.compile(r"(?:\(유\)|\(주\))?\s*(?:회계법인\s*[가-힣A-Za-z]{2,10}"
-                   r"|[가-힣A-Za-z]{2,12}\s*회계법인)")
+#
+# 접미사형에서는 이름과 '회계법인' 사이 공백을 허용하지 않는다. 허용하면
+# 줄바꿈까지 걸려서 앞 줄의 단어를 같이 문다 — '감사보고서\n회계법인 세일원'
+# 이 '감사보고서회계법인' 으로 읽혔다.
+_FIRM = re.compile(r"(?:\(유\)|\(주\))?\s*(?:회계법인\s?[가-힣A-Za-z]{2,10}"
+                   r"|[가-힣A-Za-z]{2,12}회계법인)")
 
 
 def canonical(raw: str) -> str:
@@ -270,7 +274,29 @@ def main() -> int:
     ap.add_argument("--all", action="store_true", help="상장사 전부")
     ap.add_argument("--market", choices=["KOSPI", "KOSDAQ"], help="시장 한정")
     ap.add_argument("--write", action="store_true", help="CSV 로 저장")
+    ap.add_argument("--retry", action="store_true",
+                    help="이미 만든 CSV 에서 못 읽은 것만 다시 시도한다")
     args = ap.parse_args()
+
+    if args.retry:
+        path = DATA / "상장사_감사인.csv"
+        if not path.exists():
+            print("❌ data/상장사_감사인.csv 가 없습니다."); return 1
+        rows = list(csv.DictReader(path.open(encoding="utf-8-sig")))
+        # '사업보고서 없음' 은 다시 물어도 같다. 통신 오류나 서식 문제만 다시 본다.
+        again = [r for r in rows
+                 if not r["감사인"] and "사업보고서 없음" not in r["비고"]]
+        print(f"다시 시도할 곳 {len(again)} / 전체 {len(rows)}\n")
+        fixed = {r["회사명"]: r for r in
+                 collect([{"name": r["회사명"], "code": r["종목코드"],
+                           "market": r.get("시장", "")} for r in again])}
+        for r in rows:
+            got = fixed.get(r["회사명"])
+            if got and got["감사인"]:
+                r.update(got)
+        summarize(rows)
+        print(f"\n→ {write_csv(rows)}")
+        return 0
 
     s = session()
     companies = listed_companies(s, args.market)

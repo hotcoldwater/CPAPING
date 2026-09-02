@@ -222,6 +222,15 @@ if (!missing.length) {
     ]);
 
     const ranks = localRanks(firms, financials);
+    // 상장사 감사 고객을 회계법인별로 묶는다.
+    const clientRows = await fetchAll(url, key,
+      "audit_clients?select=firm_name,company,market,is_spac&order=company.asc");
+    const clients = new Map();
+    for (const r of clientRows) {
+      if (!clients.has(r.firm_name)) clients.set(r.firm_name, []);
+      clients.get(r.firm_name).push(
+        { name: r.company, market: r.market || "", spac: !!r.is_spac });
+    }
 
     let built = 0;
     for (const firm of firms) {
@@ -234,7 +243,8 @@ if (!missing.length) {
       mkdirSync(dir, { recursive: true });
       writeFileSync(join(dir, "index.html"),
                     renderFirmPage({ firm, financials: fin, postings: mine,
-                                     ranks: ranks.get(firm.id) }), "utf8");
+                                     ranks: ranks.get(firm.id),
+                                     clients: clients.get(firm.name) }), "utf8");
       pages.push({ loc: `/firm/${encodeURIComponent(firm.slug)}`, freq: "weekly" });
       built++;
     }

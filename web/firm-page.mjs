@@ -255,6 +255,50 @@ function rankSection(ranks) {
   </section>`;
 }
 
+/**
+ * 상장사 감사 고객.
+ *
+ * 회계법인 사업보고서에는 고객사 명단이 없다. 상장사 쪽 사업보고서의
+ * '회계감사인의 감사의견 등' 절을 모아 뒤집은 값이다.
+ *
+ * 스팩(기업인수목적회사)은 사업이 없는 껍데기라 감사 업무량이 사업회사와
+ * 비교가 안 된다. 전체로는 2.6% 뿐이지만 스팩만 맡는 법인이 있어서
+ * (네트워크회계법인은 11곳 중 10곳), 눈에 띌 만큼 많을 때만 따로 적는다.
+ * 미리보기 세 곳에는 사업회사를 먼저 올린다.
+ */
+const PREVIEW = 3;
+
+function clientSection(clients) {
+  if (!clients || !clients.length) return "";
+
+  const real = clients.filter((c) => !c.spac).sort((a, b) => a.name.localeCompare(b.name, "ko"));
+  const spac = clients.filter((c) => c.spac).sort((a, b) => a.name.localeCompare(b.name, "ko"));
+  const ordered = [...real, ...spac];
+  // 비중으로만 판단한다. 개수로 걸면 199 곳 중 3 곳인 대주에도 붙어
+  // 오히려 잡음이 된다. 다섯에 하나 이상일 때만 적는다.
+  const noteworthy = spac.length >= 2 && spac.length * 5 >= clients.length;
+
+  const chip = (c) => `<li${c.spac ? ' class="spac"' : ""}>${esc(c.name)}` +
+    `<span class="mkt">${esc(c.market === "유가" ? "코스피" : "코스닥")}</span></li>`;
+
+  const head = ordered.slice(0, PREVIEW).map(chip).join("");
+  const rest = ordered.slice(PREVIEW);
+
+  return `
+  <section>
+    <div class="sec-head"><h2>상장사 감사 고객</h2><span class="unit">최근 사업보고서 기준</span></div>
+    <div class="client-count">${clients.length}곳${
+      noteworthy ? ` <span class="spac-note">스팩 ${spac.length}곳 포함</span>` : ""}</div>
+    <ul class="clients">${head}</ul>
+    ${rest.length ? `<details class="more-clients">
+      <summary>나머지 ${rest.length}곳 보기</summary>
+      <ul class="clients">${rest.map(chip).join("")}</ul>
+    </details>` : ""}
+    <p class="caption">각 회사가 사업보고서에 적은 회계감사인을 모아 정리했습니다.
+      감사인은 해마다 바뀔 수 있습니다.</p>
+  </section>`;
+}
+
 function traineeSection(fin) {
   const rows = fin.filter((f) => f.trainee_count != null);
   if (!rows.length) return "";
@@ -336,7 +380,7 @@ function profileSection(firm, latest) {
 
 // ---------------------------------------------------------------------------
 
-export function renderFirmPage({ firm, financials, postings, ranks }) {
+export function renderFirmPage({ firm, financials, postings, ranks, clients }) {
   // 오래된 해부터 정렬해 시간 흐름대로 읽히게 한다
   const fin = [...financials].sort((a, b) =>
     String(a.fiscal_year).localeCompare(String(b.fiscal_year)));
@@ -448,6 +492,17 @@ section:last-of-type{border-bottom:0}
 .rank-mark{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--accent);border-radius:1px;transform:translateX(-1px)}
 .rank-ends{display:flex;justify-content:space-between;margin-top:5px;font-size:10.5px;color:var(--ink-3);font-variant-numeric:tabular-nums}
 .rank-ends span:nth-child(2){color:var(--ink-2)}
+.client-count{font-size:19px;font-weight:600;letter-spacing:-.02em;margin-bottom:10px;font-variant-numeric:tabular-nums}
+.spac-note{font-size:11.5px;font-weight:400;color:var(--ink-3);margin-left:6px}
+ul.clients{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+ul.clients li{display:flex;align-items:baseline;gap:5px;font-size:12.5px;
+  background:var(--bg-subtle);border:1px solid var(--line-2);border-radius:3px;padding:4px 8px}
+ul.clients li.spac{color:var(--ink-2)}
+ul.clients .mkt{font-size:10px;color:var(--ink-3)}
+details.more-clients{margin-top:8px}
+details.more-clients summary{font-size:12px;color:var(--accent);cursor:pointer;padding:4px 0}
+details.more-clients summary:hover{text-decoration:underline}
+details.more-clients ul.clients{margin-top:8px}
 .caption{margin:10px 0 0;font-size:12.5px;color:var(--ink-2)}
 .caption.strong{color:var(--ink);font-weight:500}
 .trainee-sec{background:var(--bg-subtle);margin-inline:calc(var(--pad-x)*-1);
@@ -520,6 +575,7 @@ ${CHART_CSS}
     ${rankSection(ranks)}
     ${headcountSection(fin)}
     ${traineeSection(fin)}
+    ${clientSection(clients)}
     ${postingsSection(postings, firm.name)}
     ${profileSection(firm, latest)}
     ${!hasData ? `<p class="nodata">재무 정보는 준비 중입니다.</p>` : ""}

@@ -172,8 +172,13 @@ td.hist { text-align: center; }
 .note b { color: var(--ink-2); font-weight: 500; }
 .empty { padding: 40px 0; text-align: center; color: var(--ink-3); font-size: 12.5px; }
 
+/* 막대는 고정폭이고 비율은 자릿수가 제각각이라(9.3% / 34.8% / 52%)
+   그냥 이어 붙이면 줄마다 끝이 어긋난다. 한 줄 안에서 막대는 왼쪽에
+   붙이고 비율은 오른쪽으로 몰아 자릿수를 맞춘다. */
 .mixcell { text-align: left; }
-.mixcell .pct { margin-left: 7px; font-size: 11.5px; color: var(--ink-2); }
+.mixcell .wrap2 { display: flex; align-items: center; gap: 8px; }
+.mixcell .pct { margin-left: auto; font-size: 11.5px; color: var(--ink-2); }
+.mixcell .mix { flex: 0 0 64px; }
 
 /* 좁은 화면에서는 부차적인 칸부터 접는다. 옆으로 밀어 보는 것보다
    중요한 칸만 남기고 한눈에 들어오는 편이 낫다. */
@@ -255,7 +260,7 @@ export function renderFirmsPage({ firms, financials }) {
     <div class="tiles">
       <div class="tile"><div class="k">법인</div><div class="v">${rows.length}</div><div class="n">사업연도 ${years.toLocaleString("ko-KR")}개</div></div>
       <div class="tile"><div class="k">수습회계사가 있는 곳</div><div class="v">${hiring}</div><div class="n">최근 결산 기준</div></div>
-      <div class="tile"><div class="k">수습회계사</div><div class="v">${local.toLocaleString("ko-KR")}<em>명</em></div><div class="n">최근 결산 · 빅4 ${big4Tr.toLocaleString("ko-KR")}명 제외</div></div>
+      <div class="tile"><div class="k">수습회계사</div><div class="v">${local.toLocaleString("ko-KR")}<em>명</em></div><div class="n">각 법인 최근 결산 기준 · 빅4 ${big4Tr.toLocaleString("ko-KR")}명 제외</div></div>
       <div class="tile"><div class="k">매출 중앙값</div><div class="v">${median}<em>억</em></div><div class="n">최근 사업연도</div></div>
     </div>
 
@@ -368,8 +373,8 @@ function render() {
       '<td class="t2">' + f.cpa + '명</td>' +
       '<td class="t3">' + (g === null ? '<span class="muted">–</span>'
         : '<span class="' + (g > 0 ? "pos" : "muted") + '">' + (g > 0 ? "+" : "") + g + '%</span>') + '</td>' +
-      '<td class="t4 mixcell">' + mix(f) +
-        (f.audit === null ? '' : '<span class="pct">' + f.audit + '%</span>') + '</td>' +
+      '<td class="t4 mixcell"><div class="wrap2">' + mix(f) +
+        (f.audit === null ? '' : '<span class="pct">' + f.audit + '%</span>') + '</div></td>' +
     '</tr>';
   }).join("");
 
