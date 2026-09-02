@@ -61,23 +61,42 @@ def listed_companies(s: requests.Session, market: str | None = None) -> list[dic
     엑셀 내려받기 주소가 그대로 HTML 표를 돌려준다. 인증이 필요 없다.
     """
     url = "https://kind.krx.co.kr/corpgeneral/corpList.do"
-    params = {"method": "download", "pageIndex": 1, "currentPageSize": 5000,
-              "orderMode": 3, "orderStat": "D", "searchType": 13, "fiscalYearEnd": "all"}
-    if market:
-        params["marketType"] = {"KOSPI": "stockMkt", "KOSDAQ": "kosdaqMkt"}[market]
-    res = s.get(url, params=params, timeout=TIMEOUT)
+    res = s.get(url, params={"method": "download", "pageIndex": 1,
+                             "currentPageSize": 5000, "orderMode": 3,
+                             "orderStat": "D", "searchType": 13,
+                             "fiscalYearEnd": "all"}, timeout=TIMEOUT)
     res.raise_for_status()
     res.encoding = "euc-kr"
     soup = BeautifulSoup(res.text, "lxml")
 
+    rows = soup.select("tr")
+    if not rows:
+        return []
+    # 칸 순서를 머리글로 찾는다. 자리로 세면 표가 바뀌었을 때 조용히 어긋난다.
+    head = [c.get_text(" ", strip=True) for c in rows[0].find_all(["td", "th"])]
+    try:
+        i_name, i_mkt, i_code = (head.index("회사명"), head.index("시장구분"),
+                                 head.index("종목코드"))
+    except ValueError:
+        return []
+
+    # 종목코드에 영문이 섞인다('0220W0'). 숫자만 뽑으면 안 된다.
+    MARKETS = {"KOSPI": "유가", "KOSDAQ": "코스닥"}
+    want = MARKETS.get(market or "")
     out = []
-    for tr in soup.select("tr")[1:]:
-        td = [c.get_text(" ", strip=True) for c in tr.select("td")]
-        if len(td) < 2:
+    for tr in rows[1:]:
+        td = [c.get_text(" ", strip=True) for c in tr.find_all(["td", "th"])]
+        if len(td) <= max(i_name, i_mkt, i_code):
             continue
-        name, code = nfc(td[0]), re.sub(r"\D", "", td[1])
-        if name and len(code) == 6:
-            out.append({"name": name, "code": code})
+        name, mkt, code = nfc(td[i_name]), td[i_mkt], td[i_code].strip()
+        if not name or len(code) != 6:
+            continue
+        if want and mkt != want:
+            continue
+        # 코넥스는 규모가 작고 감사인이 자주 바뀌어 뺀다
+        if not market and mkt not in ("유가", "코스닥"):
+            continue
+        out.append({"name": name, "code": code, "market": mkt})
     return out
 
 
@@ -182,7 +201,8 @@ def collect(targets: list[dict], verbose: bool = True) -> list[dict]:
     s = session()
     out = []
     for i, c in enumerate(targets, 1):
-        row = {"회사명": c["name"], "종목코드": c["code"], "감사인": "", "감사의견": "", "비고": ""}
+        row = {"회사명": c["name"], "종목코드": c["code"], "시장": c.get("market", ""),
+               "감사인": "", "감사의견": "", "비고": ""}
         try:
             code = corp_code(s, c["name"])
             if not code:
@@ -216,7 +236,7 @@ def write_csv(rows: list[dict]) -> Path:
     DATA.mkdir(exist_ok=True)
     path = DATA / "상장사_감사인.csv"
     with path.open("w", newline="", encoding="utf-8-sig") as f:
-        w = csv.DictWriter(f, fieldnames=["회사명", "종목코드", "감사인", "감사의견", "비고"])
+        w = csv.DictWriter(f, fieldnames=["회사명", "종목코드", "시장", "감사인", "감사의견", "비고"])
         w.writeheader()
         w.writerows(rows)
     return path

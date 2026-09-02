@@ -197,11 +197,12 @@ export function renderFirmsPage({ firms, financials }) {
     .filter(Boolean)
     .sort((a, b) => b.rev - a.rev);
 
-  const hiring = rows.filter((r) => r.tr5 > 0).length;
-  // 수습 채용 합계는 빅4 가 여덟 할을 차지한다. 한 덩어리로 보여주면
-  // 로컬이 그만큼 뽑는 것처럼 읽힌다.
-  const big4Tr = rows.filter((r) => r.big4).reduce((s, r) => s + r.tr5, 0);
-  const local = rows.reduce((s, r) => s + r.tr5, 0) - big4Tr;
+  const hiring = rows.filter((r) => r.trNow > 0).length;
+  // 5 년 합계가 아니라 최근 한 해를 보여준다. 3 년 전에 스무 명 뽑고
+  // 이후 안 뽑은 곳까지 합쳐지면 지금 채용 시장이 실제보다 커 보인다.
+  // 빅4 도 뺀다 — 5 년 합계 기준으로 여덟 할이 빅4 였다.
+  const big4Tr = rows.filter((r) => r.big4).reduce((s, r) => s + r.trNow, 0);
+  const local = rows.reduce((s, r) => s + r.trNow, 0) - big4Tr;
   const years = rows.reduce((s, r) => s + r.years.length, 0);
   const sorted = rows.map((r) => r.rev).sort((a, b) => a - b);
   const median = Math.round(sorted[Math.floor(sorted.length / 2)] || 0);
@@ -251,8 +252,8 @@ export function renderFirmsPage({ firms, financials }) {
 
     <div class="tiles">
       <div class="tile"><div class="k">법인</div><div class="v">${rows.length}</div><div class="n">사업연도 ${years.toLocaleString("ko-KR")}개</div></div>
-      <div class="tile"><div class="k">수습을 뽑은 곳</div><div class="v">${hiring}</div><div class="n">5년 내 1명 이상</div></div>
-      <div class="tile"><div class="k">5년간 수습 채용</div><div class="v">${local.toLocaleString("ko-KR")}<em>명</em></div><div class="n">빅4 ${big4Tr.toLocaleString("ko-KR")}명 제외</div></div>
+      <div class="tile"><div class="k">수습을 뽑은 곳</div><div class="v">${hiring}</div><div class="n">최근 사업연도 기준</div></div>
+      <div class="tile"><div class="k">최근 1년 수습 채용</div><div class="v">${local.toLocaleString("ko-KR")}<em>명</em></div><div class="n">빅4 ${big4Tr.toLocaleString("ko-KR")}명 제외</div></div>
       <div class="tile"><div class="k">매출 중앙값</div><div class="v">${median}<em>억</em></div><div class="n">최근 사업연도</div></div>
     </div>
 
