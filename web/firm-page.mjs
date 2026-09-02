@@ -61,7 +61,9 @@ function statTiles(firm, latest, first, prev) {
   const tiles = [];
 
   if (latest?.revenue != null) {
+    // 폰에서는 소수점을 뗀다. '11,093.66억' 은 177px 칸에 들어가지 않는다.
     tiles.push({ label: "매출액", value: fmt(latest.revenue, 2), unit: "억",
+                 short: fmt(Math.round(latest.revenue), 0),
                  note: `${yearOf(latest.fiscal_year)}년 기준` });
   }
   // 5 년 성장률은 정점을 찍고 3 년째 줄어드는 법인도 "성장" 으로 보이게 한다.
@@ -91,15 +93,18 @@ function statTiles(firm, latest, first, prev) {
                  positive: latest.trainee_count > 0 });
   }
   if (latest?.revenue != null && latest?.cpa_count) {
+    // 폰에서는 감춘다. 다섯 칸을 2열에 넣으면 한 칸이 혼자 남는다.
     tiles.push({ label: "1인당 매출", value: fmt(latest.revenue / latest.cpa_count, 1),
-                 unit: "억", note: "매출 ÷ 회계사 수" });
+                 unit: "억", note: "매출 ÷ 회계사 수", opt: true });
   }
 
   if (!tiles.length) return "";
   return `<section class="tiles">${tiles.map((t) => `
-    <div class="tile">
+    <div class="tile${t.opt ? " opt" : ""}">
       <div class="t-label">${esc(t.label)}</div>
-      <div class="t-value${t.positive ? " up" : ""}">${esc(t.value)}<small>${esc(t.unit)}</small></div>
+      <div class="t-value${t.positive ? " up" : ""}">${
+        t.short ? `<span class="wide">${esc(t.value)}</span><span class="narrow">${esc(t.short)}</span>`
+                : esc(t.value)}<small>${esc(t.unit)}</small></div>
       ${t.note ? `<div class="t-note">${esc(t.note)}</div>` : ""}
     </div>`).join("")}</section>`;
 }
@@ -499,20 +504,30 @@ body{margin:0;background:var(--bg-subtle);color:var(--ink);
 .chip.hi{background:var(--chip-pt-bg);color:var(--chip-pt-fg)}
 .chip.pt{background:var(--chip-pt-bg);color:var(--chip-pt-fg)}
 
-.tiles{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line);
-  background:var(--bg-subtle)}
-@media(max-width:560px){.tiles{grid-template-columns:repeat(2,1fr)}}
-.tile{padding:14px var(--pad-x);border-right:1px solid var(--line-2)}
-.tile:last-child{border-right:0}
+/* 칸 사이 선을 nth-child 로 그리면 개수가 바뀔 때마다 규칙을 고쳐야 한다.
+   실제로 타일이 넷에서 다섯이 되자 2행과 3행 사이 선이 사라졌다.
+   배경색 위에 1px 를 비우는 방식은 개수와 무관하게 맞는다. */
+.tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;
+  background:var(--line-2);border-bottom:1px solid var(--line)}
+.tile{padding:14px var(--pad-x);background:var(--bg-subtle)}
+@media(max-width:860px){.tiles{grid-template-columns:repeat(4,1fr)}}
 @media(max-width:560px){
-  .tile:nth-child(2n){border-right:0}
-  .tile:nth-child(-n+2){border-bottom:1px solid var(--line-2)}
+  .tiles{grid-template-columns:repeat(2,1fr)}
+  /* 폰에서는 넷만 남겨 2×2 로 맞춘다. 1인당 매출은 아래 기본 정보에 있다. */
+  .tile.opt{display:none}
+  .tile{padding-left:14px;padding-right:14px}
+  .t-value{font-size:18px}
 }
 .t-label{font-size:11px;color:var(--ink-3)}
 .t-value{font-size:20px;font-weight:600;letter-spacing:-.02em;
   font-variant-numeric:tabular-nums;margin-top:2px}
 .t-value.up{color:var(--up)}
 .t-value small{font-size:13px;font-weight:500;margin-left:1px}
+.t-value .narrow{display:none}
+@media(max-width:560px){
+  .t-value .wide{display:none}
+  .t-value .narrow{display:inline}
+}
 .t-note{font-size:11px;color:var(--ink-3);margin-top:1px}
 
 main{padding:4px var(--pad-x) 32px;display:flex;flex-direction:column}

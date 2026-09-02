@@ -170,8 +170,19 @@ export const CHART_CSS = `
 .lg-item { display:flex; align-items:center; gap:6px; font-size:11.5px; color:${INK_2}; }
 .lg-item i { width:9px; height:9px; border-radius:2px; flex:none; }
 
-.chart { overflow-x:auto; }
-.chart svg { display:block; min-width:340px; }
+/* 폰에서 340px 로 줄이면 viewBox 620 이 그만큼 눌려 축 글자가 6px 가 된다.
+   잘리는 게 아니라 못 읽게 된다. 차라리 옆으로 밀어 보게 두고 글자 크기를
+   지킨다. 오른쪽 끝에 그림자를 둬서 더 있다는 걸 알린다. */
+.chart {
+  overflow-x:auto;
+  background:
+    linear-gradient(to right, ${SURFACE} 30%, rgba(255,255,255,0)) left / 24px 100% no-repeat,
+    linear-gradient(to left, ${SURFACE} 30%, rgba(255,255,255,0)) right / 24px 100% no-repeat,
+    radial-gradient(farthest-side at 0 50%, rgba(16,19,23,.12), rgba(0,0,0,0)) left / 12px 100% no-repeat,
+    radial-gradient(farthest-side at 100% 50%, rgba(16,19,23,.12), rgba(0,0,0,0)) right / 12px 100% no-repeat;
+  background-attachment: local, local, scroll, scroll;
+}
+.chart svg { display:block; min-width:520px; }
 
 .share { display:flex; height:26px; border-radius:3px; overflow:hidden; gap:2px; background:${SURFACE}; }
 .share-seg { height:100%; }
