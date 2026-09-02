@@ -83,7 +83,6 @@ def import_financials(db, path: Path) -> None:
     profile = {
         "auditor_reg_no": reg_no.group(1).replace(" ", "") if reg_no else None,
         "auditor_reg_date": reg_date.group(1) if reg_date else None,
-        "brand": last.get("브랜드") or None,
         "ceo": last.get("현재대표이사") or None,
         "address": last.get("본사소재지") or None,
         "is_listed_auditor": (last.get("상장감사인등록") or "").strip().upper() == "O",

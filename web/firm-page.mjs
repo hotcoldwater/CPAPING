@@ -331,7 +331,6 @@ export function renderFirmPage({ firm, financials, postings, ranks }) {
   const hasData = fin.length > 0;
 
   const chips = [
-    firm.brand ? { text: firm.brand, hi: true } : null,
     firm.region ? { text: firm.region } : null,
     latest?.cpa_count != null ? { text: `회계사 ${latest.cpa_count}명` } : null,
     firm.is_listed_auditor ? { text: "상장회사 감사인" } : null,

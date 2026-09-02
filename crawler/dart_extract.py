@@ -254,18 +254,6 @@ def parse_listed_auditor(text: str) -> str:
     return "O" if re.search(r"상장회사\s*감사인\s*등록", text) else "X"
 
 
-def parse_brand(text: str) -> str | None:
-    """외국 회계법인과의 제휴 현황."""
-    idx = [m.start() for m in re.finditer("외국 회계법인과의 제휴 현황", text)]
-    if not idx:
-        return None
-    seg = text[idx[-1]: idx[-1] + 400]
-    if re.search(r"해당\s*사항\s*없|없습니다|^\s*-\s*$", seg, re.M):
-        return None
-    m = re.search(r"\n\s*([A-Za-z][A-Za-z&\.\- ]{3,40})\s*\n", seg)
-    return m.group(1).strip() if m else None
-
-
 # ---------------------------------------------------------------------------
 
 _PERIOD = re.compile(
@@ -319,7 +307,10 @@ def extract_one(path: Path, firm: str) -> dict:
 
     return {
         "법인명": firm,
-        "브랜드": parse_brand(text) or "",
+        # 제휴사는 넣지 않는다. 「외국 회계법인과의 제휴 현황」 은 회사명·국적·
+        # 소재지가 뒤섞인 자유 서식이라, 라틴 문자만 보고 뽑으면 제휴사가 아니라
+        # 주소를 집는다. 삼일이 'London' 으로 나왔다.
+        "브랜드": "",
         "기준연도": fiscal_year(path, text) or "",
         "매출액_억원": rev.get("total"),
         "감사매출_억원": rev.get("audit"),
