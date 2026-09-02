@@ -62,12 +62,21 @@ def title_similarity(a: str, b: str) -> float:
 _YEAR = re.compile(r"20\d{2}")
 _UNIT = re.compile(r"\d+(?:본부|사업부|사업본부|부문|팀|부)")
 
+# 지점 표기는 제목 앞머리 괄호 안에만 있는 경우가 많다.
+# '[PKF서현회계법인] …' 과 '[PKF서현회계법인_광주지점] …' 은 괄호를 떼면
+# 나머지가 한 글자도 다르지 않다. 한공회 회사명 칸에도 지점이 안 들어가서
+# 이걸 안 보면 서울 본점과 광주지점 공고가 같은 자리가 된다.
+_BRANCH = re.compile(r"[가-힣A-Za-z0-9]{1,10}(?:지점|본점|지사|분사무소|사무소)")
 
-def signature(normalized_title: str) -> tuple[frozenset, frozenset]:
-    """(연도, 조직단위) — 하나라도 다르면 다른 자리로 본다."""
+
+def signature(normalized_title: str, raw_title: str = "",
+              region: str = "") -> tuple:
+    """(연도, 조직단위, 지점, 지역) — 하나라도 다르면 다른 자리로 본다."""
     return (
         frozenset(_YEAR.findall(normalized_title)),
         frozenset(_UNIT.findall(normalized_title)),
+        frozenset(_BRANCH.findall(raw_title or "")),
+        re.sub(r"\s+", " ", (region or "").strip()),
     )
 
 
@@ -82,6 +91,9 @@ def find_original(posting, candidates: list[dict]) -> dict | None:
     title = normalize_title(posting.title, posting.company_name)
     if not title:
         return None
+    posted = getattr(posting, "posted_at", None)
+    region = getattr(posting, "work_region", None) or getattr(posting, "region", "")
+    sig = signature(title, posting.title, region)
 
     matched = []
     for row in candidates:
@@ -89,9 +101,14 @@ def find_original(posting, candidates: list[dict]) -> dict | None:
             continue  # 자기 자신
         if normalize_company(row.get("company_name", "")) != company:
             continue
+        # 끌올은 시간이 지나 다시 올리는 것이다. 같은 날 올라온 둘은 한 법인이
+        # 여러 자리를 동시에 연 것이지 다시 올린 게 아니다.
+        if posted and str(row.get("posted_at") or "") == str(posted):
+            continue
         other = normalize_title(row.get("title", ""), company)
-        # 연도나 본부 번호가 다르면 글자가 아무리 닮아도 다른 자리다
-        if signature(title) != signature(other):
+        # 연도·본부·지점·지역이 다르면 글자가 아무리 닮아도 다른 자리다
+        if sig != signature(other, row.get("title", ""),
+                            row.get("work_region") or row.get("region") or ""):
             continue
         if title_similarity(title, other) < SIMILARITY_THRESHOLD:
             continue
