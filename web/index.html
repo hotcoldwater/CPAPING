@@ -446,8 +446,26 @@ function firmSlug(name) {
   let n = String(name || "").replace(/\s*\([^)]*\)/g, "").trim();
   n = n.replace(/\s*[가-힣A-Za-z0-9]*(지점|본점|사업부|사업본부|본부)\s*$/, "");
   n = n.replace(/\s+/g, " ").trim();
+  n = prefixToSuffix(n);
   n = { "대현회게법인": "대현회계법인", "안진회게법인": "안진회계법인" }[n] || n;
   return n.replace(/[^가-힣A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+/**
+ * '회계법인 베율' → '베율회계법인'.
+ *
+ * 이름을 다는 방식이 두 가지다. 공고를 접두사형으로 올리는 곳이 있는데,
+ * 사업보고서와 법인 페이지 주소는 접미사형을 쓴다. 맞춰 두지 않으면
+ * 없는 주소로 링크가 걸리고 화면에도 두 표기가 섞인다.
+ */
+function prefixToSuffix(name) {
+  const m = String(name || "").match(/^\(?(?:유|주|합|유한)?\)?\s*회계법인\s*(.+)$/);
+  return m ? m[1].trim() + "회계법인" : name;
+}
+
+/** 목록에 보일 이름. 지점 표기는 남기고 접두사형만 바로잡는다. */
+function firmLabel(name) {
+  return prefixToSuffix(String(name || "").trim());
 }
 
 /**
@@ -492,10 +510,10 @@ function renderRow(p, options = {}) {
     const link = document.createElement("a");
     link.className = "firm-link";
     link.href = "/firm/" + encodeURIComponent(slug);
-    link.textContent = p.company_name || "";
+    link.textContent = firmLabel(p.company_name);
     firm.append(link);
   } else {
-    firm.append(p.company_name || "");
+    firm.append(firmLabel(p.company_name));
   }
   if (p.posted_at) {
     const posted = document.createElement("span");

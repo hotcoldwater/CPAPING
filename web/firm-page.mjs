@@ -78,6 +78,14 @@ function statTiles(firm, latest, first, prev) {
                  note: latest.partner_count != null
                    ? `파트너 ${latest.partner_count}명 포함` : "" });
   }
+  // 지원자가 가장 먼저 보는 값이라 위에 둔다. 5 년 합계가 아니라 최근 한
+  // 해를 쓴다 — 3 년 전에 스무 명 뽑고 이후 안 뽑은 곳과 올해 뽑은 곳이
+  // 합계로는 같아 보인다.
+  if (latest?.trainee_count != null) {
+    tiles.push({ label: "수습 채용", value: fmt(latest.trainee_count, 0), unit: "명",
+                 note: `${yearOf(latest.fiscal_year)}년 기준`,
+                 positive: latest.trainee_count > 0 });
+  }
   if (latest?.revenue != null && latest?.cpa_count) {
     tiles.push({ label: "1인당 매출", value: fmt(latest.revenue / latest.cpa_count, 1),
                  unit: "억", note: "매출 ÷ 회계사 수" });
