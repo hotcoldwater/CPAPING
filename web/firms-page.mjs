@@ -59,8 +59,10 @@ function toRow(firm, years) {
     tr5: rows.reduce((s, r) => s + (r.trainee_count ?? 0), 0),
     perCpa: Math.round((rev / cpa) * 100) / 100,
     ptRatio: cpa ? Math.round((partners / cpa) * 100) : 0,
-    growth: rows.length > 1 && first.revenue > 0
-      ? Math.round((rev / Number(first.revenue) - 1) * 100) : null,
+    // 5 년 성장률이 아니라 바로 앞 사업연도 대비다. 5 년을 통으로 재면
+    // 정점을 찍고 내리막인 법인도 '성장' 으로 보인다.
+    growth: rows.length > 1 && Number(rows[rows.length - 2].revenue) > 0
+      ? Math.round((rev / Number(rows[rows.length - 2].revenue) - 1) * 100) : null,
     // 부문 비중. 합이 0 이면 자료가 없는 것이라 null 로 둔다.
     audit: segSum > 0 ? Math.round((seg[0] / segSum) * 1000) / 10 : null,
     seg: segSum > 0 ? seg.map((v) => Math.round((v / segSum) * 1000) / 10) : null,
@@ -157,7 +159,7 @@ td.firm .b4 { font-size: 9.5px; background: var(--chip-bg); color: var(--chip-fg
 .mix { display: inline-flex; gap: 1px; width: 64px; height: 14px; vertical-align: -2px; }
 .mix i { display: block; height: 100%; flex-basis: 0; min-width: 0; }
 
-/* 수습 채용 이력. 뽑은 해는 채우고 안 뽑은 해는 테두리만 남긴다 —
+/* 수습회계사. 있던 해는 채우고 없던 해는 테두리만 남긴다 —
    자료가 없는 것과 "그해엔 안 뽑았다"는 다르다. */
 td.hist { text-align: center; }
 .marks { display: inline-flex; gap: 3px; }
@@ -217,8 +219,8 @@ export function renderFirmsPage({ firms, financials }) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>회계법인 ${rows.length}곳 비교 — 매출·회계사 수·수습 채용 | CPAPING</title>
-<meta name="description" content="국내 회계법인 ${rows.length}곳의 매출, 회계사 수, 수습회계사 채용 이력을 사업보고서 기준으로 정리했습니다. 매출·성장률·1인당 매출로 정렬할 수 있습니다.">
+<title>회계법인 ${rows.length}곳 비교 — 매출·회계사 수·수습회계사 | CPAPING</title>
+<meta name="description" content="국내 회계법인 ${rows.length}곳의 매출, 회계사 수, 수습회계사 현황을 사업보고서 기준으로 정리했습니다. 매출·전년 대비 성장률·감사 비중으로 정렬할 수 있습니다.">
 <link rel="canonical" href="https://cpaping.com/firms">
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -227,7 +229,7 @@ export function renderFirmsPage({ firms, financials }) {
 <meta property="og:site_name" content="CPAPING">
 <meta property="og:url" content="https://cpaping.com/firms">
 <meta property="og:title" content="회계법인 ${rows.length}곳 비교 — CPAPING">
-<meta property="og:description" content="매출, 회계사 수, 수습회계사 채용 이력을 사업보고서 기준으로 정리했습니다.">
+<meta property="og:description" content="매출, 회계사 수, 수습회계사 현황을 사업보고서 기준으로 정리했습니다.">
 <meta property="og:image" content="https://cpaping.com/og.png">
 <meta property="og:locale" content="ko_KR">
 <meta name="theme-color" content="#123A8A">
@@ -252,13 +254,13 @@ export function renderFirmsPage({ firms, financials }) {
 
     <div class="tiles">
       <div class="tile"><div class="k">법인</div><div class="v">${rows.length}</div><div class="n">사업연도 ${years.toLocaleString("ko-KR")}개</div></div>
-      <div class="tile"><div class="k">수습을 뽑은 곳</div><div class="v">${hiring}</div><div class="n">최근 사업연도 기준</div></div>
-      <div class="tile"><div class="k">최근 1년 수습 채용</div><div class="v">${local.toLocaleString("ko-KR")}<em>명</em></div><div class="n">빅4 ${big4Tr.toLocaleString("ko-KR")}명 제외</div></div>
+      <div class="tile"><div class="k">수습회계사가 있는 곳</div><div class="v">${hiring}</div><div class="n">최근 결산 기준</div></div>
+      <div class="tile"><div class="k">수습회계사</div><div class="v">${local.toLocaleString("ko-KR")}<em>명</em></div><div class="n">최근 결산 · 빅4 ${big4Tr.toLocaleString("ko-KR")}명 제외</div></div>
       <div class="tile"><div class="k">매출 중앙값</div><div class="v">${median}<em>억</em></div><div class="n">최근 사업연도</div></div>
     </div>
 
     <div class="filters">
-      <button class="toggle" id="onlyHiring" aria-pressed="false">수습 뽑는 곳만</button>
+      <button class="toggle" id="onlyHiring" aria-pressed="false">수습회계사 있는 곳만</button>
       <div class="seg" role="group" aria-label="매출 규모">
         <button data-min="0" aria-pressed="true">전체</button>
         <button data-min="50" aria-pressed="false">50억+</button>
@@ -272,10 +274,10 @@ export function renderFirmsPage({ firms, financials }) {
       <input id="q" type="search" placeholder="법인 이름" aria-label="법인 이름으로 찾기">
       <select id="sortby" aria-label="정렬 기준">
         <option value="rev">매출순</option>
-        <option value="tr5">5년 수습순</option>
-        <option value="trNow">최근 수습순</option>
+        <option value="tr5">수습회계사 누적순</option>
+        <option value="trNow">수습회계사순</option>
         <option value="cpa">회계사순</option>
-        <option value="growth">성장순</option>
+        <option value="growth">전년 대비 성장순</option>
         <option value="audit">감사 비중순</option>
       </select>
       <span class="count" id="count"></span>
@@ -286,10 +288,10 @@ export function renderFirmsPage({ firms, financials }) {
         <thead>
           <tr>
             <th data-k="name"><button>법인</button></th>
-            <th class="plain">수습</th>
+            <th class="plain">수습회계사</th>
             <th data-k="rev"><button>매출</button></th>
             <th data-k="cpa" class="t2"><button>회계사</button></th>
-            <th data-k="growth" class="t3"><button>성장</button></th>
+            <th data-k="growth" class="t3"><button>전년 대비</button></th>
             <th data-k="audit" class="t4"><button>부문 구성 · 감사</button></th>
           </tr>
         </thead>
@@ -299,8 +301,9 @@ export function renderFirmsPage({ firms, financials }) {
     <div class="empty" id="empty" hidden>조건에 맞는 법인이 없습니다.</div>
 
     <p class="note">
-      <b>수습 채용 이력</b>은 왼쪽이 오래된 해입니다. 채워진 칸은 그해에 수습회계사를 뽑았다는 뜻이고,
-      빈 칸은 뽑지 않은 해입니다. 칸이 다섯 개보다 적은 곳은 설립한 지 얼마 안 돼 사업보고서가 그만큼만 있는 법인입니다.<br>
+      <b>수습회계사</b>는 왼쪽이 오래된 사업연도입니다. 채워진 칸은 그 결산일에 수습회계사가 있었다는 뜻입니다.
+      각 법인이 사업보고서에 적은 인력현황 기준이라, 등록을 마치면 이 수에서 빠지므로 <b>그해 채용 인원과는 다릅니다.</b>
+      결산월도 법인마다 달라 같은 해로 묶이지 않습니다. 칸이 다섯 개보다 적은 곳은 설립한 지 얼마 안 돼 사업보고서가 그만큼만 있는 법인입니다.<br>
       <b>부문 구성</b>은 감사·세무·딜자문·기타 순입니다. <b>1인당 매출</b>은 매출을 회계사 수로 나눈 값이고,
       <b>파트너 비율</b>은 회계사 중 사원(파트너)이 차지하는 몫입니다.<br>
       수치는 각 법인이 금융감독원에 낸 사업보고서 기준입니다. 잘못된 내용이 있으면

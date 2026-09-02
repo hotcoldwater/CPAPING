@@ -64,14 +64,13 @@ function statTiles(firm, latest, first, prev) {
     tiles.push({ label: "매출액", value: fmt(latest.revenue, 2), unit: "억",
                  note: `${yearOf(latest.fiscal_year)}년 기준` });
   }
-  if (latest?.revenue != null && first?.revenue != null && first !== latest) {
-    const growth = (latest.revenue / first.revenue - 1) * 100;
-    // 첫 해 대비 늘었어도 최근에 꺾였으면 초록으로 칠하지 않는다.
-    // 정점을 찍고 3년째 줄어드는 법인을 "성장" 으로 보이게 하면 안 된다.
-    const rising = latest.revenue >= (prev?.revenue ?? 0);
-    tiles.push({ label: `${yearOf(first.fiscal_year)}년 대비`,
+  // 5 년 성장률은 정점을 찍고 3 년째 줄어드는 법인도 "성장" 으로 보이게 한다.
+  // 지금 어떤지가 궁금한 값이라 바로 앞 사업연도와 견준다.
+  if (latest?.revenue != null && prev?.revenue) {
+    const growth = (latest.revenue / prev.revenue - 1) * 100;
+    tiles.push({ label: `${yearOf(prev.fiscal_year)}년 대비`,
                  value: `${growth >= 0 ? "+" : ""}${Math.round(growth)}%`, unit: "",
-                 note: "매출 변화", positive: growth >= 0 && rising });
+                 note: "매출 변화", positive: growth >= 0 });
   }
   if (latest?.cpa_count != null) {
     tiles.push({ label: "회계사 수", value: fmt(latest.cpa_count, 0), unit: "명",
@@ -81,9 +80,14 @@ function statTiles(firm, latest, first, prev) {
   // 지원자가 가장 먼저 보는 값이라 위에 둔다. 5 년 합계가 아니라 최근 한
   // 해를 쓴다 — 3 년 전에 스무 명 뽑고 이후 안 뽑은 곳과 올해 뽑은 곳이
   // 합계로는 같아 보인다.
+  //
+  // '채용' 이 아니라 '수' 다. 인력총괄표의 수습 칸은 결산일에 아직 공인회계사
+  // 등록을 못 한 사람만 센다. 삼일 보고서 각주가 분명히 한다 — 등록을 마친
+  // 2,512 명 중에도 실무수습 중인 사람이 271 명이고 그들은 이 칸에 없다.
+  // 그래서 연간 채용 인원보다 구조적으로 적게 나온다.
   if (latest?.trainee_count != null) {
-    tiles.push({ label: "수습 채용", value: fmt(latest.trainee_count, 0), unit: "명",
-                 note: `${yearOf(latest.fiscal_year)}년 기준`,
+    tiles.push({ label: "수습회계사", value: fmt(latest.trainee_count, 0), unit: "명",
+                 note: `${yearOf(latest.fiscal_year)}년 결산 기준`,
                  positive: latest.trainee_count > 0 });
   }
   if (latest?.revenue != null && latest?.cpa_count) {
@@ -262,14 +266,16 @@ function traineeSection(fin) {
   // 되풀이하지 않고 그래프가 못 하는 것 — 합계 — 만 적는다.
   const total = hired.reduce((s, d) => s + d.value, 0);
   const caption = hired.length
-    ? `최근 ${data.length}년간 모두 ${total}명을 채용했습니다.`
-    : `최근 ${data.length}년간 수습회계사 채용 기록이 없습니다.`;
+    ? `최근 ${data.length}개 사업연도를 모두 더하면 ${total}명입니다.`
+    : `최근 ${data.length}개 사업연도에 수습회계사가 없었습니다.`;
 
   return `
   <section class="trainee-sec">
-    <div class="sec-head"><h2>수습회계사 채용</h2><span class="unit">사업보고서 기준</span></div>
+    <div class="sec-head"><h2>수습회계사</h2><span class="unit">사업보고서 인력현황 기준</span></div>
     ${traineeHistory(data)}
     <p class="caption strong">${esc(caption)}</p>
+    <p class="caption">각 사업연도 결산일에 소속된 수습회계사 수입니다.
+      공인회계사 등록을 마치면 이 수에서 빠지므로 그해 채용 인원과는 다릅니다.</p>
   </section>`;
 }
 
@@ -347,8 +353,8 @@ export function renderFirmPage({ firm, financials, postings, ranks }) {
   const title = `${firm.name} — 규모·채용 정보 | CPAPING`;
   const description = latest?.revenue != null
     ? `${firm.name}의 매출 ${fmt(latest.revenue, 0)}억원, 회계사 ${latest.cpa_count ?? "-"}명. ` +
-      `수습회계사 채용 이력과 최근 공고를 정리했습니다.`
-    : `${firm.name}의 수습회계사 채용 공고와 채용 이력을 정리했습니다.`;
+      `수습회계사 수와 최근 채용 공고를 정리했습니다.`
+    : `${firm.name}의 수습회계사 채용 공고와 인력 현황을 정리했습니다.`;
 
   return `<!doctype html>
 <html lang="ko">
