@@ -184,11 +184,28 @@ const pages = [
 // ── 법인 페이지 ───────────────────────────────────────────
 // 클라이언트에서 그리면 검색엔진이 못 읽는다. "OO회계법인 규모" 같은
 // 검색으로 들어오게 하는 것이 목적이라 정적으로 찍어낸다.
+/**
+ * 이름값을 하도록 끝까지 받아온다.
+ *
+ * PostgREST 는 한 번에 1,000 행까지만 준다. 더 있어도 오류를 내지 않고
+ * 조용히 잘라서 준다. 그래서 재무가 1,000 행을 넘긴 순간부터 뒤쪽 법인의
+ * 자료가 빌드에서 통째로 빠졌는데, 페이지가 "재무 준비 중" 으로 멀쩡히
+ * 그려져서 티가 나지 않았다.
+ */
+const PAGE = 1000;
+
 async function fetchAll(url, key, path) {
-  const res = await fetch(url.replace(/\/$/, "") + "/rest/v1/" + path,
-                          { headers: { apikey: key } });
-  if (!res.ok) throw new Error(`HTTP ${res.status} — ${path}`);
-  return res.json();
+  const base = url.replace(/\/$/, "") + "/rest/v1/" + path;
+  const sep = path.includes("?") ? "&" : "?";
+  const out = [];
+  for (let offset = 0; ; offset += PAGE) {
+    const res = await fetch(`${base}${sep}limit=${PAGE}&offset=${offset}`,
+                            { headers: { apikey: key } });
+    if (!res.ok) throw new Error(`HTTP ${res.status} — ${path}`);
+    const rows = await res.json();
+    out.push(...rows);
+    if (rows.length < PAGE) return out;
+  }
 }
 
 if (!missing.length) {
