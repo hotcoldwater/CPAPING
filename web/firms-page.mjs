@@ -68,6 +68,10 @@ function toRow(firm, years) {
 }
 
 const CSS = `
+/* index.html 토큰에는 없는 값이라 여기서 정의한다.
+   법인 페이지의 수습 그래프와 같은 색이다. */
+:root { --mark: #8A5A19; }
+
 .wrap { max-width: 1080px; margin: 0 auto; padding: 0 var(--pad-x) 64px; }
 h1.ft { font-size: 21px; font-weight: 600; letter-spacing: -.02em; margin: 26px 0 5px; text-wrap: balance; }
 p.ftsub { color: var(--ink-2); font-size: 12.5px; margin: 0 0 22px; max-width: 62ch; }
@@ -92,7 +96,7 @@ p.ftsub { color: var(--ink-2); font-size: 12.5px; margin: 0 0 22px; max-width: 6
 .toggle[aria-pressed="true"] { background: var(--chip-pt-bg); border-color: #E8D5B8;
   color: var(--mark); font-weight: 500; }
 #sortby { display: none; }
-@media (max-width: 1000px) { #sortby { display: inline-block; } }
+@media (max-width: 920px) { #sortby { display: inline-block; } }
 #q, #region, #sortby { font: inherit; font-size: 12px; padding: 5px 10px;
   border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--ink); }
 #q { width: 140px; }
@@ -107,11 +111,10 @@ p.ftsub { color: var(--ink-2); font-size: 12.5px; margin: 0 0 22px; max-width: 6
    여기서 감춘 값은 전부 법인 상세 페이지에 있다. */
 .scroll { border-top: 1px solid var(--line); }
 table.cmp { border-collapse: collapse; width: 100%; table-layout: auto; }
-.t2, .t3, .t4, .t5 { display: none; }
-@media (min-width: 520px) { .t2 { display: table-cell; } }
-@media (min-width: 660px) { .t3 { display: table-cell; } }
-@media (min-width: 820px) { .t4 { display: table-cell; } }
-@media (min-width: 1000px) { .t5 { display: table-cell; } }
+.t2, .t3, .t4 { display: none; }
+@media (min-width: 560px) { .t2 { display: table-cell; } }
+@media (min-width: 730px) { .t3 { display: table-cell; } }
+@media (min-width: 920px) { .t4 { display: table-cell; } }
 table.cmp thead th { position: sticky; top: 44px; z-index: 2; background: var(--bg);
   border-bottom: 1px solid var(--line); padding: 0; text-align: right;
   font-weight: 500; white-space: nowrap; }
@@ -135,12 +138,14 @@ table.cmp td { padding: 8px 10px; border-bottom: 1px solid var(--line-2); text-a
 }
 table.cmp tbody tr:hover { background: var(--bg-subtle); }
 td.firm { text-align: left; white-space: normal; }
+/* inline-block 폭만으로는 글꼴에 따라 어긋난다. flex 로 자리를 고정한다. */
+td.firm > .cell { display: flex; align-items: baseline; gap: 8px; }
+td.firm .nm { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
 td.firm a { color: var(--ink); text-decoration: none; font-weight: 500; }
 td.firm a:hover { color: var(--accent); text-decoration: underline; }
 /* 순위를 오른쪽으로 맞춰야 자릿수가 늘어도 법인명이 같은 자리에서 시작한다. */
-td.firm .rank { color: var(--ink-3); font-size: 10.5px; margin-right: 8px;
-  font-variant-numeric: tabular-nums; display: inline-block;
-  width: 26px; text-align: right; }
+td.firm .rank { color: var(--ink-3); font-size: 10.5px;
+  font-variant-numeric: tabular-nums; flex: 0 0 26px; text-align: right; }
 td.firm .rg { color: var(--ink-3); font-size: 10.5px; margin-left: 6px; }
 td.firm .b4 { font-size: 9.5px; background: var(--chip-bg); color: var(--chip-fg);
   border-radius: 2px; padding: 1px 4px; margin-left: 6px; vertical-align: 1px; }
@@ -271,7 +276,6 @@ export function renderFirmsPage({ firms, financials }) {
         <option value="cpa">회계사순</option>
         <option value="growth">성장순</option>
         <option value="audit">감사 비중순</option>
-        <option value="perCpa">1인당 매출순</option>
       </select>
       <span class="count" id="count"></span>
     </div>
@@ -283,11 +287,9 @@ export function renderFirmsPage({ firms, financials }) {
             <th data-k="name"><button>법인</button></th>
             <th class="plain">수습</th>
             <th data-k="rev"><button>매출</button></th>
-            <th data-k="tr5" class="t2"><button>5년 수습</button></th>
-            <th data-k="cpa" class="t3"><button>회계사</button></th>
-            <th data-k="growth" class="t4"><button>성장</button></th>
-            <th data-k="audit" class="t5"><button>부문 구성 · 감사</button></th>
-            <th data-k="perCpa" class="t5"><button>1인당</button></th>
+            <th data-k="cpa" class="t2"><button>회계사</button></th>
+            <th data-k="growth" class="t3"><button>성장</button></th>
+            <th data-k="audit" class="t4"><button>부문 구성 · 감사</button></th>
           </tr>
         </thead>
         <tbody id="rows"></tbody>
@@ -353,19 +355,17 @@ function render() {
   rowsEl.innerHTML = list.map((f, i) => {
     const g = f.growth;
     return '<tr>' +
-      '<td class="firm"><span class="rank">' + (i + 1) + '</span>' +
-        '<a href="/firm/' + encodeURIComponent(f.slug) + '">' + esc(f.name) + '</a>' +
+      '<td class="firm"><div class="cell"><span class="rank">' + (i + 1) + '</span>' +
+        '<span class="nm"><a href="/firm/' + encodeURIComponent(f.slug) + '">' + esc(f.name) + '</a>' +
         (f.big4 ? '<span class="b4">빅4</span>' : "") +
-        (f.region ? '<span class="rg">' + esc(f.region) + '</span>' : "") + '</td>' +
+        (f.region ? '<span class="rg">' + esc(f.region) + '</span>' : "") + '</span></div></td>' +
       '<td class="hist"><span class="marks">' + marks(f) + '</span></td>' +
       '<td>' + num(Math.round(f.rev)) + '억</td>' +
-      '<td class="t2">' + (f.tr5 > 0 ? f.tr5 + "명" : '<span class="muted">–</span>') + '</td>' +
-      '<td class="t3">' + f.cpa + '명</td>' +
-      '<td class="t4">' + (g === null ? '<span class="muted">–</span>'
+      '<td class="t2">' + f.cpa + '명</td>' +
+      '<td class="t3">' + (g === null ? '<span class="muted">–</span>'
         : '<span class="' + (g > 0 ? "pos" : "muted") + '">' + (g > 0 ? "+" : "") + g + '%</span>') + '</td>' +
-      '<td class="t5 mixcell">' + mix(f) +
+      '<td class="t4 mixcell">' + mix(f) +
         (f.audit === null ? '' : '<span class="pct">' + f.audit + '%</span>') + '</td>' +
-      '<td class="t5">' + f.perCpa.toFixed(1) + '억</td>' +
     '</tr>';
   }).join("");
 
