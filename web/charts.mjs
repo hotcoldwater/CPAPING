@@ -12,7 +12,7 @@
 export const SERIES = {
   audit: { label: "감사", color: "#2a78d6" },
   tax: { label: "세무", color: "#eb6834" },
-  deal: { label: "딜자문", color: "#1baf7a" },
+  deal: { label: "딜", color: "#1baf7a" },
   other: { label: "기타", color: "#eda100" },
 };
 

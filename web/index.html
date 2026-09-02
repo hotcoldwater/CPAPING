@@ -96,6 +96,13 @@ body {
   position: sticky; top: 0; z-index: 10;
 }
 .wordmark { font-size: 13.5px; font-weight: 600; letter-spacing: -.01em; }
+.tabs { display: flex; gap: 2px; margin-left: 14px; margin-right: auto; }
+.tabs a {
+  font-size: 12.5px; color: var(--ink-2); text-decoration: none;
+  padding: 4px 10px; border-radius: 4px;
+}
+.tabs a:hover { color: var(--ink); background: var(--chip-bg); }
+.tabs a[aria-current] { color: var(--ink); font-weight: 600; background: var(--chip-bg); }
 .status { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ink-2); }
 .dot {
   width: 6px; height: 6px; border-radius: 50%;
@@ -294,6 +301,10 @@ footer .footer-mail { margin-top: 4px; font-size: 11px; opacity: .75; user-selec
 
   <header class="topbar">
     <div class="wordmark">CPAPING</div>
+    <nav class="tabs" aria-label="주요 화면">
+      <a href="/" aria-current="page">공고</a>
+      <a href="/firms">법인</a>
+    </nav>
     <div class="status"><span class="dot" aria-hidden="true"></span>10분마다 확인 중</div>
   </header>
 

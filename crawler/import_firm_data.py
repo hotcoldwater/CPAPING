@@ -37,12 +37,27 @@ def integer(v):
     return int(n) if n is not None else None
 
 
-def find_firm(db, name: str) -> dict | None:
-    """이름이나 별칭으로 법인을 찾는다."""
+def find_firm(db, name: str, create: bool = False) -> dict | None:
+    """이름이나 별칭으로 법인을 찾는다. 없으면 create 일 때 만든다.
+
+    처음에는 공고를 낸 법인만 들어 있었지만, 이제 사업보고서를 낸 회계법인
+    전부를 싣는다. 공고가 없는 법인은 여기서 처음 만들어진다. 크롤러가
+    쓰는 컬럼(공고 이력 등)은 비워 두면 되고, 나중에 그 법인이 공고를
+    올리면 크롤러가 같은 이름으로 찾아 자기 컬럼만 채운다.
+    """
     canonical = firmlib.canonical_name(name)
     rows = db._request("GET", "firms",
                        params={"select": "id,name", "name": f"eq.{canonical}"})
-    return rows[0] if rows else None
+    if rows:
+        return rows[0]
+    if not create:
+        return None
+    made = db._request(
+        "POST", "firms",
+        headers={"Prefer": "return=representation"},
+        json={"name": canonical, "slug": firmlib.slugify(canonical), "aliases": []},
+    )
+    return made[0] if made else None
 
 
 def import_financials(db, path: Path) -> None:
@@ -51,10 +66,9 @@ def import_financials(db, path: Path) -> None:
         print("빈 파일입니다."); return
 
     name = rows[0]["법인명"]
-    firm = find_firm(db, name)
+    firm = find_firm(db, name, create=True)
     if not firm:
-        print(f"❌ '{name}' 을(를) firms 에서 찾지 못했습니다.")
-        print("   공고를 낸 적이 있어야 자동 생성됩니다. 크롤을 먼저 돌리세요.")
+        print(f"❌ '{name}' 법인 행을 만들지 못했습니다.")
         return
 
     # 법인 단위 정보 — 가장 최근 연도 행에서 가져온다

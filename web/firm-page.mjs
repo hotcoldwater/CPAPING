@@ -109,7 +109,7 @@ function revenueSection(fin) {
   }));
 
   const table = dataTable(
-    ["연도", "감사", "세무", "딜자문", "기타", "합계"],
+    ["연도", "감사", "세무", "딜", "기타", "합계"],
     withRevenue.map((f) => [
       yearOf(f.fiscal_year), fmt(num(f.revenue_audit), 2), fmt(num(f.revenue_tax), 2),
       fmt(num(f.revenue_deal), 2), fmt(num(f.revenue_other), 2), fmt(num(f.revenue), 2),
@@ -200,6 +200,49 @@ function headcountSection(fin) {
   </section>`;
 }
 
+/**
+ * 로컬 회계법인 안에서 몇 번째인가.
+ *
+ * "매출 176억" 은 그 자체로는 큰지 작은지 알 수 없다. 몇 곳 중 몇 번째인지가
+ * 있어야 뜻이 생긴다. 빅4 는 자릿수가 달라 같이 세면 로컬끼리의 차이가
+ * 뭉개지므로 빼고 센다.
+ */
+function rankBar(label, rank, total, value, unit) {
+  if (!rank || !total) return "";
+  // 1 위가 왼쪽 끝. 막대는 "위에서 얼마나 왔는가" 를 채운다.
+  const pos = ((total - rank) / (total - 1 || 1)) * 100;
+  const topPct = Math.round((rank / total) * 100);
+  return `
+    <div class="rank">
+      <div class="rank-head">
+        <span class="rank-label">${esc(label)}</span>
+        <span class="rank-val"><b>${esc(rank)}위</b> / ${esc(total)}곳
+          <span class="rank-top">상위 ${topPct}%</span></span>
+      </div>
+      <div class="rank-track">
+        <div class="rank-fill" style="width:${pos.toFixed(1)}%"></div>
+        <div class="rank-mark" style="left:${pos.toFixed(1)}%"></div>
+      </div>
+      <div class="rank-ends"><span>${esc(total)}위</span><span>${esc(value)}${esc(unit)}</span><span>1위</span></div>
+    </div>`;
+}
+
+function rankSection(ranks) {
+  if (!ranks || (!ranks.revenue && !ranks.audit)) return "";
+  const bars = [
+    ranks.revenue ? rankBar("매출액", ranks.revenue.rank, ranks.revenue.total,
+                            ranks.revenue.value, "억") : "",
+    ranks.audit ? rankBar("감사부문 매출", ranks.audit.rank, ranks.audit.total,
+                          ranks.audit.value, "억") : "",
+  ].join("");
+  return `
+  <section>
+    <div class="sec-head"><h2>로컬 회계법인 중 위치</h2><span class="unit">빅4 제외</span></div>
+    ${bars}
+    <p class="caption">사업보고서를 낸 로컬 회계법인끼리 견준 순위입니다.</p>
+  </section>`;
+}
+
 function traineeSection(fin) {
   const rows = fin.filter((f) => f.trainee_count != null);
   if (!rows.length) return "";
@@ -207,33 +250,12 @@ function traineeSection(fin) {
   const data = rows.map((f) => ({ label: yearOf(f.fiscal_year),
                                   value: Number(f.trainee_count) }));
   const hired = data.filter((d) => d.value > 0);
-  const zeros = data.filter((d) => d.value === 0).map((d) => d.label);
-
-  // 최근 흐름을 정확히 말한다. 마지막 해만 보고 쓰면 중간에 많이 뽑은
-  // 해를 건너뛰어 사실과 다른 인상을 준다.
+  // 연도별 인원은 바로 위 그래프가 이미 말하고 있다. 같은 내용을 문장으로
+  // 되풀이하지 않고 그래프가 못 하는 것 — 합계 — 만 적는다.
   const total = hired.reduce((s, d) => s + d.value, 0);
-  const last = data[data.length - 1];
-  let caption;
-
-  if (!hired.length) {
-    caption = `최근 ${data.length}년간 수습회계사 채용 기록이 없습니다.`;
-  } else if (last.value > 0) {
-    let run = 0;
-    for (let i = data.length - 1; i >= 0 && data[i].value > 0; i--) run++;
-    caption = run >= 2
-      ? `최근 ${run}년 연속 채용했습니다. ` +
-        `${data.slice(-run).map((d) => `${d.label}년 ${d.value}명`).join(", ")}.`
-      : `${last.label}년에 ${last.value}명을 채용했습니다.` +
-        (zeros.length ? ` 그 전 ${zeros.length}년간은 채용이 없었습니다.` : "");
-  } else {
-    const recent = [...data].reverse().find((d) => d.value > 0);
-    const since = data.length - 1 - data.findIndex((d) => d === recent);
-    caption = `가장 최근 채용은 ${recent.label}년 ${recent.value}명이며, ` +
-              `이후 ${since}년간 채용이 없었습니다.`;
-  }
-  if (hired.length > 1) {
-    caption += ` ${data.length}년간 모두 ${total}명입니다.`;
-  }
+  const caption = hired.length
+    ? `최근 ${data.length}년간 모두 ${total}명을 채용했습니다.`
+    : `최근 ${data.length}년간 수습회계사 채용 기록이 없습니다.`;
 
   return `
   <section class="trainee-sec">
@@ -300,7 +322,7 @@ function profileSection(firm, latest) {
 
 // ---------------------------------------------------------------------------
 
-export function renderFirmPage({ firm, financials, postings }) {
+export function renderFirmPage({ firm, financials, postings, ranks }) {
   // 오래된 해부터 정렬해 시간 흐름대로 읽히게 한다
   const fin = [...financials].sort((a, b) =>
     String(a.fiscal_year).localeCompare(String(b.fiscal_year)));
@@ -401,6 +423,18 @@ section:last-of-type{border-bottom:0}
   gap:10px;margin-bottom:12px}
 .sec-head h2{margin:0;font-size:14px;font-weight:600;letter-spacing:-.01em}
 .sec-head .unit{font-size:11.5px;color:var(--ink-3)}
+.rank{margin:16px 0 0}
+.rank+.rank{margin-top:20px}
+.rank-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:7px}
+.rank-label{font-size:12.5px;color:var(--ink-2)}
+.rank-val{font-size:12.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.rank-val b{font-size:15px;color:var(--ink);font-weight:600}
+.rank-top{margin-left:7px;font-size:11px;background:var(--chip-bg);color:var(--chip-fg);border-radius:2px;padding:1px 5px}
+.rank-track{position:relative;height:10px;background:var(--line-2);border-radius:2px}
+.rank-fill{position:absolute;left:0;top:0;bottom:0;background:var(--accent);opacity:.16;border-radius:2px}
+.rank-mark{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--accent);border-radius:1px;transform:translateX(-1px)}
+.rank-ends{display:flex;justify-content:space-between;margin-top:5px;font-size:10.5px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.rank-ends span:nth-child(2){color:var(--ink-2)}
 .caption{margin:10px 0 0;font-size:12.5px;color:var(--ink-2)}
 .caption.strong{color:var(--ink);font-weight:500}
 .trainee-sec{background:var(--bg-subtle);margin-inline:calc(var(--pad-x)*-1);
@@ -470,6 +504,7 @@ ${CHART_CSS}
   <main>
     ${revenueSection(fin)}
     ${shareSection(latest)}
+    ${rankSection(ranks)}
     ${headcountSection(fin)}
     ${traineeSection(fin)}
     ${postingsSection(postings, firm.name)}

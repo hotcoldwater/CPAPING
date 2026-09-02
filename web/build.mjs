@@ -12,8 +12,44 @@
 
 import { mkdirSync, readFileSync, writeFileSync, existsSync, copyFileSync } from "node:fs";
 import { renderFirmPage } from "./firm-page.mjs";
+import { renderFirmsPage } from "./firms-page.mjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+/**
+ * 로컬 회계법인 안에서의 순위. 빅4 는 자릿수가 달라 같이 세면 로컬끼리의
+ * 차이가 뭉개지므로 뺀다.
+ */
+function localRanks(firms, financials) {
+  const BIG4 = /^(삼일|삼정|안진|한영)회계법인$/;
+  const latest = new Map();
+  for (const f of financials) {
+    const cur = latest.get(f.firm_id);
+    if (!cur || f.fiscal_year > cur.fiscal_year) latest.set(f.firm_id, f);
+  }
+
+  const pool = firms
+    .filter((f) => !BIG4.test(f.name))
+    .map((f) => ({ id: f.id, row: latest.get(f.id) }))
+    .filter((x) => x.row && Number(x.row.revenue) > 0);
+
+  const out = new Map();
+  const rankBy = (key, label) => {
+    const list = pool
+      .map((x) => ({ id: x.id, v: Number(x.row[key] ?? 0) }))
+      .filter((x) => x.v > 0)
+      .sort((a, b) => b.v - a.v);
+    list.forEach((x, i) => {
+      if (!out.has(x.id)) out.set(x.id, {});
+      out.get(x.id)[label] = {
+        rank: i + 1, total: list.length, value: Math.round(x.v),
+      };
+    });
+  };
+  rankBy("revenue", "revenue");
+  rankBy("revenue_audit", "audit");
+  return out;
+}
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..");
@@ -168,6 +204,8 @@ if (!missing.length) {
         "employment_type,detail_url,removed_at,is_big4&order=posted_at.desc"),
     ]);
 
+    const ranks = localRanks(firms, financials);
+
     let built = 0;
     for (const firm of firms) {
       // 별칭까지 훑어야 지점 표기('삼원회계법인(성서지점)')가 붙는다
@@ -178,11 +216,22 @@ if (!missing.length) {
       const dir = join(out, "firm", firm.slug);
       mkdirSync(dir, { recursive: true });
       writeFileSync(join(dir, "index.html"),
-                    renderFirmPage({ firm, financials: fin, postings: mine }), "utf8");
+                    renderFirmPage({ firm, financials: fin, postings: mine,
+                                     ranks: ranks.get(firm.id) }), "utf8");
       pages.push({ loc: `/firm/${encodeURIComponent(firm.slug)}`, freq: "weekly" });
       built++;
     }
     console.log(`  법인 페이지 ${built}개 생성`);
+
+    // /firms — 법인 비교표. 색과 상단바를 index.html 과 나눠 쓰려고 그쪽
+    // <style> 을 통째로 넣는다. 토큰을 두 군데서 관리하지 않기 위해서다.
+    const baseCss = (html.match(/<style>([\s\S]*?)<\/style>/) || [, ""])[1];
+    const firmsDir = join(out, "firms");
+    mkdirSync(firmsDir, { recursive: true });
+    writeFileSync(join(firmsDir, "index.html"),
+      renderFirmsPage({ firms, financials }).replace("__BASE__", baseCss), "utf8");
+    pages.push({ loc: "/firms", freq: "weekly" });
+    console.log(`  법인 비교표 생성 (/firms)`);
   } catch (err) {
     console.warn(`  법인 페이지를 만들지 못했습니다 (${err.message})`);
   }
