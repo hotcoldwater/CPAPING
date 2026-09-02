@@ -239,6 +239,29 @@ export function renderFirmsPage({ firms, financials }) {
 <meta property="og:locale" content="ko_KR">
 <meta name="theme-color" content="#123A8A">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<script type="application/ld+json">
+${JSON.stringify({
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "회계법인", item: "https://cpaping.com/firms" },
+      ],
+    },
+    {
+      "@type": "Dataset",
+      name: `국내 회계법인 ${rows.length}곳 재무·인력 현황`,
+      description: "각 회계법인이 금융감독원에 제출한 사업보고서에서 매출, 부문별 매출, 회계사 수, 수습회계사 수를 정리한 자료입니다.",
+      url: "https://cpaping.com/firms",
+      inLanguage: "ko-KR",
+      creator: { "@type": "Organization", name: "CPAPING", url: "https://cpaping.com/" },
+      isAccessibleForFree: true,
+      variableMeasured: ["매출액", "부문별 매출", "회계사 수", "수습회계사 수", "상장사 감사 고객"],
+    },
+  ],
+}).replace(/</g, "\\u003c")}
+</script>
 <style>__BASE__${CSS}</style>
 </head>
 <body>

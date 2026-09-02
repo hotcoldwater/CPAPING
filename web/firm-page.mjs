@@ -266,6 +266,16 @@ function rankSection(ranks) {
  * (네트워크회계법인은 11곳 중 10곳), 눈에 띌 만큼 많을 때만 따로 적는다.
  * 미리보기 세 곳에는 사업회사를 먼저 올린다.
  */
+/**
+ * JSON-LD 를 <script> 안에 안전하게 넣는다.
+ *
+ * esc() 를 쓰면 안 된다. 따옴표를 &quot; 로 바꿔 버려 JSON 이 깨진다.
+ * 여기서 막아야 하는 건 하나뿐이다 — 값 안의 '</script>' 가 태그를 닫는 것.
+ */
+function jsonLd(obj) {
+  return JSON.stringify(obj).replace(/</g, "\\u003c");
+}
+
 const PREVIEW = 3;
 
 function clientSection(clients) {
@@ -394,11 +404,17 @@ export function renderFirmPage({ firm, financials, postings, ranks, clients }) {
     firm.is_listed_auditor ? { text: "상장회사 감사인" } : null,
   ].filter(Boolean);
 
-  const title = `${firm.name} — 규모·채용 정보 | CPAPING`;
+  // 제목에 실제로 검색되는 말을 넣는다. '규모·채용 정보' 로는 아무도 찾지
+  // 않는다. 사람들이 치는 건 'OO회계법인 매출', 'OO회계법인 채용' 이다.
+  const title = latest?.revenue != null
+    ? `${firm.name} 매출·회계사 수·채용 정보 | CPAPING`
+    : `${firm.name} 채용 정보 | CPAPING`;
+  const trainee = latest?.trainee_count;
   const description = latest?.revenue != null
-    ? `${firm.name}의 매출 ${fmt(latest.revenue, 0)}억원, 회계사 ${latest.cpa_count ?? "-"}명. ` +
-      `수습회계사 수와 최근 채용 공고를 정리했습니다.`
-    : `${firm.name}의 수습회계사 채용 공고와 인력 현황을 정리했습니다.`;
+    ? `${firm.name}의 매출 ${fmt(latest.revenue, 0)}억원, 회계사 ${latest.cpa_count ?? "-"}명` +
+      (trainee ? `, 수습회계사 ${trainee}명` : "") +
+      `. 5개년 재무와 부문별 매출, 로컬 회계법인 중 순위, 상장사 감사 고객을 정리했습니다.`
+    : `${firm.name}의 채용 공고와 기본 정보를 정리했습니다.`;
 
   return `<!doctype html>
 <html lang="ko">
@@ -417,6 +433,32 @@ export function renderFirmPage({ firm, financials, postings, ranks, clients }) {
 <meta property="og:image" content="${SITE}/og.png">
 <meta property="og:url" content="${SITE}/firm/${encodeURIComponent(firm.slug)}">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<script type="application/ld+json">
+${jsonLd({
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "회계법인", item: `${SITE}/firms` },
+        { "@type": "ListItem", position: 2, name: firm.name },
+      ],
+    },
+    {
+      "@type": "Organization",
+      name: firm.name,
+      url: `${SITE}/firm/${encodeURIComponent(firm.slug)}`,
+      ...(firm.address ? { address: { "@type": "PostalAddress",
+                                      streetAddress: firm.address,
+                                      addressCountry: "KR" } } : {}),
+      ...(firm.homepage ? { sameAs: [firm.homepage] } : {}),
+      ...(latest?.cpa_count ? { numberOfEmployees: {
+            "@type": "QuantitativeValue", value: latest.cpa_count } } : {}),
+      knowsAbout: ["회계감사", "세무자문"],
+    },
+  ],
+})}
+</script>
 <style>
 :root {
   --ink:#101317; --ink-2:#5B6472; --ink-3:#868D99;
