@@ -267,6 +267,25 @@ class Store:
             json=[{"subscriber_id": subscriber_id, "posting_id": pid} for pid in posting_ids],
         )
 
+    def mails_sent_today(self) -> int:
+        """오늘 Resend 로 나간 통수. 무료 캡이 UTC 일 단위로 리셋되므로 UTC 자정 기준.
+
+        구독자 알림과 확인 메일이 같은 한도를 쓰므로 둘 다 센다. 하루 100통
+        규모라 행을 다 받아 세도 부담이 없다. PostgREST 의 count=exact 를 쓰려면
+        _request 가 응답 헤더를 돌려주게 고쳐야 하는데 그만한 값이 없다.
+        """
+        since = datetime.now(timezone.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0).isoformat()
+        notifications = self._request(
+            "GET", "notification_logs",
+            params={"select": "id", "sent_at": f"gte.{since}"},
+        )
+        confirmations = self._request(
+            "GET", "subscribers",
+            params={"select": "id", "confirmation_sent_at": f"gte.{since}"},
+        )
+        return len(notifications) + len(confirmations)
+
     # ------------------------------------------------------------------
     def start_run(self, board: str) -> int | None:
         rows = self._request(

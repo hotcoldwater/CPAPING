@@ -32,10 +32,12 @@ STALE_ALERT_HOURS = 72
 # 확인하지 않은 구독 신청의 보유기간. 개인정보처리방침 제3조와 같아야 한다.
 PENDING_RETENTION_DAYS = 7
 
-# Resend 무료 티어는 하루 100통이다. 공고 1건이 뜨면 구독자 수만큼 나가므로
-# 구독자가 이 수를 넘으면 하루에 공고가 두 번만 떠도 한도를 넘긴다.
-# 넘기 전에 알아야 유료 전환을 준비할 수 있다.
-SUBSCRIBER_WARN_THRESHOLD = 70
+# Resend 무료 티어는 하루 100통이고 UTC 자정에 리셋된다. 한 회차에 발견된
+# 공고는 구독자당 한 통으로 묶이므로 하루 발송량은 대략 '공고가 뜬 회차 수 ×
+# 구독자 수' 다. 구독자가 늘면 평일 오후에 조용히 캡에 걸린다.
+# 구독자 수가 아니라 실제로 나간 통수를 세야 이걸 미리 잡을 수 있다.
+DAILY_MAIL_LIMIT = 100
+DAILY_MAIL_WARN = 80
 
 
 def crawl(dry_run: bool = False, send_mail: bool = True,
@@ -189,13 +191,10 @@ def _notify_subscribers(db, source: str, send_mail: bool) -> int:
     if not subscribers:
         return 0
 
-    if len(subscribers) >= SUBSCRIBER_WARN_THRESHOLD:
-        log.warning(
-            "구독자 %d명 — Resend 무료 티어(하루 100통)에 가까워졌습니다. "
-            "유료 전환을 검토하세요.", len(subscribers)
-        )
+    sent_before = db.mails_sent_today() if send_mail else 0
 
-    total = 0
+    total = 0    # 공고 건수 (crawl_runs.notified_count 로 들어간다)
+    mails = 0    # 실제로 나간 통수 — 한 구독자에게 여러 공고를 한 통에 묶는다
     for subscriber in subscribers:
         rows = db.postings_for_subscriber(source, subscriber)
         if not rows:
@@ -207,13 +206,37 @@ def _notify_subscribers(db, source: str, send_mail: bool) -> int:
             notify.send_to_subscriber(subscriber, rows)
             db.log_notifications(subscriber["id"], [r["id"] for r in rows])
             total += len(rows)
+            mails += 1
         except Exception as exc:
             # 한 명이 실패해도 나머지는 계속 보낸다
             log.warning("발송 실패 (%s): %s", subscriber["email"], exc)
 
     if total:
-        log.info("구독자 %d명에게 공고 %d건 발송", len(subscribers), total)
+        log.info("구독자 %d명에게 공고 %d건 발송 (%d통)", len(subscribers), total, mails)
+        _warn_if_near_daily_limit(sent_before, sent_before + mails, len(subscribers))
     return total
+
+
+def _warn_if_near_daily_limit(before: int, after: int, subscriber_count: int) -> None:
+    """임계값을 넘어서는 회차에서 딱 한 번 알린다.
+
+    크롤이 10분마다 도니 '넘었으면 보낸다' 로 두면 같은 경고가 하루에 수십 번
+    나가고, 그 경고 자체가 한도를 더 먹는다.
+    """
+    if not (before < DAILY_MAIL_WARN <= after):
+        return
+    try:
+        notify.send_alert(
+            "Resend 일일 한도 임박",
+            f"오늘(UTC) {after}통 발송 — 무료 티어 한도 {DAILY_MAIL_LIMIT}통.\n"
+            f"활성 구독자 {subscriber_count}명.\n\n"
+            f"한도를 넘으면 그 뒤 공고는 다음 날 UTC 자정에 캡이 리셋된 뒤에야\n"
+            f"나갑니다(발송 실패 건은 다음 회차에 자동으로 재시도됩니다).\n\n"
+            f"Pro($20/월, 월 50,000통 · 일일 캡 없음) 전환을 검토하세요.\n"
+            f"https://resend.com/settings/billing"
+        )
+    except Exception as exc:
+        log.warning("한도 경고를 못 보냈습니다: %s", exc)
 
 
 def _print_dry_run(postings: list) -> None:

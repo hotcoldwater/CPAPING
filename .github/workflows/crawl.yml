@@ -2,11 +2,9 @@ name: 한공회 공고 크롤링
 
 on:
   schedule:
-    # GitHub Actions 의 cron 은 UTC 기준이다. KST = UTC + 9.
-    # 업무 시간(KST 08:00~20:59)에는 10분 간격
-    - cron: "*/10 23,0-11 * * *"
-    # 그 외 시간(KST 21:00~07:59)에는 1시간 간격
-    - cron: "0 12-22 * * *"
+    # Cloudflare Worker(worker/wrangler.toml)가 죽었을 때를 위한 예비 경로다.
+    # GitHub 의 schedule 은 실행을 보장하지 않으므로 여기에 기대지 않는다.
+    - cron: "*/10 * * * *"
   workflow_dispatch:
     inputs:
       dry_run:
