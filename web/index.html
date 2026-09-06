@@ -120,6 +120,10 @@ body {
 .hero p.sub { margin: 0 0 16px; font-size: 13px; color: var(--ink-2); }
 
 .subscribe { display: flex; }
+/* 사람에게는 보이지 않고 봇만 채우는 칸. display:none 은 봇이 알아채므로
+   화면 밖으로 밀어낸다. 값이 들어오면 서버가 조용히 버린다. */
+.subscribe input.hp { position: absolute; left: -9999px; width: 1px; height: 1px;
+      opacity: 0; pointer-events: none; }
 .subscribe input {
   flex: 1; min-width: 0; font: inherit; font-size: 13.5px;
   padding: 10px 12px; color: var(--ink); background: var(--bg);
@@ -342,6 +346,8 @@ footer .footer-mail { margin-top: 4px; font-size: 11px; opacity: .75; user-selec
     <form class="subscribe" id="subscribe-form">
       <label class="visually-hidden" for="email" hidden>이메일 주소</label>
       <input id="email" type="email" required placeholder="이메일 주소" autocomplete="email">
+      <input class="hp" id="website" type="text" name="website" tabindex="-1"
+             autocomplete="off" aria-hidden="true">
       <button type="submit">구독</button>
     </form>
     <p class="hint" id="hint">구독 시 <a href="/privacy">개인정보처리방침</a>에 따라 이메일 주소가 처리됩니다. 언제든 한 번의 클릭으로 해지할 수 있습니다.</p>
@@ -776,7 +782,7 @@ form.addEventListener("submit", async (e) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       // 지금 보고 있는 필터를 그대로 구독 조건으로 쓴다
-      body: JSON.stringify({ email, filter: state.filter }),
+      body: JSON.stringify({ email, filter: state.filter, website: $("website").value }),
     });
     const data = await res.json().catch(() => ({}));
 

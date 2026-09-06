@@ -14,6 +14,7 @@ import argparse
 import logging
 import sys
 import traceback
+from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 
@@ -28,16 +29,28 @@ log = logging.getLogger("cpaping")
 
 # 이 시간 넘게 신규 공고가 하나도 없으면 파서가 깨졌을 가능성을 의심한다.
 STALE_ALERT_HOURS = 72
+# 그 뒤로는 이 간격으로 한 번씩 다시 알린다. 한 번만 보내면 놓쳤을 때
+# 되돌아올 길이 없고, 회차마다 보내면 10분마다 같은 메일이 나간다.
+STALE_REPEAT_HOURS = 24
 
 # 확인하지 않은 구독 신청의 보유기간. 개인정보처리방침 제3조와 같아야 한다.
 PENDING_RETENTION_DAYS = 7
 
 # Resend 무료 티어는 하루 100통이고 UTC 자정에 리셋된다. 한 회차에 발견된
 # 공고는 구독자당 한 통으로 묶이므로 하루 발송량은 대략 '공고가 뜬 회차 수 ×
-# 구독자 수' 다. 구독자가 늘면 평일 오후에 조용히 캡에 걸린다.
+# 구독자 수' 다. 2026-09-02 에는 공고 6건 · 구독자 17명으로 92통이 나갔다.
 # 구독자 수가 아니라 실제로 나간 통수를 세야 이걸 미리 잡을 수 있다.
 DAILY_MAIL_LIMIT = 100
 DAILY_MAIL_WARN = 80
+
+# 확인 메일이 하루에 쓸 수 있는 몫. functions/api/subscribe.js 의 같은 이름과
+# 맞춰 둔다. 신청 API 가 천장에서 멈춰도 크롤러가 대신 보내 버리면 천장이
+# 없는 것과 같다. 실제 신청은 가장 많았던 날이 11건이라 정상 이용에는
+# 걸리지 않는다.
+DAILY_CONFIRMATION_LIMIT = 40
+
+# 한 번만 알리고 반복하지 않는다는 뜻. _crossed 의 period 로 쓴다.
+ONCE = float("inf")
 
 
 def crawl(dry_run: bool = False, send_mail: bool = True,
@@ -109,6 +122,8 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
             _send_pending_confirmations(db)
 
         # 7. 알림 — 구독자별로 보낸다
+        # 6 이 보낸 통수는 mark_confirmation_sent 로 이미 DB 에 남았으므로
+        # 7 이 다시 세면 그대로 반영된다. 따로 넘겨줄 것이 없다.
         notified = _notify_subscribers(db, source, send_mail)
 
         # 관리자에게도 계속 보낸다. 구독자가 없어도 서비스가 살아있는지 확인할 수 있다.
@@ -121,9 +136,7 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
             log.info("관리자 알림 대상 %d건 (--no-mail 이라 발송 생략)", len(pending))
 
         # 8. 정체 감지
-        stale = db.hours_since_last_new_posting(source)
-        if stale is not None and stale > STALE_ALERT_HOURS:
-            log.warning("%.0f시간째 신규 공고 없음", stale)
+        _alert_if_stale(db, source, board, send_mail)
 
         db.finish_run(
             run_id, status="success", fetched_count=len(postings),
@@ -171,36 +184,80 @@ def _purge_expired_personal_data(db) -> None:
         log.info("해지 후 남아 있던 %d건 삭제", leftover)
 
 
-def _send_pending_confirmations(db) -> None:
-    """확인 메일을 아직 못 보낸 신청 건을 처리한다."""
+def _send_pending_confirmations(db) -> int:
+    """확인 메일을 아직 못 보낸 신청 건을 처리한다. 실제로 보낸 통수를 돌려준다.
+
+    누군가 주소를 바꿔 가며 신청 API 를 두들겨도 구독자 알림에 쓸 몫까지
+    가져가지는 못하게 두 가지 천장을 본다 — 확인 메일 자체의 하루 몫과,
+    오늘 남은 전체 발송 몫. 보낼 것이 있을 때만 센다.
+    """
     waiting = db.pending_confirmations()
+    if not waiting:
+        return 0
+
+    room = min(DAILY_MAIL_LIMIT - db.mails_sent_today(),
+               DAILY_CONFIRMATION_LIMIT - db.confirmations_sent_today())
+    if room <= 0:
+        log.warning("확인 메일 하루 몫을 다 썼습니다 (대기 %d건) — 다음 회차로 미룹니다",
+                    len(waiting))
+        return 0
+
+    waiting = waiting[:room]
+    sent = 0
     for row in waiting:
         try:
             notify.send_confirmation(row["email"], row["confirm_token"],
                                      row.get("unsubscribe_token", ""))
             db.mark_confirmation_sent(row["id"])
+            sent += 1
         except Exception as exc:
             log.warning("확인 메일 발송 실패 (%s): %s", row["email"], exc)
     if waiting:
-        log.info("확인 메일 %d건 발송", len(waiting))
+        log.info("확인 메일 %d건 발송", sent)
+    return sent
 
 
 def _notify_subscribers(db, source: str, send_mail: bool) -> int:
-    """구독자별로 아직 안 보낸 공고를 골라 발송한다."""
+    """구독자별로 아직 안 보낸 공고를 골라 발송한다.
+
+    하루 한도가 있으므로 두 가지를 지킨다.
+
+    - **한도를 넘으면 보내지 않는다.** 넘긴 뒤에 부르면 Resend 가 거절하고,
+      429 재시도로 회차 시간만 버린다. 발송에 성공해야 로그를 남기므로
+      보내지 못한 건은 다음 회차에 그대로 다시 잡힌다.
+    - **오래 기다린 사람부터 보낸다.** 전에는 DB 가 돌려주는 순서 그대로
+      돌아서, 한도에 걸리는 날마다 같은 뒷사람만 계속 밀렸다.
+    """
     subscribers = db.active_subscribers()
     if not subscribers:
         return 0
 
-    sent_before = db.mails_sent_today() if send_mail else 0
+    # (가장 오래 기다린 공고, 구독자, 보낼 공고들)
+    queue = []
+    for subscriber in subscribers:
+        rows = db.postings_for_subscriber(source, subscriber)
+        if rows:
+            queue.append((min(r["first_seen_at"] for r in rows), subscriber, rows))
+    if not queue:
+        return 0
+
+    if not send_mail:
+        for _, subscriber, rows in queue:
+            log.info("%s 에게 보낼 공고 %d건 (--no-mail)", subscriber["email"], len(rows))
+        return 0
+
+    queue.sort(key=lambda item: item[0])
+
+    # 보낼 것이 있을 때만 센다. 조용한 회차마다 세면 하루 수백 번 헛돈다.
+    sent_before = db.mails_sent_today()
+    budget = DAILY_MAIL_LIMIT - sent_before
 
     total = 0    # 공고 건수 (crawl_runs.notified_count 로 들어간다)
     mails = 0    # 실제로 나간 통수 — 한 구독자에게 여러 공고를 한 통에 묶는다
-    for subscriber in subscribers:
-        rows = db.postings_for_subscriber(source, subscriber)
-        if not rows:
-            continue
-        if not send_mail:
-            log.info("%s 에게 보낼 공고 %d건 (--no-mail)", subscriber["email"], len(rows))
+    skipped = 0
+    for _, subscriber, rows in queue:
+        if mails >= budget:
+            skipped += 1
             continue
         try:
             notify.send_to_subscriber(subscriber, rows)
@@ -213,30 +270,83 @@ def _notify_subscribers(db, source: str, send_mail: bool) -> int:
 
     if total:
         log.info("구독자 %d명에게 공고 %d건 발송 (%d통)", len(subscribers), total, mails)
-        _warn_if_near_daily_limit(sent_before, sent_before + mails, len(subscribers))
+    if skipped:
+        log.warning("하루 한도(%d통)에 걸려 %d명 발송을 다음 회차로 미룹니다 "
+                    "(오늘 %d통)", DAILY_MAIL_LIMIT, skipped, sent_before + mails)
+    _warn_if_near_daily_limit(sent_before, sent_before + mails, len(subscribers), skipped)
     return total
 
 
-def _warn_if_near_daily_limit(before: int, after: int, subscriber_count: int) -> None:
-    """임계값을 넘어서는 회차에서 딱 한 번 알린다.
+def _crossed(before: float, after: float, first: float, period: float) -> bool:
+    """처음 first 를 넘는 순간, 그 뒤로는 period 마다 한 번씩만 True.
 
-    크롤이 10분마다 도니 '넘었으면 보낸다' 로 두면 같은 경고가 하루에 수십 번
-    나가고, 그 경고 자체가 한도를 더 먹는다.
+    크롤이 10분마다 도니 '넘었으면 보낸다' 로 두면 같은 경고가 하루에 백 번
+    넘게 나가고, 그 경고 자체가 메일 한도를 먹는다. 직전 값과 견주어 경계를
+    넘는 회차에서만 보낸다. 회차를 걸러도 before 가 그만큼 낮아지므로
+    경계는 그대로 잡힌다.
     """
-    if not (before < DAILY_MAIL_WARN <= after):
+    if after < first:
+        return False
+    n_after = int((after - first) // period)
+    n_before = -1 if before < first else int((before - first) // period)
+    return n_after > n_before
+
+
+def _warn_if_near_daily_limit(before: int, after: int, subscriber_count: int,
+                              skipped: int = 0) -> None:
+    """임계값을 넘어서는 회차에서 딱 한 번 알린다."""
+    if not _crossed(before, after, DAILY_MAIL_WARN, ONCE):
         return
+    tail = (f"\n이번 회차에서 {skipped}명은 한도에 걸려 다음으로 미뤘습니다.\n"
+            if skipped else "\n")
     try:
         notify.send_alert(
             "Resend 일일 한도 임박",
             f"오늘(UTC) {after}통 발송 — 무료 티어 한도 {DAILY_MAIL_LIMIT}통.\n"
-            f"활성 구독자 {subscriber_count}명.\n\n"
-            f"한도를 넘으면 그 뒤 공고는 다음 날 UTC 자정에 캡이 리셋된 뒤에야\n"
-            f"나갑니다(발송 실패 건은 다음 회차에 자동으로 재시도됩니다).\n\n"
+            f"활성 구독자 {subscriber_count}명.\n"
+            f"{tail}\n"
+            f"한도에 닿으면 그 뒤 발송은 건너뛰고 다음 회차에 다시 시도합니다.\n"
+            f"오래 기다린 구독자부터 보내므로 특정인만 계속 밀리지는 않습니다.\n\n"
             f"Pro($20/월, 월 50,000통 · 일일 캡 없음) 전환을 검토하세요.\n"
             f"https://resend.com/settings/billing"
         )
     except Exception as exc:
         log.warning("한도 경고를 못 보냈습니다: %s", exc)
+
+
+def _alert_if_stale(db, source: str, board: str, send_mail: bool) -> None:
+    """신규 공고가 오래 끊기면 메일로 알린다.
+
+    전에는 로그만 남겼다. GitHub Actions 로그를 들여다보지 않으면 파서가
+    깨진 것을 몇 주 동안 모를 수 있었다. 한공회에 공고가 실제로 없는 날도
+    있으므로 실패로 다루지는 않고, 사람이 판단하도록 알리기만 한다.
+    """
+    stale = db.hours_since_last_new_posting(source)
+    if stale is None or stale <= STALE_ALERT_HOURS:
+        return
+    log.warning("%.0f시간째 신규 공고 없음", stale)
+    if not send_mail:
+        return
+
+    previous = db.previous_run_started_at(board)
+    if previous is None:
+        return    # 첫 회차 — 견줄 대상이 없다
+    gap = (datetime.now(timezone.utc) - previous).total_seconds() / 3600
+    if not _crossed(stale - gap, stale, STALE_ALERT_HOURS, STALE_REPEAT_HOURS):
+        return
+
+    try:
+        notify.send_alert(
+            "신규 공고가 오래 끊겼습니다",
+            f"{stale:.0f}시간째 새 공고를 하나도 보지 못했습니다.\n\n"
+            f"한공회에 정말 공고가 없을 수도 있고, 게시판 구조가 바뀌어\n"
+            f"파서가 조용히 빈 결과를 내고 있을 수도 있습니다.\n\n"
+            f"게시판을 직접 확인해 보세요:\n"
+            f"https://www.kicpa.or.kr/home/jobOffrSrchNewGnrl/list.face?listCnt=50\n\n"
+            f"이 알림은 {STALE_REPEAT_HOURS}시간마다 한 번씩 다시 옵니다."
+        )
+    except Exception as exc:
+        log.warning("정체 경고를 못 보냈습니다: %s", exc)
 
 
 def _print_dry_run(postings: list) -> None:
@@ -279,12 +389,18 @@ def main() -> int:
     )
 
     try:
-        return crawl(dry_run=args.dry_run, send_mail=not args.no_mail, board=args.board)
+        code = crawl(dry_run=args.dry_run, send_mail=not args.no_mail, board=args.board)
+        if not args.dry_run:
+            notify.ping_healthcheck(ok=True)
+        return code
     except Exception as exc:
         log.error("크롤 실패: %s", exc)
         traceback.print_exc()
         # 실패를 조용히 넘기지 않고 관리자에게 알린다
         if not args.dry_run:
+            # 핑을 먼저 보낸다. 메일 경로가 통째로 죽어 있어도 밖에서는
+            # 실패했다는 사실이 남는다.
+            notify.ping_healthcheck(ok=False)
             try:
                 notify.send_alert("크롤러 실패", f"{type(exc).__name__}: {exc}\n\n{traceback.format_exc()}")
             except Exception as mail_exc:

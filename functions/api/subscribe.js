@@ -5,7 +5,18 @@
  * 링크를 눌러야 active 가 되는 더블 옵트인이다.
  */
 
-import { supabase, json, token, normalizeEmail, sendMail, SITE } from "../_shared.js";
+import {
+  supabase, json, token, normalizeEmail, sendMail, confirmationsSentToday, SITE,
+} from "../_shared.js";
+
+// 같은 주소로 다시 신청해도 이 시간 안에는 확인 메일을 새로 보내지 않는다.
+// 이게 없으면 한 주소를 반복 호출하는 것만으로 메일을 무한히 보낼 수 있다.
+const RESEND_COOLDOWN_MS = 10 * 60 * 1000;
+
+// 하루에 나갈 수 있는 확인 메일 총량. 실제 신청은 가장 많았던 날이 11건이라
+// 정상 이용에는 걸리지 않는다. 주소를 바꿔 가며 부르는 경우를 막기 위한 천장이고,
+// 여기에 걸려도 신청 자체는 남으므로 다음 날 크롤러가 대신 보낸다.
+const DAILY_CONFIRMATION_LIMIT = 40;
 
 function confirmMail(url, unsubscribeUrl) {
   const text =
@@ -44,6 +55,12 @@ export async function onRequestPost({ request, env }) {
     return json({ error: "잘못된 요청입니다." }, 400);
   }
 
+  // 사람에게는 보이지 않는 칸이다. 값이 들어 있으면 폼을 자동으로 채운
+  // 봇이므로, 성공한 것처럼 응답하고 아무것도 하지 않는다.
+  if (body.website) {
+    return json({ status: "pending" });
+  }
+
   const parsed = normalizeEmail(body.email);
   if (!parsed) {
     return json({ error: "이메일 주소를 다시 확인해 주세요." }, 400);
@@ -54,7 +71,8 @@ export async function onRequestPost({ request, env }) {
   try {
     const existing = await supabase(
       env,
-      `subscribers?select=id,status,confirm_token,unsubscribe_token&email_normalized=eq.${encodeURIComponent(parsed.normalized)}`
+      `subscribers?select=id,status,confirm_token,unsubscribe_token,confirmation_sent_at` +
+        `&email_normalized=eq.${encodeURIComponent(parsed.normalized)}`
     );
 
     let row = existing[0];
@@ -63,6 +81,13 @@ export async function onRequestPost({ request, env }) {
       // 이미 구독 중이라는 사실 자체가 남의 가입 여부를 알려주는 정보가 되지만,
       // 같은 사람이 다시 신청했을 때 아무 안내가 없으면 더 혼란스럽다.
       return json({ status: "already", message: "이미 구독 중인 주소입니다." });
+    }
+
+    // 방금 확인 메일을 받은 주소면 다시 보내지 않는다. 화면에는 성공으로
+    // 보이게 둔다 — 어떤 주소가 쿨다운 중인지 알려 줄 이유가 없다.
+    if (row?.confirmation_sent_at &&
+        Date.now() - Date.parse(row.confirmation_sent_at) < RESEND_COOLDOWN_MS) {
+      return json({ status: "pending" });
     }
 
     if (row) {
@@ -97,6 +122,24 @@ export async function onRequestPost({ request, env }) {
 
     const url = `${SITE}/api/confirm?token=${row.confirm_token}`;
     const unsubscribeUrl = `${SITE}/api/unsubscribe?token=${row.unsubscribe_token}`;
+    // 하루 총량을 넘었으면 보내지 않는다. 신청 행은 그대로 남으므로
+    // 크롤러가 다음 실행 때(캡이 리셋된 뒤) 대신 보낸다.
+    //
+    // 세는 데 실패해도 마찬가지로 보내지 않는다. 신청 행은 이미 만들었으니
+    // 여기서 500 을 돌려주면 "실패했다는 화면을 보고 잠시 뒤 메일을 받는"
+    // 이상한 상태가 된다. 못 세면 안 보내는 쪽이 안전하기도 하다.
+    let sentToday;
+    try {
+      sentToday = await confirmationsSentToday(env);
+    } catch (err) {
+      console.error("확인 메일 통수를 세지 못했습니다:", err.message);
+      return json({ status: "pending" });
+    }
+    if (sentToday >= DAILY_CONFIRMATION_LIMIT) {
+      console.warn("확인 메일 하루 한도 도달 — 발송을 건너뜁니다");
+      return json({ status: "pending" });
+    }
+
     const mail = confirmMail(url, unsubscribeUrl);
     const sent = await sendMail(env, {
       to: parsed.email,

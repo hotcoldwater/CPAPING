@@ -219,6 +219,9 @@ class Store:
             params={
                 "select": "id,email,unsubscribe_token,employment_filter,confirmed_at",
                 "status": "eq.active",
+                # 순서를 지정하지 않으면 DB 가 주는 대로 돌아 매 회차 순서가
+                # 달라질 수 있다. 실제 발송 순서는 main.py 가 다시 정한다.
+                "order": "id.asc",
             },
         )
 
@@ -229,7 +232,7 @@ class Store:
         한꺼번에 보내면 스팸으로 보인다. 그건 사이트에서 보면 된다.
         """
         params = {
-            "select": "id,title,company_name,region,employment_type,deadline,detail_url,original_posted_at",
+            "select": "id,title,company_name,region,employment_type,deadline,detail_url,original_posted_at,first_seen_at",
             "source": f"eq.{source}",
             "is_target": "is.true",
             "is_expired": "is.false",
@@ -267,24 +270,58 @@ class Store:
             json=[{"subscriber_id": subscriber_id, "posting_id": pid} for pid in posting_ids],
         )
 
-    def mails_sent_today(self) -> int:
-        """오늘 Resend 로 나간 통수. 무료 캡이 UTC 일 단위로 리셋되므로 UTC 자정 기준.
+    def confirmations_sent_today(self) -> int:
+        """오늘 나간 확인 메일 통수.
 
-        구독자 알림과 확인 메일이 같은 한도를 쓰므로 둘 다 센다. 하루 100통
-        규모라 행을 다 받아 세도 부담이 없다. PostgREST 의 count=exact 를 쓰려면
-        _request 가 응답 헤더를 돌려주게 고쳐야 하는데 그만한 값이 없다.
+        functions/api/subscribe.js 의 confirmationsSentToday 와 같은 것을 센다.
+        신청 API 가 하루 총량에서 멈춰도 크롤러가 대신 보내 버리면 천장이
+        없는 것과 같아서, 양쪽이 같은 기준을 봐야 한다.
         """
-        since = datetime.now(timezone.utc).replace(
-            hour=0, minute=0, second=0, microsecond=0).isoformat()
-        notifications = self._request(
-            "GET", "notification_logs",
-            params={"select": "id", "sent_at": f"gte.{since}"},
-        )
-        confirmations = self._request(
+        return len(self._request(
             "GET", "subscribers",
-            params={"select": "id", "confirmation_sent_at": f"gte.{since}"},
-        )
-        return len(notifications) + len(confirmations)
+            params={"select": "id",
+                    "confirmation_sent_at": f"gte.{_utc_midnight_iso()}"},
+        ))
+
+    def mails_sent_today(self) -> int:
+        """오늘 Resend 로 나간 **통수**. 무료 캡이 UTC 일 단위로 리셋되므로 UTC 자정 기준.
+
+        전에는 notification_logs 의 행 수를 셌다. 한 통에 공고가 여러 건 실리면
+        행도 여러 개라 실제보다 많게 나왔고, 반대로 관리자에게 나가는 메일은
+        같은 한도를 먹으면서 아예 세지 않았다. 두 오차가 서로를 가려서 캡에
+        다가가는 것을 제때 알 수 없었다.
+
+        하루 100통 규모라 행을 다 받아 세도 부담이 없다. PostgREST 의
+        count=exact 를 쓰려면 _request 가 응답 헤더를 돌려주게 고쳐야 하는데
+        그만한 값이 없다.
+        """
+        since = _utc_midnight_iso()
+
+        subscriber_mails = mails_from_logs(self._request(
+            "GET", "notification_logs",
+            params={"select": "subscriber_id,sent_at", "sent_at": f"gte.{since}"},
+        ))
+
+        confirmations = self.confirmations_sent_today()
+
+        # 관리자 알림도 같은 한도를 쓴다. 신규 공고 알림은 한 회차에 한 통이고
+        # mark_notified 가 한 회차 분을 같은 시각으로 찍으므로, 시각의 가짓수가
+        # 곧 통수다.
+        admin_postings = len({r["notified_at"] for r in self._request(
+            "GET", "job_postings",
+            params={"select": "notified_at", "notified_at": f"gte.{since}"},
+        )})
+
+        # 장애 알림은 실패한 회차마다 한 통씩 나간다.
+        failures = len(self._request(
+            "GET", "crawl_runs",
+            params={"select": "id", "status": "eq.failed",
+                    "started_at": f"gte.{since}"},
+        ))
+
+        # 한도 경고와 정체 경고 자체는 세지 않는다. 둘 다 하루 한 통 남짓이고,
+        # 세려면 어디에도 남지 않는 발송을 따로 기록해야 한다.
+        return subscriber_mails + confirmations + admin_postings + failures
 
     # ------------------------------------------------------------------
     def start_run(self, board: str) -> int | None:
@@ -304,6 +341,25 @@ class Store:
             headers={"Prefer": "return=minimal"},
             json={"finished_at": _now_iso(), **fields},
         )
+
+    def previous_run_started_at(self, board: str) -> datetime | None:
+        """직전 회차가 시작한 시각. 지금 회차는 이미 들어가 있으므로 두 번째 행이다.
+
+        경고를 '넘었으면 보낸다' 로 두면 10분마다 같은 메일이 나간다.
+        직전 회차와 견주어 '이번에 처음 넘었는지' 만 본다.
+        """
+        rows = self._request(
+            "GET", "crawl_runs",
+            params={
+                "select": "started_at",
+                "board": f"eq.{board}",
+                "order": "started_at.desc",
+                "limit": "2",
+            },
+        )
+        if len(rows) < 2:
+            return None
+        return datetime.fromisoformat(rows[1]["started_at"].replace("Z", "+00:00"))
 
     def hours_since_last_new_posting(self, source: str) -> float | None:
         """마지막으로 신규 공고를 본 뒤 흐른 시간(시간 단위).
@@ -326,6 +382,22 @@ class Store:
 
 
 # ----------------------------------------------------------------------
+def _utc_midnight_iso() -> str:
+    """Resend 무료 캡이 UTC 자정에 리셋되므로 하루의 기준은 UTC 자정이다."""
+    return datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0).isoformat()
+
+
+def mails_from_logs(rows: list[dict]) -> int:
+    """발송 로그 행에서 실제 통수를 센다.
+
+    한 구독자에게 여러 공고를 한 통으로 묶어 보내고, log_notifications 가
+    그 통에 실린 공고를 한 번의 INSERT 로 넣는다. 같은 INSERT 안의 행은
+    sent_at 이 정확히 같으므로 (구독자, 시각) 쌍의 개수가 곧 통수다.
+    """
+    return len({(r["subscriber_id"], r["sent_at"]) for r in rows})
+
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 

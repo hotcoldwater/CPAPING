@@ -139,6 +139,32 @@ def send_mail_smtp(subject: str, text_body: str, to: str | None = None) -> None:
 
 
 # ----------------------------------------------------------------------
+# 죽은 사람 스위치
+# ----------------------------------------------------------------------
+
+def ping_healthcheck(ok: bool = True) -> None:
+    """크롤이 끝날 때마다 밖으로 신호를 보낸다.
+
+    지금까지의 장애 알림은 전부 **크롤러가 돌았을 때만** 나갔다. 트리거
+    Worker 가 죽거나 GitHub Actions 가 워크플로를 멈추면 크롤 자체가 뜨지
+    않고, 그러면 알려 줄 코드도 함께 잠든다. 신호가 끊긴 것을 밖에서 보고
+    알려 줄 곳이 있어야 이 구멍이 메워진다.
+
+    HEALTHCHECK_PING_URL 이 없으면 아무 일도 하지 않는다. 핑이 실패해도
+    크롤을 실패로 만들지는 않는다 — 감시 장치가 본체를 넘어뜨리면 안 된다.
+    """
+    url = os.environ.get("HEALTHCHECK_PING_URL", "").strip()
+    if not url:
+        return
+    target = url if ok else f"{url.rstrip('/')}/fail"
+    try:
+        requests.get(target, timeout=10)
+        log.debug("헬스체크 핑 (%s)", "성공" if ok else "실패")
+    except Exception as exc:
+        log.warning("헬스체크 핑을 보내지 못했습니다: %s", exc)
+
+
+# ----------------------------------------------------------------------
 # 공고 알림
 # ----------------------------------------------------------------------
 

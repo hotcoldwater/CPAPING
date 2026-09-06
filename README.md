@@ -262,6 +262,26 @@ GET  /api/confirm?token  → active 로 변경
 GET  /api/unsubscribe?token → 해지 (재확인 없이 한 번에)
 ```
 
+**신청 API 의 발송량 제한.** 아무 제한이 없으면 같은 주소로 반복 호출하는
+것만으로 확인 메일을 무한히 보낼 수 있다. 하루 한도를 남이 소진하면 그날
+구독자 알림이 전부 멈추고, 남의 주소로 메일이 쏟아지면 도메인 평판까지 상한다.
+세 겹으로 막는다.
+
+| 겹 | 무엇을 막나 |
+|---|---|
+| 주소별 쿨다운 10분 | 한 주소를 반복해서 부르는 것 |
+| 하루 총량 40통 | 주소를 바꿔 가며 부르는 것 |
+| 허니팟 (`website` 칸) | 폼을 자동으로 채우는 봇 |
+
+셋 다 걸려도 **신청 자체는 남는다.** 화면에도 성공으로 보인다 — 어떤 주소가
+쿨다운 중인지 알려 줄 이유가 없다. 못 보낸 확인 메일은 크롤러가 다음 회차에
+대신 보낸다.
+
+IP 단위 제한은 코드가 아니라 Cloudflare 대시보드에서 켠다
+(Security > WAF > Rate limiting rules). **무료 플랜은 규칙 1개, 집계 구간 10초,
+차단 10초, 조건은 경로(Path)와 Verified Bot 뿐**이라 하루 총량을 지키지는
+못한다. 초당 연타를 늦추는 과속방지턱일 뿐이고, 실제 천장은 위의 하루 40통이다.
+
 발송 경로가 두 가지다.
 
 | 경로 | 언제 | 비고 |
@@ -351,6 +371,9 @@ python crawler/main.py
 
 # 테스트
 python crawler/test_classify.py
+python crawler/test_repost.py
+python crawler/test_limits.py
+python crawler/test_extract_checks.py
 ```
 
 ### 웹 페이지 미리보기
@@ -380,7 +403,7 @@ npx wrangler deploy
 ### GitHub Actions 시크릿
 
 `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `RESEND_API_KEY`, `CPAPING_MAIL_TO`,
-`CPAPING_SMTP_USER`, `CPAPING_SMTP_APP_PASSWORD`
+`CPAPING_SMTP_USER`, `CPAPING_SMTP_APP_PASSWORD`, `HEALTHCHECK_PING_URL`(선택)
 
 `MAIL_FROM` 은 Variables 든 Secrets 든 어느 쪽에 넣어도 된다. 둘 다 없으면
 코드의 기본값 `CPAPING <noreply@cpaping.com>` 을 쓴다.
@@ -415,11 +438,56 @@ Resend 무료 티어는 **하루 100통, 월 3,000통, 초당 2건**이다. 공�
 | 200명 | 200통 | 약 2,600통 | 하루 한도 초과 |
 
 `notify.py` 가 발송 간격을 0.6초로 벌리고 429 가 오면 재시도한다.
-구독자가 `SUBSCRIBER_WARN_THRESHOLD`(70명)를 넘으면 크롤 로그에 경고가 남는다.
-그때 유료 전환을 검토하면 된다.
+
+한도는 **강제한다.** 오늘 나간 통수를 세서 남은 몫만큼만 보내고, 넘치는 건은
+다음 회차로 미룬다. 넘긴 뒤에 부르면 Resend 가 거절하고 429 재시도로 회차
+시간만 버리기 때문이다. 발송에 성공해야 로그를 남기므로 미룬 건은 다음 회차에
+그대로 다시 잡힌다.
+
+**오래 기다린 사람부터 보낸다.** 예전에는 DB 가 돌려주는 순서대로 돌아서,
+한도에 걸리는 날마다 같은 뒷사람만 계속 밀렸다.
+
+통수는 네 가지를 모두 센다 — 구독자 알림, 확인 메일, 관리자 신규 공고 알림,
+장애 알림. 전에는 `notification_logs` 의 **행 수**를 통수로 셌는데, 한 통에
+공고가 여러 건 실리면 행도 여러 개라 실제보다 많게 나왔다. 반대로 관리자
+메일은 같은 한도를 먹으면서 아예 세지 않았다.
+
+확인 메일에는 하루 몫(`DAILY_CONFIRMATION_LIMIT`, 40통)을 따로 둔다.
+`functions/api/subscribe.js` 의 같은 이름과 맞춰야 한다 — 신청 API 가 천장에서
+멈춰도 크롤러가 대신 보내 버리면 천장이 없는 것과 같다.
 
 모든 발신 메일에 `Reply-To: contact@cpaping.com` 을 넣는다. 답장이 곧 피드백이
 되게 하려는 것이다. 사이트로 돌아와 주소를 찾을 필요가 없다.
+
+---
+
+### 장애 감지
+
+| 감지 대상 | 경로 |
+|---|---|
+| 크롤 트리거 실패 | Worker 가 Resend 로 관리자 메일 |
+| 크롤 중 예외 | 크롤러가 Resend → 실패 시 Gmail SMTP |
+| 목록이 빈 경우 (파서 파손) | 위 경로로 예외 전파 |
+| 72시간째 신규 공고 없음 | 관리자 메일. 그 뒤 24시간마다 한 번씩 |
+| **크롤이 아예 안 도는 경우** | `HEALTHCHECK_PING_URL` (죽은 사람 스위치) |
+
+위 네 가지는 전부 **크롤러가 돌았을 때만** 나간다. 트리거 Worker 가 죽거나
+GitHub Actions 가 워크플로를 멈추면 크롤 자체가 뜨지 않고, 알려 줄 코드도 함께
+잠든다. 그래서 크롤이 끝날 때마다 밖으로 신호를 보내고, 신호가 끊긴 것을
+감시 서비스가 대신 알린다.
+
+```bash
+# healthchecks.io 에서 체크를 하나 만들고 (주기 10분, grace 30분)
+# GitHub Secrets 에만 넣는다
+HEALTHCHECK_PING_URL=https://hc-ping.com/<uuid>
+```
+
+**로컬 `.env` 에는 넣지 않는다.** 손으로 크롤러를 한 번 돌리면 OK 핑이 나가고,
+그러면 운영 크롤이 멈춰 있어도 타이머가 되살아나 경보가 울리지 않는다.
+감시 장치가 감시 대상을 가려 주면 안 된다.
+
+비워 두면 아무 일도 하지 않는다. 핑이 실패해도 크롤을 실패로 만들지 않는다 —
+감시 장치가 본체를 넘어뜨리면 안 된다.
 
 ---
 

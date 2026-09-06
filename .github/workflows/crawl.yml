@@ -48,5 +48,9 @@ jobs:
           # 관리자 장애 알림 예비 경로. 구독자 정보는 지나지 않는다.
           CPAPING_SMTP_USER: ${{ secrets.CPAPING_SMTP_USER }}
           CPAPING_SMTP_APP_PASSWORD: ${{ secrets.CPAPING_SMTP_APP_PASSWORD }}
+          # 죽은 사람 스위치. 크롤이 아예 안 도는 경우는 크롤러 안에서
+          # 잡을 수 없으므로, 밖에서 신호가 끊긴 것을 보고 알리게 한다.
+          # 비워 두면 아무 일도 하지 않는다.
+          HEALTHCHECK_PING_URL: ${{ secrets.HEALTHCHECK_PING_URL }}
         run: |
           python crawler/main.py ${{ inputs.dry_run && '--dry-run' || '' }}

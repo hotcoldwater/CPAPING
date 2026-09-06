@@ -61,6 +61,30 @@ export function normalizeEmail(raw) {
   return { email, normalized: email.toLowerCase() };
 }
 
+/** UTC 자정 ISO 문자열. Resend 무료 캡이 UTC 일 단위로 리셋된다. */
+export function utcMidnight() {
+  const t = new Date();
+  t.setUTCHours(0, 0, 0, 0);
+  return t.toISOString();
+}
+
+/**
+ * 오늘 나간 확인 메일 통수.
+ *
+ * 신청 API 에는 발송량 제한이 없어서, 아무나 임의의 주소로 확인 메일을
+ * 무제한 발송시킬 수 있었다. 하루 한도를 남이 소진하면 그날 구독자 알림이
+ * 전부 멈추고, 남의 주소로 메일이 쏟아지면 도메인 평판까지 상한다.
+ * 주소별 쿨다운만으로는 주소를 바꿔 가며 부르는 것을 막지 못하므로
+ * 하루 총량에도 천장을 둔다.
+ */
+export async function confirmationsSentToday(env) {
+  const rows = await supabase(
+    env,
+    `subscribers?select=id&confirmation_sent_at=gte.${encodeURIComponent(utcMidnight())}`
+  );
+  return rows.length;
+}
+
 /**
  * Resend 로 메일을 보낸다. 키가 없으면 조용히 건너뛴다.
  * 그 경우 크롤러가 다음 실행 때 확인 메일을 대신 보낸다.
