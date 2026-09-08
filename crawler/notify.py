@@ -177,6 +177,28 @@ def _repost_note(row: dict) -> str:
     return f"끌올 · 최초 {first}" if first else ""
 
 
+def _firm_url(company_name: str | None) -> str:
+    """공고를 낸 법인의 CPAPING 페이지 주소.
+
+    알림 메일의 링크가 전부 한공회로 나가면, 매주 닿는 유일한 접점이
+    트래픽을 남에게 넘기는 통로가 된다. 법인 페이지는 우리가 가진 자료
+    (매출·회계사 수·감사 고객)가 있는 곳이라 지원자에게도 쓸모가 있다.
+
+    슬러그 규칙은 firms.slugify 와 같아야 한다. 어긋나면 없는 주소로 링크가
+    걸리므로 여기서 직접 부른다.
+    """
+    if not company_name:
+        return ""
+    import urllib.parse
+
+    import firms
+
+    slug = firms.slugify(firms.canonical_name(company_name))
+    if not slug:
+        return ""
+    return f"{SITE}/firm/{urllib.parse.quote(slug)}/"
+
+
 def _format_posting_text(row: dict) -> str:
     bits = [f"■ {row['title']}"]
     meta = " / ".join(
@@ -194,7 +216,10 @@ def _format_posting_text(row: dict) -> str:
     if note:
         bits.append(f"   {note}")
     # 담당자 연락처는 싣지 않는다. 원문 링크에서 확인하면 된다.
-    bits.append(f"   {row['detail_url']}")
+    bits.append(f"   공고 원문  {row['detail_url']}")
+    firm_url = _firm_url(row.get("company_name"))
+    if firm_url:
+        bits.append(f"   법인 정보  {firm_url}")
     return "\n".join(bits)
 
 
@@ -209,6 +234,7 @@ def _format_posting_html(row: dict) -> str:
         ) if v
     )
     deadline = f"<div style='color:#888'>마감 {h.escape(str(row['deadline']))}</div>" if row.get("deadline") else ""
+    firm_url = _firm_url(row.get("company_name"))
     note = _repost_note(row)
     repost = (
         f"<div style='display:inline-block;margin-top:5px;padding:1px 6px;border-radius:2px;"
@@ -221,9 +247,14 @@ def _format_posting_html(row: dict) -> str:
         f"{h.escape(row['title'])}</a></div>"
         f"<div style='color:#666;font-size:13px'>{meta}</div>"
         f"{deadline}{repost}"
-        f"<div style='margin-top:8px'><a href='{h.escape(row['detail_url'])}' "
-        "style='color:#2563eb;font-size:13px;text-decoration:none'>공고 보기 →</a></div>"
-        "</div>"
+        f"<div style='margin-top:10px;font-size:13px'>"
+        f"<a href='{h.escape(row['detail_url'])}' "
+        "style='color:#123A8A;text-decoration:none;font-weight:500'>공고 원문 →</a>"
+        + (f"<span style='color:#D5D8DD;margin:0 9px'>|</span>"
+           f"<a href='{h.escape(firm_url)}' "
+           "style='color:#5B6472;text-decoration:none'>법인 정보 보기</a>"
+           if firm_url else "")
+        + "</div></div>"
     )
 
 
@@ -330,6 +361,8 @@ def send_to_subscriber(subscriber: dict, rows: list[dict]) -> None:
     text = "\n\n".join(_format_posting_text(r) for r in rows)
     text = (
         f"새로 올라온 공고 {count}건입니다.\n\n{text}\n\n"
+        f"지금 지원할 수 있는 공고 전체와 회계법인 248곳의 매출·회계사 수는\n"
+        f"{SITE} 에서 볼 수 있습니다.\n\n"
         f"— CPAPING\n"
         f"의견이나 요청은 이 메일에 그대로 답장해 주세요.\n"
         f"수신 거부: {unsubscribe}"
@@ -340,7 +373,14 @@ def send_to_subscriber(subscriber: dict, rows: list[dict]) -> None:
         "max-width:600px;margin:0 auto;padding:24px'>"
         f"<div style='font-size:13px;color:#666;margin-bottom:20px'>새로 올라온 공고 {count}건</div>"
         + "".join(_format_posting_html(r) for r in rows)
-        + "<div style='color:#868D99;font-size:12px;margin-top:14px;line-height:1.7'>"
+        + f"<div style='margin:4px 0 18px'>"
+          f"<a href='{SITE}' style='display:inline-block;padding:9px 16px;"
+          "background:#123A8A;color:#fff;text-decoration:none;border-radius:4px;"
+          "font-size:13px;font-weight:500'>지원 가능한 공고 전체 보기</a>"
+          "<div style='color:#868D99;font-size:11.5px;margin-top:7px'>"
+          "회계법인 248곳의 매출·회계사 수·감사 고객도 함께 볼 수 있습니다.</div></div>"
+        + "<div style='color:#868D99;font-size:12px;margin-top:14px;line-height:1.7;"
+          "border-top:1px solid #EFF1F4;padding-top:14px'>"
         "의견이나 요청은 이 메일에 그대로 답장해 주세요.<br>"
         "CPAPING · "
         f"<a href='{unsubscribe}' style='color:#868D99'>수신 거부</a> · "

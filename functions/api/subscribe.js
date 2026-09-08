@@ -69,6 +69,8 @@ export async function onRequestPost({ request, env }) {
   }
 
   const filter = ["all", "full", "part"].includes(body.filter) ? body.filter : "all";
+  // 지역무관 공고는 어느 값에서도 빠지지 않는다 — crawler/regions.py 참고
+  const region = ["all", "capital", "local"].includes(body.region) ? body.region : "all";
 
   try {
     const existing = await supabase(
@@ -102,6 +104,7 @@ export async function onRequestPost({ request, env }) {
           status: "pending",
           confirm_token: confirm,
           employment_filter: filter,
+          region_filter: region,
           confirmation_sent_at: null,
           unsubscribed_at: null,
         }),
@@ -117,6 +120,7 @@ export async function onRequestPost({ request, env }) {
           confirm_token: token(),
           unsubscribe_token: token(),
           employment_filter: filter,
+          region_filter: region,
         }),
       });
       row = created[0];

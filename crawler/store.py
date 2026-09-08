@@ -13,6 +13,8 @@ from datetime import date, datetime, timedelta, timezone
 
 import requests
 
+import regions
+
 log = logging.getLogger(__name__)
 
 TIMEOUT_SEC = 30
@@ -217,7 +219,7 @@ class Store:
         return self._request(
             "GET", "subscribers",
             params={
-                "select": "id,email,unsubscribe_token,employment_filter,confirmed_at",
+                "select": "id,email,unsubscribe_token,employment_filter,region_filter,confirmed_at",
                 "status": "eq.active",
                 # 순서를 지정하지 않으면 DB 가 주는 대로 돌아 매 회차 순서가
                 # 달라질 수 있다. 실제 발송 순서는 main.py 가 다시 정한다.
@@ -244,6 +246,12 @@ class Store:
         employment = {"full": "neq.Part Time", "part": "eq.Part Time"}
         if subscriber.get("employment_filter") in employment:
             params["employment_type"] = employment[subscriber["employment_filter"]]
+
+        # 지역무관 공고는 어느 필터에도 걸리지 않고 모두에게 나간다.
+        # 지역 판정이 틀려서 공고를 감추면 지원자가 기회를 놓치기 때문이다.
+        region_filter = subscriber.get("region_filter")
+        if region_filter in (regions.CAPITAL_GROUP, regions.LOCAL_GROUP):
+            params["region_group"] = f"in.({region_filter},{regions.ANY})"
 
         candidates = self._request("GET", "job_postings", params=params)
         if not candidates:
@@ -429,6 +437,9 @@ def to_light_row(posting) -> dict:
         "title": posting.title,
         "hiring_status": posting.hiring_status or None,
         "view_count": posting.view_count,
+        # 지역은 목록에도 나오는 값이라 여기서 함께 갱신한다. regions.py 의
+        # 규칙을 고치면 다음 크롤에 기존 공고까지 스스로 맞춰진다.
+        "region_group": regions.group(posting.region),
         "last_seen_at": _now_iso(),
     }
 
@@ -444,6 +455,9 @@ def to_row(posting) -> dict:
         "title": posting.title,
         "company_name": posting.company_name or None,
         "region": posting.region or None,
+        # 자유 텍스트인 지역을 구독 필터가 쓸 수 있게 시·도로 묶어 둔다.
+        # 규칙은 regions.py 한 곳에만 있다.
+        "region_group": regions.group(posting.region),
         "work_region": posting.work_region or None,
         "employment_type": posting.employment_type or None,
         "hiring_status": posting.hiring_status or None,

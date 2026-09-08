@@ -100,7 +100,7 @@ let html = readFileSync(join(HERE, "index.html"), "utf8");
  */
 async function fetchPostings(url, key) {
   const query =
-    "/rest/v1/job_postings?select=company_name,title,region,deadline,posted_at," +
+    "/rest/v1/job_postings?select=company_name,title,region,region_group,deadline,posted_at," +
     "employment_type,detail_url,removed_at,original_posted_at,repost_count" +
     "&is_target=is.true&order=posted_at.desc";
   const res = await fetch(url.replace(/\/$/, "") + query, { headers: { apikey: key } });
@@ -221,7 +221,7 @@ if (!missing.length) {
       fetchAll(url, key, "firms?select=*&order=name.asc"),
       fetchAll(url, key, "firm_financials?select=*"),
       fetchAll(url, key,
-        "job_postings?select=company_name,title,region,deadline,posted_at," +
+        "job_postings?select=company_name,title,region,region_group,deadline,posted_at," +
         "employment_type,detail_url,removed_at,is_big4&order=posted_at.desc"),
     ]);
 

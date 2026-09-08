@@ -123,6 +123,15 @@ body {
 .hero p.sub { margin: 0 0 16px; font-size: 13px; color: var(--ink-2); }
 
 .subscribe { display: flex; }
+.scope {
+  margin: 8px 0 0; font-size: 12px; color: var(--ink-2);
+  padding: 6px 9px; background: var(--bg-subtle);
+  border: 1px solid var(--line); border-radius: var(--radius);
+}
+.scope b { color: var(--ink); font-weight: 600; }
+.linkish { font: inherit; font-size: inherit; color: var(--accent);
+           background: none; border: 0; padding: 0; cursor: pointer;
+           text-decoration: underline; }
 /* 사람에게는 보이지 않고 봇만 채우는 칸. display:none 은 봇이 알아채므로
    화면 밖으로 밀어낸다. 값이 들어오면 서버가 조용히 버린다. */
 .subscribe input.hp { position: absolute; left: -9999px; width: 1px; height: 1px;
@@ -188,6 +197,23 @@ body {
   background: var(--bg-subtle); border-bottom: 1px solid var(--line);
 }
 .filters { display: flex; gap: 5px; }
+.controls .facets { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+.controls .right { display: flex; gap: 6px; align-items: center; }
+.search {
+  font: inherit; font-size: 11.5px; width: 128px; min-width: 0;
+  padding: 4px 8px; border-radius: var(--radius);
+  color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+}
+.search::placeholder { color: #A2A6AD; }
+.search:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+/* 지역 묶음을 고용형태와 시각적으로 갈라 준다 */
+#regions { padding-left: 5px; border-left: 1px solid var(--line); }
+@media (max-width: 560px) {
+  .controls { flex-wrap: wrap; }
+  .controls .right { width: 100%; }
+  .search { flex: 1; width: auto; }
+  #regions { padding-left: 0; border-left: 0; }
+}
 .filters button {
   font: inherit; font-size: 11.5px; cursor: pointer;
   padding: 4px 10px; border-radius: var(--radius);
@@ -353,7 +379,8 @@ footer .footer-mail { margin-top: 4px; font-size: 11px; opacity: .75; user-selec
              autocomplete="off" aria-hidden="true">
       <button type="submit">구독</button>
     </form>
-    <p class="hint" id="hint">구독 시 <a href="/privacy">개인정보처리방침</a>에 따라 이메일 주소가 처리됩니다. 언제든 한 번의 클릭으로 해지할 수 있습니다.</p>
+    <p class="scope" id="sub-scope" hidden></p>
+    <p class="hint" id="hint" aria-live="polite">구독 시 <a href="/privacy">개인정보처리방침</a>에 따라 이메일 주소가 처리됩니다. 언제든 한 번의 클릭으로 해지할 수 있습니다.</p>
 
     <div class="subscribed" id="subscribed" hidden>
       <div class="ok"><span class="check" aria-hidden="true"></span><span id="subscribed-msg"></span></div>
@@ -368,8 +395,15 @@ footer .footer-mail { margin-top: 4px; font-size: 11px; opacity: .75; user-selec
   </section>
 
   <div class="controls" id="controls">
-    <div class="filters" id="filters" role="group" aria-label="고용형태"></div>
-    <button type="button" class="sort" id="sort"></button>
+    <div class="facets">
+      <div class="filters" id="filters" role="group" aria-label="고용형태"></div>
+      <div class="filters" id="regions" role="group" aria-label="지역"></div>
+    </div>
+    <div class="right">
+      <input class="search" id="search" type="search" autocomplete="off"
+             placeholder="법인명·공고 검색" aria-label="법인명 또는 공고 제목으로 검색">
+      <button type="button" class="sort" id="sort"></button>
+    </div>
   </div>
 
   <div class="rows" id="rows"></div>
@@ -433,6 +467,15 @@ const FILTERS = [
   { key: "part", label: "파트타임", match: (p) => p.employment_type === "Part Time" },
 ];
 
+// 지역무관 공고는 어느 쪽에도 걸리지 않고 항상 보인다. 지역 판정이 틀려서
+// 공고를 감추면 지원자가 기회를 놓치기 때문이다. region_group 은 크롤러가
+// crawler/regions.py 규칙으로 채운다 — 여기서 다시 계산하지 않는다.
+const REGIONS = [
+  { key: "all",     label: "전국",  match: () => true },
+  { key: "capital", label: "수도권", match: (p) => p.region_group !== "local" },
+  { key: "local",   label: "지방",  match: (p) => p.region_group !== "capital" },
+];
+
 const SORTS = {
   // 목록이 하는 일은 "지난번 이후 뭐가 바뀌었나" 를 보여주는 것이라
   // 최신순을 기본으로 둔다. 마감 임박 건은 D-day 가 빨갛게 표시된다.
@@ -441,7 +484,7 @@ const SORTS = {
 };
 const DEFAULT_SORT = "posted";
 
-const state = { postings: [], filter: "all", sort: DEFAULT_SORT };
+const state = { postings: [], filter: "all", region: "all", query: "", sort: DEFAULT_SORT };
 
 const $ = (id) => document.getElementById(id);
 
@@ -648,33 +691,58 @@ function renderClosed() {
   }
 }
 
-function renderFilters() {
-  const open = openPostings();
-  const box = $("filters");
+/** 검색어에만 걸러진 목록. 각 필터의 건수를 셀 때 기준이 된다. */
+function searched() {
+  const q = state.query.trim().toLowerCase().replace(/\s+/g, "");
+  if (!q) return openPostings();
+  return openPostings().filter((p) =>
+    ((p.company_name || "") + (p.title || "")).toLowerCase().replace(/\s+/g, "").includes(q));
+}
+
+/** 필터 묶음 하나를 그린다. 건수는 '나를 뺀 나머지 조건' 을 적용한 결과다 —
+ *  그래야 버튼을 눌렀을 때 나오는 숫자와 버튼에 적힌 숫자가 같다. */
+function renderFacet(boxId, defs, current, onPick, otherMatch) {
+  const pool = searched().filter(otherMatch);
+  const box = $(boxId);
   box.replaceChildren();
-  for (const f of FILTERS) {
-    const n = open.filter(f.match).length;
+  for (const f of defs) {
+    const n = pool.filter(f.match).length;
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.setAttribute("aria-pressed", String(state.filter === f.key));
+    btn.setAttribute("aria-pressed", String(current === f.key));
     btn.append(f.label);
     const count = document.createElement("span");
     count.className = "n";
     count.textContent = n;
     btn.append(count);
     btn.disabled = n === 0 && f.key !== "all";
-    btn.onclick = () => {
-      state.filter = f.key;
-      remember.set("filter", f.key);
-      renderList();
-    };
+    btn.onclick = () => onPick(f.key);
     box.append(btn);
   }
 }
 
+function currentFilter() { return FILTERS.find((f) => f.key === state.filter) || FILTERS[0]; }
+function currentRegion() { return REGIONS.find((r) => r.key === state.region) || REGIONS[0]; }
+
+function renderFilters() {
+  renderFacet("filters", FILTERS, state.filter, (key) => {
+    state.filter = key;
+    remember.set("filter", key);
+    renderList();
+  }, currentRegion().match);
+
+  renderFacet("regions", REGIONS, state.region, (key) => {
+    state.region = key;
+    remember.set("region", key);
+    renderList();
+  }, currentFilter().match);
+}
+
 function renderList() {
-  const filter = FILTERS.find((f) => f.key === state.filter) || FILTERS[0];
-  const list = openPostings().filter(filter.match).sort(SORTS[state.sort].compare);
+  const list = searched()
+    .filter(currentFilter().match)
+    .filter(currentRegion().match)
+    .sort(SORTS[state.sort].compare);
 
   $("count").textContent = list.length ? list.length + "건" : "0건";
   $("empty").hidden = list.length > 0;
@@ -703,6 +771,37 @@ function renderList() {
 
   renderFilters();
   renderClosed();
+  renderSubscribeScope();
+}
+
+/** 지금 고른 조건으로 구독된다는 것을 폼 옆에 적어 둔다.
+ *  축이 둘이 되면서 "왜 이 공고는 안 왔지" 가 생길 수 있어졌다. */
+function renderSubscribeScope() {
+  const box = $("sub-scope");
+  const parts = [];
+  if (state.region !== "all") parts.push(REGIONS.find((r) => r.key === state.region).label);
+  if (state.filter !== "all") parts.push(FILTERS.find((f) => f.key === state.filter).label);
+  if (!parts.length) { box.hidden = true; return; }
+  box.hidden = false;
+  box.replaceChildren();
+  box.append("지금 고른 조건 ");
+  const b = document.createElement("b");
+  b.textContent = parts.join(" · ");
+  box.append(b, " 공고만 받습니다. ");
+  const reset = document.createElement("button");
+  reset.type = "button";
+  reset.className = "linkish";
+  reset.textContent = "전부 받기";
+  reset.onclick = () => {
+    state.filter = "all"; state.region = "all";
+    remember.set("filter", "all"); remember.set("region", "all");
+    renderList();
+  };
+  box.append(reset);
+  const note = document.createElement("span");
+  note.style.cssText = "display:block;margin-top:3px;color:var(--ink-3);font-size:11.5px";
+  note.textContent = "지역무관 공고는 어느 조건에서도 함께 받습니다.";
+  if (state.region !== "all") box.append(note);
 }
 
 function render(postings) {
@@ -712,7 +811,16 @@ function render(postings) {
 
 async function load() {
   state.filter = remember.get("filter", "all");
+  const savedRegion = remember.get("region", "all");
+  state.region = REGIONS.some((r) => r.key === savedRegion) ? savedRegion : "all";
   const savedSort = remember.get("sort", DEFAULT_SORT);
+
+  // 검색어는 기억하지 않는다. 다음 방문에 걸러진 목록이 나오면
+  // 공고가 없어진 것으로 오해한다.
+  $("search").addEventListener("input", (e) => {
+    state.query = e.target.value;
+    renderList();
+  });
   state.sort = SORTS[savedSort] ? savedSort : DEFAULT_SORT;
 
   $("sort").onclick = () => {
@@ -726,7 +834,7 @@ async function load() {
   try {
     // 내려간 공고도 함께 받아 하단 구역에 보여준다
     const url = SUPABASE_URL +
-      "/rest/v1/job_postings?select=company_name,title,region,deadline,posted_at," +
+      "/rest/v1/job_postings?select=company_name,title,region,region_group,deadline,posted_at," +
       "employment_type,detail_url,removed_at,original_posted_at,repost_count" +
       "&is_target=is.true&order=posted_at.desc";
     const res = await fetch(url, { headers: { apikey: SUPABASE_KEY } });
@@ -765,6 +873,50 @@ function showSent(email, status) {
   $("subscribed").hidden = false;
 }
 
+// ── 도메인 오타 교정 ────────────────────────────────────────
+// 실제로 gkrjsgnl13@naver.co 로 신청한 사람이 있었고 확인 메일이 반송됐다.
+// 오타는 본인이 알아채지 못하므로 영영 구독이 완료되지 않는다.
+// 막지는 않는다 — 제안만 하고, 그대로 보내겠다면 보낸다.
+const KNOWN_DOMAINS = [
+  "naver.com", "gmail.com", "daum.net", "hanmail.net", "kakao.com",
+  "nate.com", "outlook.com", "hotmail.com", "icloud.com", "yahoo.com",
+];
+
+// 편집거리가 1 이하인지 본다. 두 글자 이상 다르면 다른 도메인일 가능성이
+// 높아 제안하지 않는다 — 엉뚱한 제안이 오타보다 더 헷갈린다.
+//
+// 자리바꿈(gmail → gmial)을 1 로 세는 Damerau 거리를 쓴다. 흔한 오타의
+// 상당수가 자리바꿈이라, 이걸 2 로 세면 정작 필요한 제안을 놓친다.
+function within1(a, b) {
+  if (a === b) return false;
+  if (Math.abs(a.length - b.length) > 1) return false;
+  const rows = [];
+  for (let i = 0; i <= a.length; i++) rows.push(new Array(b.length + 1).fill(0));
+  for (let i = 0; i <= a.length; i++) rows[i][0] = i;
+  for (let j = 0; j <= b.length; j++) rows[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      rows[i][j] = Math.min(rows[i - 1][j] + 1, rows[i][j - 1] + 1, rows[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        rows[i][j] = Math.min(rows[i][j], rows[i - 2][j - 2] + 1);
+      }
+    }
+  }
+  return rows[a.length][b.length] <= 1;
+}
+
+function suggestEmail(email) {
+  const at = email.lastIndexOf("@");
+  if (at < 1) return null;
+  const local = email.slice(0, at), domain = email.slice(at + 1).toLowerCase();
+  if (KNOWN_DOMAINS.includes(domain)) return null;
+  const hit = KNOWN_DOMAINS.find((d) => within1(domain, d));
+  return hit ? local + "@" + hit : null;
+}
+
+let typoOffered = "";   // 같은 주소로 다시 누르면 그대로 보낸다
+
 function showError(message) {
   const hint = $("hint");
   hint.textContent = message;
@@ -776,6 +928,24 @@ form.addEventListener("submit", async (e) => {
   const email = $("email").value.trim();
   if (!email) return;
 
+  const suggestion = suggestEmail(email);
+  if (suggestion && typoOffered !== email) {
+    typoOffered = email;
+    const hint = $("hint");
+    hint.hidden = false;
+    hint.classList.remove("error");
+    hint.innerHTML =
+      '혹시 <b>' + suggestion.replace(/[&<>"]/g, "") + '</b> 인가요? ' +
+      '<button type="button" id="fix-email" class="linkish">이 주소로 바꾸기</button>' +
+      '<br>맞다면 <b>구독</b>을 한 번 더 누르세요.';
+    $("fix-email").addEventListener("click", () => {
+      $("email").value = suggestion;
+      typoOffered = suggestion;
+      form.requestSubmit();
+    });
+    return;
+  }
+
   button.disabled = true;
   button.textContent = "전송 중";
   $("hint").classList.remove("error");
@@ -784,8 +954,9 @@ form.addEventListener("submit", async (e) => {
     const res = await fetch("/api/subscribe", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      // 지금 보고 있는 필터를 그대로 구독 조건으로 쓴다
-      body: JSON.stringify({ email, filter: state.filter, website: $("website").value }),
+      // 지금 보고 있는 필터(고용형태·지역)를 그대로 구독 조건으로 쓴다
+      body: JSON.stringify({ email, filter: state.filter, region: state.region,
+                             website: $("website").value }),
     });
     const data = await res.json().catch(() => ({}));
 
