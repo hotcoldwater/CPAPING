@@ -111,10 +111,14 @@ p.ftsub { color: var(--ink-2); font-size: 12.5px; margin: 0 0 22px; max-width: 6
    화면이 넓어지는 만큼 칸을 붙인다. 반대로 만들면(다 넣고 좁을 때 감추면)
    폰에서 옆으로 밀리는 표가 된다.
    여기서 감춘 값은 전부 법인 상세 페이지에 있다. */
+/* overflow-x 를 주면 안 된다. 스크롤 컨테이너가 되면서 thead 의 sticky 가
+   페이지가 아니라 이 상자에 붙어, 머리글이 첫 행을 44px 덮는다. 넘침은
+   아래 min-width 규칙을 폰에서 빼는 것으로 막는다. */
 .scroll { border-top: 1px solid var(--line); }
 table.cmp { border-collapse: collapse; width: 100%; table-layout: auto; }
-.t2, .t3, .t4 { display: none; }
-@media (min-width: 560px) { .t2 { display: table-cell; } }
+/* 폰 기본은 법인·수습·매출·회계사 네 칸. "비교표" 인데 폰에서 숫자가 하나도
+   없으면 목록일 뿐이라, 회계사 수까지는 붙인다. 371px 에 들어가는지 재서 정했다. */
+.t3, .t4 { display: none; }
 @media (min-width: 730px) { .t3 { display: table-cell; } }
 @media (min-width: 920px) { .t4 { display: table-cell; } }
 table.cmp thead th { position: sticky; top: 44px; z-index: 2; background: var(--bg);
@@ -184,6 +188,11 @@ td.hist { text-align: center; }
    중요한 칸만 남기고 한눈에 들어오는 편이 낫다. */
 @media (max-width: 900px) {
   .opt { display: none; }
+}
+/* 태블릿에서 칸이 짓눌리지 않게 최소폭을 두되, 폰(560 미만)에는 주지 않는다.
+   폰까지 560px 를 강제하면 표가 페이지 전체를 밀어 제목·타일이 오른쪽에서
+   잘린다 — 실제로 그랬다(뷰포트 371 에 콘텐츠 596). */
+@media (min-width: 560px) and (max-width: 900px) {
   table.cmp { min-width: 560px; }
 }
 @media (max-width: 620px) {

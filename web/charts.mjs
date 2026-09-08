@@ -43,9 +43,13 @@ function ticks(max, count = 3) {
  * rows: [{ label, segments: [{key, value}], total }]
  * 세그먼트 사이에 2px 를 비워 경계가 색만으로 갈리지 않게 한다.
  */
-export function stackedBars({ rows, series, unit, totalLabel = (t) => t }) {
-  const W = 620, H = 230;
-  const padL = 42, padR = 12, padT = 26, padB = 34;
+export function stackedBars({ rows, series, unit, totalLabel = (t) => t,
+                              width = 620, className = "" }) {
+  // 폰용은 360 으로 그린다. 620 을 폰 폭으로 눌러 보이면 축 글자가 6px 가
+  // 되고, 그대로 두면 옆으로 밀어야 5년 중 3년만 보인다. 두 장을 그려 두고
+  // CSS 가 폭에 맞는 쪽만 보여준다 — 정적 SVG 라 이 방법밖에 없다.
+  const W = width, H = 230;
+  const padL = W < 480 ? 38 : 42, padR = W < 480 ? 10 : 12, padT = 26, padB = 34;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
 
@@ -92,7 +96,8 @@ export function stackedBars({ rows, series, unit, totalLabel = (t) => t }) {
     })
     .join("");
 
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img">` +
+  const cls = className ? ` class="${className}"` : "";
+  return `<svg${cls} viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img">` +
          `${grid}${bars}</svg>`;
 }
 
@@ -183,6 +188,13 @@ export const CHART_CSS = `
   background-attachment: local, local, scroll, scroll;
 }
 .chart svg { display:block; min-width:520px; }
+/* 좁은 화면에서는 폰용 SVG 로 바꿔 끼우고, 옆으로 밀 일이 없으니 그림자도 뺀다 */
+.chart svg.narrow { display:none; }
+@media (max-width: 559px) {
+  .chart { overflow-x:visible; background:none; }
+  .chart svg.wide { display:none; }
+  .chart svg.narrow { display:block; min-width:0; height:auto; }
+}
 
 .share { display:flex; height:26px; border-radius:3px; overflow:hidden; gap:2px; background:${SURFACE}; }
 .share-seg { height:100%; }

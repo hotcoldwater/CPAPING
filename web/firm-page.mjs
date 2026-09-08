@@ -11,6 +11,11 @@
 import { SERIES, stackedBars, legend, shareBar, traineeHistory, dataTable, CHART_CSS }
   from "./charts.mjs";
 
+/** 넓은 화면용과 폰용 SVG 를 함께 심는다. 어느 쪽을 보일지는 charts.mjs 의 CSS 가 정한다. */
+const chart = (opts) =>
+  stackedBars({ ...opts, width: 620, className: "wide" }) +
+  stackedBars({ ...opts, width: 360, className: "narrow" });
+
 const SITE = "https://cpaping.com";
 
 const esc = (s) =>
@@ -136,8 +141,8 @@ function revenueSection(fin) {
   <section>
     <div class="sec-head"><h2>매출 추이</h2><span class="unit">단위: 억원</span></div>
     ${legend(keys, SERIES)}
-    <div class="chart">${stackedBars({ rows, series: SERIES, unit: "억",
-                                       totalLabel: (t) => fmt(t, 1) })}</div>
+    <div class="chart">${chart({ rows, series: SERIES, unit: "억",
+                                 totalLabel: (t) => fmt(t, 1) })}</div>
     ${revenueCaption(withRevenue)}
     <details class="table-toggle"><summary>표로 보기</summary>${table}</details>
   </section>`;
@@ -211,8 +216,8 @@ function headcountSection(fin) {
   <section>
     <div class="sec-head"><h2>인력 추이</h2><span class="unit">단위: 명</span></div>
     ${legend(["partner", "staff"], series)}
-    <div class="chart">${stackedBars({ rows: bars, series, unit: "명",
-                                       totalLabel: (t) => fmt(t, 0) })}</div>
+    <div class="chart">${chart({ rows: bars, series, unit: "명",
+                                 totalLabel: (t) => fmt(t, 0) })}</div>
     <p class="caption">파트너는 회계사 수에 포함된 값입니다.</p>
   </section>`;
 }
