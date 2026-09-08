@@ -123,6 +123,7 @@ body {
 .hero p.sub { margin: 0 0 16px; font-size: 13px; color: var(--ink-2); }
 
 .subscribe { display: flex; }
+.topbar .me{margin-left:10px;font-size:12.5px;color:var(--ink-2);text-decoration:none;padding:4px 10px;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg)} .topbar .me:hover{color:var(--accent);border-color:var(--accent)}
 .scope {
   margin: 8px 0 0; font-size: 12px; color: var(--ink-2);
   padding: 6px 9px; background: var(--bg-subtle);
@@ -366,6 +367,8 @@ footer .footer-mail { margin-top: 4px; font-size: 11px; opacity: .75; user-selec
       <a href="/firms/">법인</a>
     </nav>
     <div class="status"><span class="dot" aria-hidden="true"></span>1분마다 확인 중</div>
+    <a class="me me-after-status" id="auth-link" href="/login/">로그인</a>
+<script>(function(){try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(/^sb-.*-auth-token$/.test(k)&&localStorage.getItem(k)){var a=document.getElementById("auth-link");a.textContent="내 계정";a.href="/account/";break;}}}catch(e){}})();</script>
   </header>
 
   <section class="hero">

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>내 계정 — CPAPING</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#123A8A">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/auth.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" crossorigin="anonymous"></script>
+<script src="/auth.js"></script>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <a class="wordmark" href="/">CPAPING</a>
+    <nav aria-label="주요 화면"><a href="/">공고</a><a href="/firms/">법인</a></nav>
+  </header>
+  <main>
+
+    <h1>내 계정</h1>
+    <div class="who"><span id="nick"></span><span class="chip" id="providers"></span></div>
+
+    <section id="recovery" hidden>
+      <div class="msg">새 비밀번호를 정해 주세요.</div>
+      <form id="pw-form" novalidate>
+        <label for="pw">새 비밀번호 (8자 이상)</label>
+        <input id="pw" type="password" autocomplete="new-password" minlength="8" required data-clarity-mask="true">
+        <button class="btn primary" type="submit" style="margin-top:12px">비밀번호 바꾸기</button>
+      </form>
+    </section>
+
+    <dl class="facts">
+      <div><dt>이메일</dt><dd id="email"></dd></div>
+      <div><dt>가입</dt><dd id="joined"></dd></div>
+    </dl>
+
+    <form id="nick-form" novalidate>
+      <label for="nickname">닉네임 바꾸기</label>
+      <input id="nickname" type="text" minlength="2" maxlength="12" required>
+      <button class="btn" type="submit" style="margin-top:10px">저장</button>
+    </form>
+
+    <div class="msg" id="msg" hidden role="status" aria-live="polite"></div>
+
+    <p style="margin-top:22px"><button class="btn" type="button" id="logout">로그아웃</button></p>
+
+    <p class="danger">계정을 지우려면 <button class="linkish" type="button" id="delete">탈퇴</button>.
+      이메일 등 계정 정보는 즉시 삭제됩니다. 남긴 댓글은 "탈퇴한 사용자"로 남습니다(<a href="/terms">약관 제10조</a>).</p>
+<script>
+(async () => {
+  const A = window.cpAuth, $ = (id) => document.getElementById(id);
+  const msg = (text, kind) => { const m = $("msg"); m.textContent = text; m.className = "msg" + (kind ? " " + kind : ""); m.hidden = false; };
+  const params = new URLSearchParams(location.search);
+
+  const s = await A.ensure(params.get("recovery") ? "needs_email" : "complete");
+  if (!s.user) return;
+  if (params.get("recovery")) $("recovery").hidden = false;
+
+  $("nick").textContent = (s.profile && s.profile.nickname) || "(닉네임 없음)";
+  $("email").textContent = A.maskEmail(s.user.email) || "없음";
+  $("joined").textContent = new Date(s.user.created_at).toLocaleDateString("ko-KR");
+  const provs = (s.user.identities || []).map((i) => ({ google: "Google", kakao: "Kakao", email: "이메일" }[i.provider] || i.provider));
+  $("providers").textContent = provs.join(" · ") || "";
+  $("nickname").value = (s.profile && s.profile.nickname) || "";
+
+  $("pw-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const pw = $("pw").value;
+    if (pw.length < 8) return msg("비밀번호는 8자 이상이어야 합니다.", "err");
+    const { error } = await A.client.auth.updateUser({ password: pw });
+    if (error) return msg(A.humanize(error), "err");
+    msg("비밀번호를 바꿨습니다.", "ok"); $("recovery").hidden = true;
+    history.replaceState(null, "", "/account/");
+  });
+
+  $("nick-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const nickname = $("nickname").value.trim();
+    if (nickname.length < 2 || nickname.length > 12) return msg("닉네임은 2~12자여야 합니다.", "err");
+    const { error } = await A.client.from("profiles").update({ nickname }).eq("user_id", s.user.id);
+    if (error) return msg(A.humanize(error), "err");
+    $("nick").textContent = nickname; msg("저장했습니다.", "ok");
+  });
+
+  $("logout").onclick = async () => { await A.signOut(); location.replace("/"); };
+
+  $("delete").onclick = async () => {
+    if (!confirm("정말 탈퇴할까요? 계정 정보가 즉시 삭제되고 되돌릴 수 없습니다.")) return;
+    const { data: { session } } = await A.client.auth.getSession();
+    const res = await fetch("/api/account", { method: "DELETE", headers: { Authorization: "Bearer " + session.access_token } });
+    if (!res.ok) return msg("탈퇴를 처리하지 못했습니다. contact@cpaping.com 으로 알려주세요.", "err");
+    await A.signOut();
+    location.replace("/?left=1");
+  };
+})();
+</script>
+  </main>
+  <footer>CPAPING · <a href="/terms">이용약관</a> · <a href="/privacy">개인정보처리방침</a> · <a href="mailto:contact@cpaping.com">contact@cpaping.com</a></footer>
+</div>
+</body>
+</html>

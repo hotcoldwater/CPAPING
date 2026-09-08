@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>로그인 처리 중 — CPAPING</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#123A8A">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/auth.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" crossorigin="anonymous"></script>
+<script src="/auth.js"></script>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <a class="wordmark" href="/">CPAPING</a>
+    <nav aria-label="주요 화면"><a href="/">공고</a><a href="/firms/">법인</a></nav>
+  </header>
+  <main>
+
+    <h1>로그인 처리 중…</h1>
+    <p class="lead spinner" id="status">잠시만 기다려 주세요.</p>
+    <div class="msg err" id="err" hidden></div>
+    <p id="back" hidden><a class="btn" href="/login/">로그인 화면으로</a></p>
+<script>
+(async () => {
+  const A = window.cpAuth, $ = (id) => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  const hash = new URLSearchParams(location.hash.replace(/^#/, ""));
+  const fail = (text) => { $("status").hidden = true; $("err").textContent = text; $("err").hidden = false; $("back").hidden = false; };
+
+  // 제공자가 거절했거나 링크가 만료된 경우 — 주소에 오류가 실려 온다
+  const desc = params.get("error_description") || hash.get("error_description");
+  if (desc) return fail(/expired|invalid/i.test(desc)
+    ? "링크가 만료되었거나 이미 사용되었습니다. 다시 요청해 주세요."
+    : "로그인이 취소되었거나 실패했습니다. (" + desc + ")");
+
+  // detectSessionInUrl 이 ?code= 를 세션으로 바꾼다. 끝나면 INITIAL_SESSION /
+  // SIGNED_IN 이벤트가 온다. getSession() 을 반복해 묻는 방식은 라이브러리의 내부
+  // 잠금과 겹쳐 두 번째 호출이 영영 돌아오지 않는 경우가 있어(로컬 실측) 쓰지 않는다.
+  const session = await new Promise((resolve) => {
+    let done = false;
+    const finish = (v) => { if (!done) { done = true; resolve(v); } };
+    const { data: sub } = A.client.auth.onAuthStateChange((event, s) => {
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") finish(s);
+      else if (event === "INITIAL_SESSION") { if (s) finish(s); else setTimeout(() => finish(null), 3000); }
+      // INITIAL_SESSION 이 null 이어도 code 교환이 뒤따를 수 있어 3초는 더 기다린다
+    });
+    setTimeout(() => finish(null), 8000);          // 어떤 경우에도 8초 안에 결론을 낸다
+    Promise.resolve().then(() => sub && sub.subscription && setTimeout(() => sub.subscription.unsubscribe(), 9000));
+  });
+  if (!session) return fail("세션을 만들지 못했습니다. 링크가 만료되었거나 이미 사용된 것일 수 있습니다. 다시 로그인해 주세요.");
+  const state = await A.getState();
+  if (state.state === "anon") return fail("세션을 확인하지 못했습니다. 다시 로그인해 주세요.");
+
+  // 비밀번호 재설정 링크로 들어온 경우
+  if (params.get("next") === "recovery") return location.replace("/account/?recovery=1");
+
+  if (state.state === "complete") return location.replace(A.takeReturnTo());
+  location.replace("/onboarding/");   // needs_email · needs_profile
+})();
+</script>
+  </main>
+  <footer>CPAPING · <a href="/terms">이용약관</a> · <a href="/privacy">개인정보처리방침</a> · <a href="mailto:contact@cpaping.com">contact@cpaping.com</a></footer>
+</div>
+</body>
+</html>

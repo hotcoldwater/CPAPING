@@ -151,7 +151,7 @@ https://www.kicpa.or.kr/home/jobOffrSrchNewGnrl/detail.face?ijIdNum=<id>
 | **1** | 크롤러 + DB + 알림 (1분 주기, 장애 감지, 발송 한도) | ✅ |
 | **2** | 공개 웹 — 공고 목록·상세, 구독(더블 옵트인·조건 변경), 방침·약관, SEO, 분석 | ✅ 2026-09-09 |
 | **4** | 회계법인 정보 DB — 248곳 재무·인력·감사 고객, 법인 페이지, 비교표 | ✅ 2026-09-02 |
-| **3** | 로그인·프로필 — Google·Kakao·Naver·이메일, 닉네임, 도메인 뱃지(법인·현직), 방침 제6판 | **다음** — 운영자 앱 설정 대기 |
+| **3** | 로그인·프로필 — 이메일·Google·Kakao(Naver 는 다음), 닉네임, 탈퇴, 방침 제7판. 뱃지는 인증 정책 확정 뒤 | **구현 중 (2026-09-09)** |
 | **5** | 커뮤니티 1 — 공고 댓글, 신고·임시조치, 운영자 도구, 합격자·회계사 인증(수동), 법인 댓글 | |
 | **6** | 커뮤니티 2 — 게시판(채용·이직 / 시험·수험 / 현직 / 자유), 추천, 카테고리 | |
 | **7** | 자소서 — 공고 '지원 요건' 블록·`/guide`(선행) → 재료 4시트 → 자유양식 → 법인 맞춤 → 가져오기 | 계획 확정 |
@@ -280,7 +280,14 @@ GET  /api/confirm?token  → active 로 변경
 GET  /api/unsubscribe?token → 해지 (재확인 없이 한 번에)
 GET  /api/settings?token    → 받을 조건 보기·바꾸기 (지역·고용형태). 해지 토큰으로 인증
 POST /api/settings          → (폼) 저장
+DELETE /api/account         → 회원 탈퇴. Authorization: Bearer <사용자 토큰> — 토큰의 주인만 지운다
 ```
+
+**회원 화면(Phase 3)** — `/login/` `/auth/callback/` `/onboarding/` `/account/`. 정적 HTML 이
+`@supabase/supabase-js@2.116.0`(jsdelivr, 버전 고정)로 Supabase Auth 를 직접 쓴다. 공개 키만
+브라우저에 있고, 회원 식별은 `auth.users.id` 다. 온보딩 상태는 저장하지 않고
+`email`·`email_confirmed_at`·`nickname` 세 사실로 계산한다(`web/auth.js`). 공개 페이지 상단바의
+로그인/내 계정 링크는 라이브러리 없이 localStorage 의 세션 키 유무만 본다.
 
 **구독 설정은 로그인 없이 해지 토큰으로 연다.** 알림 메일 하단의 '구독 설정'
 링크와 확정 페이지의 '받을 조건 바꾸기' 가 입구다. 조건이 두 축이 되면서

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>가입 마무리 — CPAPING</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#123A8A">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/auth.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" crossorigin="anonymous"></script>
+<script src="/auth.js"></script>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <a class="wordmark" href="/">CPAPING</a>
+    <nav aria-label="주요 화면"><a href="/">공고</a><a href="/firms/">법인</a></nav>
+  </header>
+  <main>
+
+    <section id="step-email" hidden>
+      <h1>이메일을 확인해 주세요</h1>
+      <p class="lead">모든 회원은 인증된 이메일을 갖습니다. 탈퇴·신고 처리 같은 통지가 이메일로 가기 때문입니다.</p>
+      <div id="email-pending" hidden>
+        <div class="msg ok"><span id="pending-addr"></span> 로 인증 메일을 보냈습니다. 링크를 누르면 이 화면이 다음 단계로 넘어갑니다.</div>
+        <div class="row" style="margin-top:12px">
+          <button class="linkish" type="button" id="resend-change">인증 메일 다시 받기</button>
+          <button class="linkish" type="button" id="other-email">다른 주소로</button>
+          <button class="linkish" type="button" id="recheck">확인했어요</button>
+        </div>
+      </div>
+      <form id="email-form" novalidate>
+        <label for="email">이메일</label>
+        <input id="email" type="email" autocomplete="email" required data-clarity-mask="true">
+        <button class="btn primary" type="submit" style="margin-top:14px">인증 메일 보내기</button>
+      </form>
+    </section>
+
+    <section id="step-nick" hidden>
+      <h1>닉네임을 정해 주세요</h1>
+      <p class="lead">댓글에 이 이름으로 표시됩니다. 2~12자, 다른 회원과 같을 수 없고, 운영자·공식 같은 문구는 쓸 수 없습니다.</p>
+      <form id="nick-form" novalidate>
+        <label for="nickname">닉네임</label>
+        <input id="nickname" type="text" minlength="2" maxlength="12" autocomplete="nickname" required>
+        <label class="check"><input type="checkbox" id="agree" required>
+          <span>만 14세 이상이며 <a href="/terms" target="_blank" rel="noopener">이용약관</a>과 <a href="/privacy" target="_blank" rel="noopener">개인정보처리방침</a>에 동의합니다.</span></label>
+        <button class="btn primary" type="submit" style="margin-top:16px">시작하기</button>
+      </form>
+    </section>
+
+    <div class="msg" id="msg" hidden role="status" aria-live="polite"></div>
+    <p class="fine"><button class="linkish" type="button" id="logout">다른 계정으로 로그인</button></p>
+<script>
+(async () => {
+  const A = window.cpAuth, $ = (id) => document.getElementById(id);
+  const msg = (text, kind) => { const m = $("msg"); m.textContent = text; m.className = "msg" + (kind ? " " + kind : ""); m.hidden = false; };
+
+  async function render() {
+    const s = await A.getState();
+    if (s.state === "anon") return location.replace("/login/");
+    if (s.state === "complete") return location.replace(A.takeReturnTo());
+    $("step-email").hidden = s.state !== "needs_email";
+    $("step-nick").hidden = s.state !== "needs_profile";
+    if (s.state === "needs_email") {
+      // 이미 주소를 넣고 인증만 남았으면(new_email) 대기 화면
+      const pending = s.user.new_email || (s.user.email && !s.user.email_confirmed_at ? s.user.email : null);
+      $("email-pending").hidden = !pending;
+      $("email-form").hidden = Boolean(pending);
+      if (pending) $("pending-addr").textContent = pending;
+    }
+    return s;
+  }
+  let current = await render();
+
+  $("email-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = $("email").value.trim();
+    if (!email) return msg("이메일을 입력해 주세요.", "err");
+    // 이메일이 없는 계정(카카오)은 새 주소만 확인하면 된다.
+    const { error } = await A.client.auth.updateUser({ email }, { emailRedirectTo: location.origin + "/auth/callback/" });
+    if (error) return msg(A.humanize(error), "err");
+    msg("인증 메일을 보냈습니다. 받은편지함(스팸함 포함)의 링크를 눌러주세요.", "ok");
+    current = await render();
+  });
+  $("resend-change").onclick = async () => {
+    const email = $("pending-addr").textContent.trim();
+    const { error } = await A.client.auth.resend({ type: "email_change", email });
+    msg(error ? A.humanize(error) : "인증 메일을 다시 보냈습니다.", error ? "err" : "ok");
+  };
+  $("other-email").onclick = () => { $("email-pending").hidden = true; $("email-form").hidden = false; $("email").focus(); };
+  $("recheck").onclick = async () => { current = await render(); if (current && current.state === "needs_email") msg("아직 확인되지 않았습니다. 메일의 링크를 눌러주세요.", "err"); };
+
+  $("nick-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const nickname = $("nickname").value.trim();
+    if (nickname.length < 2 || nickname.length > 12) return msg("닉네임은 2~12자여야 합니다.", "err");
+    if (/(운영자|관리자|cpaping|공식|admin|official)/i.test(nickname)) return msg("운영자·공식·관리자 같은 문구는 쓸 수 없습니다.", "err");
+    if (!$("agree").checked) return msg("약관과 개인정보처리방침에 동의해 주세요.", "err");
+    const s = await A.getState();
+    if (!s.user) return location.replace("/login/");
+    // 동의 기록은 계정 메타데이터에 남긴다 (컬럼을 늘리지 않는다)
+    await A.client.auth.updateUser({ data: { agreed_terms_at: new Date().toISOString(), over14: true } });
+    const { error } = await A.client.from("profiles").update({ nickname }).eq("user_id", s.user.id);
+    if (error) return msg(A.humanize(error), "err");
+    location.replace(A.takeReturnTo());
+  });
+
+  $("logout").onclick = async () => { await A.signOut(); location.replace("/login/"); };
+})();
+</script>
+  </main>
+  <footer>CPAPING · <a href="/terms">이용약관</a> · <a href="/privacy">개인정보처리방침</a> · <a href="mailto:contact@cpaping.com">contact@cpaping.com</a></footer>
+</div>
+</body>
+</html>

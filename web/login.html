@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>로그인 — CPAPING</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#123A8A">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/auth.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" crossorigin="anonymous"></script>
+<script src="/auth.js"></script>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <a class="wordmark" href="/">CPAPING</a>
+    <nav aria-label="주요 화면"><a href="/">공고</a><a href="/firms/">법인</a></nav>
+  </header>
+  <main>
+
+    <h1>로그인</h1>
+    <p class="lead">공고에 댓글을 달고 프로필을 만들려면 계정이 필요합니다. 공고를 보는 데는 필요 없습니다.</p>
+
+    <button class="btn" type="button" id="google"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.5 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.3l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.8 7.2l7.7 6c4.5-4.2 6.9-10.3 6.9-17.2z"/><path fill="#FBBC05" d="M10.5 28.6A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.1.8-4.6l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.7-6c-2.1 1.4-4.9 2.3-8.2 2.3-6.3 0-11.6-4.1-13.5-9.9l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>Google로 계속하기</button>
+    <button class="btn kakao" type="button" id="kakao"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#191919" d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.9 5.3 4.7 6.7l-1 3.6c-.1.3.3.6.6.4l4.3-2.9c.5.1.9.1 1.4.1 5.5 0 10-3.6 10-8S17.5 3 12 3z"/></svg>Kakao로 계속하기</button>
+
+    <div class="or">또는 이메일로</div>
+
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-mode="login">로그인</button>
+      <button role="tab" aria-selected="false" data-mode="signup">가입</button>
+    </div>
+    <form id="email-form" novalidate>
+      <label for="email">이메일</label>
+      <input id="email" type="email" autocomplete="email" required data-clarity-mask="true">
+      <label for="password">비밀번호</label>
+      <input id="password" type="password" autocomplete="current-password" required minlength="8" data-clarity-mask="true">
+      <div class="row">
+        <button class="linkish" type="button" id="forgot">비밀번호를 잊었어요</button>
+        <button class="linkish" type="button" id="resend" hidden>인증 메일 다시 받기</button>
+      </div>
+      <button class="btn primary" type="submit" id="submit" style="margin-top:14px">로그인</button>
+    </form>
+    <div class="msg" id="msg" hidden role="status" aria-live="polite"></div>
+
+    <p class="fine">가입하면 <a href="/terms">이용약관</a>과 <a href="/privacy">개인정보처리방침</a>에 동의하는 것으로 봅니다. 만 14세 이상만 가입할 수 있습니다.
+      카카오로 들어오면 이메일을 한 번 더 확인합니다 — 모든 회원은 인증된 이메일을 갖습니다.</p>
+
+<script>
+(async () => {
+  const A = window.cpAuth, $ = (id) => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  if (params.get("returnTo")) A.rememberReturnTo(params.get("returnTo"));
+
+  // 이미 로그인돼 있으면 상태에 맞는 곳으로
+  const s = await A.getState();
+  if (s.state === "complete") return location.replace(A.takeReturnTo());
+  if (s.state !== "anon") return location.replace("/onboarding/");
+
+  let mode = "login";
+  const msg = (text, kind) => { const m = $("msg"); m.textContent = text; m.className = "msg" + (kind ? " " + kind : ""); m.hidden = false; };
+  const busy = (on) => { for (const id of ["google","kakao","submit"]) $(id).disabled = on; };
+
+  document.querySelectorAll('[role=tab]').forEach((b) => b.addEventListener("click", () => {
+    mode = b.dataset.mode;
+    document.querySelectorAll('[role=tab]').forEach((x) => x.setAttribute("aria-selected", String(x === b)));
+    $("submit").textContent = mode === "signup" ? "가입하기" : "로그인";
+    $("password").autocomplete = mode === "signup" ? "new-password" : "current-password";
+    $("forgot").hidden = mode === "signup"; $("resend").hidden = true; $("msg").hidden = true;
+  }));
+
+  $("google").onclick = async () => { busy(true); try { await A.signInWith("google"); } catch (e) { msg(A.humanize(e), "err"); busy(false); } };
+  $("kakao").onclick  = async () => { busy(true); try { await A.signInWith("kakao"); }  catch (e) { msg(A.humanize(e), "err"); busy(false); } };
+
+  $("email-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = $("email").value.trim(), password = $("password").value;
+    if (!email || !password) return msg("이메일과 비밀번호를 입력해 주세요.", "err");
+    if (password.length < 8) return msg("비밀번호는 8자 이상이어야 합니다.", "err");
+    busy(true);
+    try {
+      if (mode === "signup") {
+        const { data, error } = await A.client.auth.signUp({ email, password,
+          options: { emailRedirectTo: location.origin + "/auth/callback/" } });
+        if (error) throw error;
+        // 이미 가입된 주소면 Supabase 는 오류 대신 빈 identities 를 준다(주소 존재 여부를 숨기기 위해)
+        if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+          msg("이미 가입된 이메일입니다. 로그인하거나 비밀번호를 재설정해 주세요.", "err");
+        } else {
+          msg("인증 메일을 보냈습니다. 받은편지함(스팸함 포함)의 링크를 누르면 가입이 이어집니다.", "ok");
+          $("resend").hidden = false;
+        }
+      } else {
+        const { error } = await A.client.auth.signInWithPassword({ email, password });
+        if (error) {
+          if (/not confirmed/i.test(error.message)) $("resend").hidden = false;
+          throw error;
+        }
+        const st = await A.getState();
+        location.replace(st.state === "complete" ? A.takeReturnTo() : "/onboarding/");
+        return;
+      }
+    } catch (err) { msg(A.humanize(err), "err"); }
+    busy(false);
+  });
+
+  $("forgot").onclick = async () => {
+    const email = $("email").value.trim();
+    if (!email) return msg("먼저 이메일을 입력해 주세요.", "err");
+    const { error } = await A.client.auth.resetPasswordForEmail(email, { redirectTo: location.origin + "/auth/callback/?next=recovery" });
+    msg(error ? A.humanize(error) : "비밀번호 재설정 메일을 보냈습니다. 링크를 누르면 새 비밀번호를 정할 수 있습니다.", error ? "err" : "ok");
+  };
+  $("resend").onclick = async () => {
+    const email = $("email").value.trim();
+    if (!email) return msg("먼저 이메일을 입력해 주세요.", "err");
+    const { error } = await A.client.auth.resend({ type: "signup", email, options: { emailRedirectTo: location.origin + "/auth/callback/" } });
+    msg(error ? A.humanize(error) : "인증 메일을 다시 보냈습니다.", error ? "err" : "ok");
+  };
+})();
+</script>
+  </main>
+  <footer>CPAPING · <a href="/terms">이용약관</a> · <a href="/privacy">개인정보처리방침</a> · <a href="mailto:contact@cpaping.com">contact@cpaping.com</a></footer>
+</div>
+</body>
+</html>

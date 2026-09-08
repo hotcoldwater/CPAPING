@@ -485,6 +485,7 @@ ${jsonLd({
 body{margin:0;background:var(--bg-subtle);color:var(--ink);
   font-family:'IBM Plex Sans KR',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;
   font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+.topbar .me{margin-left:auto;font-size:12.5px;color:var(--ink-2);text-decoration:none;padding:4px 10px;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg)} .topbar .me:hover{color:var(--accent);border-color:var(--accent)}
 .shell{max-width:720px;margin:0 auto;min-height:100vh;background:var(--bg);
   border-inline:1px solid var(--line);display:flex;flex-direction:column}
 @media(max-width:720px){.shell{border-inline:0}}
@@ -627,6 +628,8 @@ ${CHART_CSS}
   <header class="topbar">
     <a class="wordmark" href="/">CPAPING</a>
     <a class="back" href="/">← 공고 목록</a>
+    <a class="me" id="auth-link" href="/login/">로그인</a>
+<script>(function(){try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(/^sb-.*-auth-token$/.test(k)&&localStorage.getItem(k)){var a=document.getElementById("auth-link");a.textContent="내 계정";a.href="/account/";break;}}}catch(e){}})();</script>
   </header>
 
   <div class="head">

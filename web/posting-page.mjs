@@ -171,6 +171,7 @@ a{color:inherit}
 .wordmark{font-weight:600;font-size:13.5px;letter-spacing:-.01em;text-decoration:none}
 .topbar nav a{font-size:13px;color:var(--ink-2);text-decoration:none;padding:4px 10px;border-radius:var(--radius)}
 .topbar nav a[aria-current]{background:var(--chip-bg);color:var(--ink);font-weight:500}
+.topbar .me{margin-left:auto;font-size:12.5px;color:var(--ink-2);text-decoration:none;padding:4px 10px;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg)} .topbar .me:hover{color:var(--accent);border-color:var(--accent)}
 .head{padding:22px var(--pad-x) 18px;border-bottom:1px solid var(--line)}
 .crumb{font-size:12px;color:var(--ink-2);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .crumb a{color:var(--ink-2);text-decoration:none;font-weight:500}
@@ -222,6 +223,8 @@ footer a{color:var(--ink-2)}
   <header class="topbar">
     <a class="wordmark" href="/">CPAPING</a>
     <nav aria-label="주요 화면"><a href="/" aria-current="page">공고</a><a href="/firms/">법인</a></nav>
+    <a class="me" id="auth-link" href="/login/">로그인</a>
+<script>(function(){try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(/^sb-.*-auth-token$/.test(k)&&localStorage.getItem(k)){var a=document.getElementById("auth-link");a.textContent="내 계정";a.href="/account/";break;}}}catch(e){}})();</script>
   </header>
 
   <div class="head">

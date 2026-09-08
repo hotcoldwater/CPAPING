@@ -175,6 +175,24 @@ const out = join(HERE, "dist");
 mkdirSync(out, { recursive: true });
 writeFileSync(join(out, "index.html"), withAnalytics(html), "utf8");
 
+// ── 회원 화면 (Phase 3) ────────────────────────────────────
+// 공개 키를 auth.js 에 심고, 네 화면을 디렉터리 형태로 낸다. 분석 스니펫은
+// 넣지 않는다 — /auth/callback/ 주소에 일회용 코드가 실리고, 이 화면들은
+// 검색에 걸릴 이유도 없다(noindex).
+const inject = (text) => {
+  for (const [placeholder, envName] of Object.entries(REPLACEMENTS)) text = text.replaceAll(placeholder, read(envName));
+  return text;
+};
+writeFileSync(join(out, "auth.js"), inject(readFileSync(join(HERE, "auth.js"), "utf8")), "utf8");
+copyFileSync(join(HERE, "auth.css"), join(out, "auth.css"));
+const AUTH_PAGES = { "login.html": "login", "auth-callback.html": "auth/callback",
+                     "onboarding.html": "onboarding", "account.html": "account" };
+for (const [file, dir] of Object.entries(AUTH_PAGES)) {
+  const target = join(out, dir); mkdirSync(target, { recursive: true });
+  writeFileSync(join(target, "index.html"), inject(readFileSync(join(HERE, file), "utf8")), "utf8");
+}
+console.log(`  회원 화면 ${Object.keys(AUTH_PAGES).length}개 생성 (/login/ /auth/callback/ /onboarding/ /account/)`);
+
 // 방침 페이지, 파비콘, OG 이미지 등 그대로 나가는 파일들
 const ASSETS = [
   "privacy.html",

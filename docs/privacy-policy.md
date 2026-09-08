@@ -5,7 +5,7 @@
 이어지지는 않았다. 이 파일이 원본이며,
 `web/privacy.html` 이 이 내용을 게시한다. 내용을 고칠 때는 두 곳을 함께 바꾼다.
 
-- 공고일 / 시행일: 2026년 9월 9일 (제6판)
+- 공고일 / 시행일: 2026년 9월 9일 (제7판)
 - 게시 위치: https://cpaping.com/privacy
 
 ## 이 방침이 코드에 요구하는 것
@@ -21,10 +21,20 @@
 | §3 발송 이력은 함께 삭제 | `notification_logs` 의 외래키 cascade |
 | §9 메일의 해지 링크 | 원클릭. `List-Unsubscribe` 헤더의 POST 도 처리한다 |
 | §8 분석 도구 세 가지(Cloudflare·GA4·Clarity) 고지, 이메일 입력칸만 기록 제외, localStorage 3개 | `web/build.mjs` 의 `ANALYTICS`; 이메일 입력의 `data-clarity-mask` (그 외 화면은 기록됨 — 대시보드 마스킹 안 씀); `cpaping.filter`, `cpaping.sort`, `cpaping.region` |
+| §5-1 모든 회원은 인증된 이메일 | `web/auth.js` 의 상태 계산 — `email` 과 `email_confirmed_at` 이 없으면 `/onboarding/` 에 묶인다 |
+| §5-1 탈퇴 즉시 삭제 | `functions/api/account.js` 가 토큰의 주인만 admin API 로 삭제. `profiles` 는 cascade |
+| §5-1 닉네임 규칙 | `007_profiles.sql` 의 CHECK(2~12자, 사칭 문구 금지) + `lower(nickname)` 유니크 |
+| §5-1 동의 기록 | `auth.users.raw_user_meta_data.agreed_terms_at / over14` |
 | §12 contact@cpaping.com | Cloudflare Email Routing 으로 수신 (설정 완료) |
 | §6·§7 수탁자 목록 | 코드가 실제로 쓰는 서비스와 같아야 한다 |
 
 ## 변경 이력
+
+**2026-09-09 제7판** — 로그인(Phase 3). §5-1 회원 계정 절 신설. 계정은 Supabase Auth, 우리는
+닉네임만. 카카오는 이메일 없이 들어오므로 이메일 입력·인증을 강제한다(운영자 결정 8). 탈퇴는
+`/api/account` DELETE — 토큰의 주인만 지운다. 게시물 익명화 존치는 댓글 Phase 에서 구현.
+카카오는 국내 사업자라 §7(국외)에는 넣지 않고 §6(위탁)에만 적었다.
+
 
 **2026-09-09 제6판** — 운영자가 Clarity 대시보드 마스킹을 **쓰지 않기로** 결정했다(녹화를
 읽을 수 있어야 화면 개선에 쓸모가 있다). 제5판의 "입력 내용을 가려서 처리" 문구가 사실과

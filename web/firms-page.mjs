@@ -115,6 +115,7 @@ p.ftsub { color: var(--ink-2); font-size: 12.5px; margin: 0 0 22px; max-width: 6
    페이지가 아니라 이 상자에 붙어, 머리글이 첫 행을 44px 덮는다. 넘침은
    아래 min-width 규칙을 폰에서 빼는 것으로 막는다. */
 .scroll { border-top: 1px solid var(--line); }
+.topbar .me{margin-left:10px;font-size:12.5px;color:var(--ink-2);text-decoration:none;padding:4px 10px;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg)} .topbar .me:hover{color:var(--accent);border-color:var(--accent)}
 table.cmp { border-collapse: collapse; width: 100%; table-layout: auto; }
 /* 폰 기본은 법인·수습·매출·회계사 네 칸. "비교표" 인데 폰에서 숫자가 하나도
    없으면 목록일 뿐이라, 회계사 수까지는 붙인다. 371px 에 들어가는지 재서 정했다. */
@@ -286,6 +287,8 @@ ${JSON.stringify({
       <a href="/firms/" aria-current="page">법인</a>
     </nav>
     <div class="status"><span class="dot" aria-hidden="true"></span>1분마다 확인 중</div>
+    <a class="me me-after-status" id="auth-link" href="/login/">로그인</a>
+<script>(function(){try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(/^sb-.*-auth-token$/.test(k)&&localStorage.getItem(k)){var a=document.getElementById("auth-link");a.textContent="내 계정";a.href="/account/";break;}}}catch(e){}})();</script>
   </header>
 
   <div class="wrap">

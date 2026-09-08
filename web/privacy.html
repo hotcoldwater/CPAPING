@@ -184,16 +184,33 @@ footer .sep { margin: 0 7px; opacity: .5; }
     <p>다만, 법령에 특별한 규정이 있거나 적법한 절차에 따른 관계기관의 요구가 있는 경우에는 관련 법령에 따라 처리할 수 있습니다.</p>
     <p>서비스 제공을 위한 외부 인프라 및 이메일 발송업체의 이용은 아래의 개인정보 처리업무 위탁에 해당합니다.</p>
 
+    <h2>5-1. 회원 계정 (로그인 기능)</h2>
+    <p>공고 열람과 구독에는 계정이 필요하지 않습니다. 댓글 등 회원 기능을 쓰려는 이용자만 계정을 만들며, 계정과 관련해 다음 정보를 처리합니다.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>항목</th><th>수집 시점</th><th>목적</th><th>보유기간</th></tr></thead>
+      <tbody>
+        <tr><td>이메일 주소</td><td>가입 시(이메일 가입·Google 로그인), 또는 카카오 로그인 뒤 이용자가 직접 입력</td><td>계정 식별, 로그인, 비밀번호 재설정, 약관·신고 처리 등 통지</td><td>탈퇴 시 즉시 삭제</td></tr>
+        <tr><td>비밀번호</td><td>이메일 가입 시</td><td>로그인. 암호화(해시)되어 저장되며 원문은 저장하지 않습니다</td><td>탈퇴 시 즉시 삭제</td></tr>
+        <tr><td>로그인 제공자 식별자</td><td>Google·Kakao 로그인 시</td><td>같은 사람의 재로그인 확인. 제공자가 준 고유 번호이며 이름·프로필 사진은 저장하지 않습니다</td><td>탈퇴 시 즉시 삭제</td></tr>
+        <tr><td>닉네임</td><td>가입 마무리 단계에서 이용자가 입력</td><td>댓글 등 게시물의 작성자 표시</td><td>탈퇴 시 즉시 삭제. 게시물의 작성자 표시는 “탈퇴한 사용자”로 바뀝니다</td></tr>
+        <tr><td>약관 동의 일시, 만 14세 이상 확인</td><td>가입 마무리 단계</td><td>동의 사실의 기록</td><td>탈퇴 시 즉시 삭제</td></tr>
+      </tbody>
+    </table></div>
+    <p><strong>모든 회원은 인증된 이메일 주소를 갖습니다.</strong> 카카오 로그인은 이메일을 제공하지 않으므로, 카카오로 가입한 이용자에게는 이메일 주소를 입력받고 확인 메일의 링크를 눌러 인증하도록 안내합니다. 인증을 마치기 전에는 회원 기능을 쓸 수 없습니다.</p>
+    <p>회원은 언제든지 서비스 안(<code>내 계정</code>)에서 탈퇴할 수 있습니다. 탈퇴하면 위 항목은 즉시 삭제되며, 이용약관 제10조에 따라 회원이 남긴 게시물은 삭제되지 않고 작성자가 “탈퇴한 사용자”로 표시됩니다. 게시물은 더 이상 특정 개인과 연결되지 않습니다.</p>
+    <p>계정 정보는 Supabase, Inc.의 인증 서비스(Supabase Auth)에 저장됩니다(제6조·제7조 참조). Google·Kakao 로그인 시 각 제공자는 자신의 개인정보처리방침에 따라 로그인 사실을 처리합니다.</p>
+
     <h2>6. 개인정보 처리업무의 위탁</h2>
     <p>CPAPING은 서비스 제공을 위해 다음 사업자에게 개인정보 처리업무의 일부를 위탁합니다.</p>
     <div class="scroll"><table>
       <thead><tr><th>수탁자</th><th>위탁 업무</th></tr></thead>
       <tbody>
-        <tr><td>Supabase, Inc.</td><td>구독자 정보 및 구독 상태 데이터베이스 저장·관리</td></tr>
+        <tr><td>Supabase, Inc.</td><td>구독자 정보 및 구독 상태 데이터베이스 저장·관리 · 회원 계정(이메일·비밀번호 해시·로그인 제공자 식별자·닉네임) 저장 및 인증 처리</td></tr>
         <tr><td>Cloudflare, Inc.</td><td>웹사이트 호스팅, 구독 신청·확인·해지 요청 처리, 방문 통계 집계</td></tr>
         <tr><td>Plus Five Five, Inc. (Resend)</td><td>구독 확인 및 채용공고 알림 이메일 발송</td></tr>
         <tr><td>GitHub, Inc.</td><td>채용공고 수집 프로그램 실행 및 알림 발송 작업 수행</td></tr>
-        <tr><td>Google LLC</td><td>웹사이트 방문 통계 분석 (Google Analytics 4)</td></tr>
+        <tr><td>Google LLC</td><td>웹사이트 방문 통계 분석 (Google Analytics 4) · Google 계정 로그인 인증</td></tr>
+        <tr><td>주식회사 카카오</td><td>카카오 계정 로그인 인증 (국내 사업자, 국외 이전 없음)</td></tr>
         <tr><td>Microsoft Corporation</td><td>웹사이트 이용 행태 분석 및 화면 이용 기록 (Microsoft Clarity)</td></tr>
       </tbody>
     </table></div>
@@ -208,7 +225,7 @@ footer .sep { margin: 0 7px; opacity: .5; }
     <div class="entity">
       <h3>Supabase, Inc.</h3>
       <ul>
-        <li><strong>처리 항목</strong> 이메일 주소 및 제1조에 기재된 구독 정보</li>
+        <li><strong>처리 항목</strong> 이메일 주소 및 제1조에 기재된 구독 정보, 제5-1조의 회원 계정 정보</li>
         <li><strong>목적</strong> 데이터베이스 운영 및 구독 정보 관리</li>
         <li><strong>주 저장 위치</strong> 대한민국 서울</li>
         <li><strong>국외 처리</strong> 서비스 운영·기술지원 과정에서 해외에서 접근 또는 처리될 수 있음</li>
@@ -258,7 +275,7 @@ footer .sep { margin: 0 7px; opacity: .5; }
       <h3>Google LLC (Google Analytics 4)</h3>
       <ul>
         <li><strong>처리 항목</strong> 쿠키 식별자, IP 주소(수집 즉시 일부가 가려져 저장되지 않음), 기기·브라우저 정보, 방문한 페이지와 유입 경로</li>
-        <li><strong>목적</strong> 웹사이트 방문 통계 분석 및 서비스 개선</li>
+        <li><strong>목적</strong> 웹사이트 방문 통계 분석 및 서비스 개선 · Google 계정으로 로그인하는 경우 계정 식별(이메일 주소, 제공자 식별자)</li>
         <li><strong>처리 지역</strong> 미국 및 Google 이 서비스를 운영하는 국가</li>
         <li><strong>시기 및 방법</strong> 웹사이트 이용 시 브라우저에서 암호화된 네트워크를 통해 자동 전송</li>
         <li><strong>보유기간</strong> Google Analytics 설정에 따른 기간(기본 14개월)</li>
@@ -351,6 +368,10 @@ footer .sep { margin: 0 7px; opacity: .5; }
 
     <h3>변경 이력</h3>
     <ul>
+      <li><strong>2026년 9월 9일 (제7판)</strong> — 로그인·회원 기능을 도입하며 <strong>제5-1조(회원 계정)</strong>를
+        신설했습니다. 이메일·비밀번호(해시)·로그인 제공자 식별자·닉네임·동의 기록을 처리하고, 모든 회원은
+        인증된 이메일을 가지며, 탈퇴 시 즉시 삭제하되 게시물은 “탈퇴한 사용자”로 남는다는 원칙을 적었습니다.
+        제6조·제7조에 Google 로그인과 주식회사 카카오(국내)를 추가했습니다.</li>
       <li><strong>2026년 9월 9일 (제6판)</strong> — Microsoft Clarity 의 화면 이용 기록 범위를
         바로잡았습니다. 제5판은 "이용자가 직접 입력하는 내용을 가려서 처리한다"고 적었으나,
         실제로는 <strong>페이지 내용과 이용 과정이 기록</strong>되며 이메일 입력칸만 기록되지
