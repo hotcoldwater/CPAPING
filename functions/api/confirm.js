@@ -22,7 +22,7 @@ export async function onRequestGet({ request, env }) {
   try {
     const rows = await supabase(
       env,
-      `subscribers?select=id,status&confirm_token=eq.${encodeURIComponent(token)}`
+      `subscribers?select=id,status,unsubscribe_token&confirm_token=eq.${encodeURIComponent(token)}`
     );
     const row = rows[0];
 
@@ -67,6 +67,10 @@ export async function onRequestGet({ request, env }) {
       lead: "새 공고가 올라오면 메일로 알려드릴게요.",
       sub: "지금 열린 공고는 사이트에서 바로 확인하실 수 있습니다.",
       href: SITE,
+      // 지역·고용형태를 여기서 바로 고를 수 있게 한다. 신청할 때 보고 있던
+      // 필터가 그대로 조건이 됐는데, 그걸 모르고 넘어가는 사람이 있다.
+      extra: { text: "받을 조건 바꾸기 (지역·고용형태)",
+               href: `${SITE}/api/settings?token=${encodeURIComponent(row.unsubscribe_token)}` },
     });
   } catch (err) {
     console.error("구독 확정 실패:", err.message);

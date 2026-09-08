@@ -116,7 +116,7 @@ export async function sendMail(env, { to, subject, html, text, headers }) {
 }
 
 /** 안내 페이지. 사이트와 같은 톤으로 최소한만 그린다. */
-export function page({ title, lead, sub, linkText = "공고 보러 가기", href = SITE }) {
+export function page({ title, lead, sub, linkText = "공고 보러 가기", href = SITE, extra }) {
   const esc = (s) =>
     String(s).replace(/[&<>"]/g, (c) =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -146,6 +146,7 @@ export function page({ title, lead, sub, linkText = "공고 보러 가기", href
   a.cta { margin-top:20px; display:inline-block; padding:10px 18px;
           background:#123A8A; color:#fff; text-decoration:none;
           border-radius:4px; font-size:13.5px; font-weight:500; }
+  a.sub { margin-top:10px; font-size:12.5px; color:#5B6472; }
   footer { padding:20px 18px; background:#FBFBFC; border-top:1px solid #E4E6EA;
            font-size:11.5px; color:#868D99; text-align:center; }
 </style>
@@ -157,6 +158,7 @@ export function page({ title, lead, sub, linkText = "공고 보러 가기", href
     <p>${esc(lead)}</p>
     ${sub ? `<p>${esc(sub)}</p>` : ""}
     <a class="cta" href="${esc(href)}">${esc(linkText)}</a>
+    ${extra ? `<a class="sub" href="${esc(extra.href)}">${esc(extra.text)}</a>` : ""}
   </main>
   <footer>CPAPING · 한국공인회계사회 공고를 수집합니다</footer>
 </div>

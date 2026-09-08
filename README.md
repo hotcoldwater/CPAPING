@@ -260,7 +260,14 @@ python crawler/import_firm_data.py data/주권상장법인_감사인_등록법�
 POST /api/subscribe      { email, filter } → pending 저장 + 확인 메일
 GET  /api/confirm?token  → active 로 변경
 GET  /api/unsubscribe?token → 해지 (재확인 없이 한 번에)
+GET  /api/settings?token    → 받을 조건 보기·바꾸기 (지역·고용형태). 해지 토큰으로 인증
+POST /api/settings          → (폼) 저장
 ```
+
+**구독 설정은 로그인 없이 해지 토큰으로 연다.** 알림 메일 하단의 '구독 설정'
+링크와 확정 페이지의 '받을 조건 바꾸기' 가 입구다. 조건이 두 축이 되면서
+"왜 이 공고는 안 왔지" 가 생길 수 있는데, 그 전에는 해지 후 재신청 말고는
+바꿀 길이 없었다. 화면에 이메일은 가려서 보여준다.
 
 **신청 API 의 발송량 제한.** 아무 제한이 없으면 같은 주소로 반복 호출하는
 것만으로 확인 메일을 무한히 보낼 수 있다. 하루 한도를 남이 소진하면 그날
