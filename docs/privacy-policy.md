@@ -5,7 +5,7 @@
 이어지지는 않았다. 이 파일이 원본이며,
 `web/privacy.html` 이 이 내용을 게시한다. 내용을 고칠 때는 두 곳을 함께 바꾼다.
 
-- 공고일 / 시행일: 2026년 8월 31일
+- 공고일 / 시행일: 2026년 9월 9일 (제5판)
 - 게시 위치: https://cpaping.com/privacy
 
 ## 이 방침이 코드에 요구하는 것
@@ -20,11 +20,20 @@
 | §4 재가입 방지용 해시도 남기지 않음 | 삭제 시 아무것도 남기지 않는다 |
 | §3 발송 이력은 함께 삭제 | `notification_logs` 의 외래키 cascade |
 | §9 메일의 해지 링크 | 원클릭. `List-Unsubscribe` 헤더의 POST 도 처리한다 |
-| §8 쿠키 없음, localStorage 2개 | `cpaping.filter`, `cpaping.sort` |
+| §8 분석 도구 세 가지(Cloudflare·GA4·Clarity) 고지, 입력 내용 마스킹, localStorage 3개 | `web/build.mjs` 의 `ANALYTICS`; 이메일 입력의 `data-clarity-mask`; `cpaping.filter`, `cpaping.sort`, `cpaping.region` |
 | §12 contact@cpaping.com | Cloudflare Email Routing 으로 수신 (설정 완료) |
 | §6·§7 수탁자 목록 | 코드가 실제로 쓰는 서비스와 같아야 한다 |
 
 ## 변경 이력
+
+**2026-09-09 제5판** — Google Analytics 4 와 Microsoft Clarity 를 도입했다(운영자 결정).
+둘 다 쿠키를 쓰고, Clarity 는 **세션 녹화** 도구라 지금까지의 "추적 쿠키 없음"
+원칙에서 벗어나는 큰 변경이다. §6·§7 에 Google LLC·Microsoft Corporation 을 추가하고
+§8 을 새로 썼다. 이메일 입력칸에는 `data-clarity-mask` 를 달았고 Clarity 대시보드의
+Masking 은 Strict 로 두어야 한다. 지역 필터로 localStorage 가 3개가 됐다.
+Functions 가 그리는 페이지(확인·해지·구독 설정)에는 분석 스니펫을 넣지 않는다 —
+주소에 토큰이 실린다.
+
 
 **2026-08-31 제3판** — 제12조의 개인정보 문의처를 `privacy@cpaping.com` 에서
 `contact@cpaping.com` 으로 바꿨다. 서비스 문의 창구와 하나로 합쳤다. 창구가 둘이면

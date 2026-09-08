@@ -140,9 +140,39 @@ if (missing.length) {
   process.exit(1);
 }
 
+// ── 방문 분석 ─────────────────────────────────────────────
+// Google Analytics 4 와 Microsoft Clarity. 2026-09-09 운영자 결정. Cloudflare
+// Web Analytics 는 엣지에서 자동 주입되므로 여기 없다. 세 도구가 함께 돈다.
+//
+// 빌드가 만드는 모든 HTML 에 넣는다. Pages Functions 가 그리는 페이지
+// (확인·해지·구독 설정)에는 넣지 않는다 — 주소에 토큰이 실려 있어 분석
+// 도구로 새 나가면 안 된다.
+//
+// Clarity 는 세션 녹화 도구다. 이메일 입력칸에 data-clarity-mask 를 달아 두고,
+// 대시보드 Masking 도 Strict 로 둔다. 방침 제8조가 이 두 도구를 설명한다 —
+// 도구를 바꾸면 방침도 같이 고친다.
+const ANALYTICS = `
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ML4R2L4YJS"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ML4R2L4YJS');
+</script>
+<script type="text/javascript">
+  (function(c,l,a,r,i,t,y){
+    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+    t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+  })(window, document, "clarity", "script", "yf5i7m260v");
+</script>
+`;
+const withAnalytics = (page) =>
+  page.includes("</head>") ? page.replace("</head>", `${ANALYTICS}</head>`) : page;
+
 const out = join(HERE, "dist");
 mkdirSync(out, { recursive: true });
-writeFileSync(join(out, "index.html"), html, "utf8");
+writeFileSync(join(out, "index.html"), withAnalytics(html), "utf8");
 
 // 방침 페이지, 파비콘, OG 이미지 등 그대로 나가는 파일들
 const ASSETS = [
@@ -160,8 +190,10 @@ const ASSETS = [
 ];
 for (const name of ASSETS) {
   const from = join(HERE, name);
-  if (existsSync(from)) copyFileSync(from, join(out, name));
-  else console.warn(`  (없음) ${name}`);
+  if (!existsSync(from)) { console.warn(`  (없음) ${name}`); continue; }
+  // HTML 은 분석 스니펫을 넣어서, 나머지는 그대로
+  if (name.endsWith(".html")) writeFileSync(join(out, name), withAnalytics(readFileSync(from, "utf8")), "utf8");
+  else copyFileSync(from, join(out, name));
 }
 
 // ── sitemap ──────────────────────────────────────────────
@@ -246,9 +278,9 @@ if (!missing.length) {
       const dir = join(out, "firm", firm.slug);
       mkdirSync(dir, { recursive: true });
       writeFileSync(join(dir, "index.html"),
-                    renderFirmPage({ firm, financials: fin, postings: mine,
+                    withAnalytics(renderFirmPage({ firm, financials: fin, postings: mine,
                                      ranks: ranks.get(firm.id),
-                                     clients: clients.get(firm.name) }), "utf8");
+                                     clients: clients.get(firm.name) })), "utf8");
             // 슬래시를 붙인 형태가 서버가 실제로 200 을 주는 주소다. 안 붙이면
       // Cloudflare Pages 가 308 로 붙여서 보내는데, sitemap 과 canonical 이
       // 리다이렉트되는 쪽을 가리키면 검색엔진이 대표 URL 을 스스로 고른다.
@@ -263,7 +295,7 @@ if (!missing.length) {
     const firmsDir = join(out, "firms");
     mkdirSync(firmsDir, { recursive: true });
     writeFileSync(join(firmsDir, "index.html"),
-      renderFirmsPage({ firms, financials }).replace("__BASE__", baseCss), "utf8");
+      withAnalytics(renderFirmsPage({ firms, financials }).replace("__BASE__", baseCss)), "utf8");
     pages.push({ loc: "/firms/", freq: "weekly" });
     console.log(`  법인 비교표 생성 (/firms)`);
   } catch (err) {

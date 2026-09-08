@@ -487,6 +487,16 @@ body{margin:0;background:var(--bg-subtle);color:var(--ink);
 .shell{max-width:720px;margin:0 auto;min-height:100vh;background:var(--bg);
   border-inline:1px solid var(--line);display:flex;flex-direction:column}
 @media(max-width:720px){.shell{border-inline:0}}
+/* 데스크톱: 720px 한 열이면 1440px 모니터에서 절반이 빈다. 1100px 로 넓히고
+   매출 추이·인력 추이를 같은 연도 축으로 나란히 둔다 — "매출은 늘었는데
+   사람은?" 이 한눈에 비교된다. 넓은 SVG(viewBox 620) 가 옆 스크롤 없이 들어가는
+   폭(열 ≥ 520px)이 나오는 지점이 1100 이다. 그 아래는 지금 그대로. */
+@media(min-width:1100px){
+  .shell{max-width:1100px}
+  .charts{display:grid;grid-template-columns:1fr 1fr;column-gap:32px}
+  .charts>section{border-bottom:0}
+  .charts{border-bottom:1px solid var(--line-2)}
+}
 
 .topbar{display:flex;align-items:center;justify-content:space-between;height:44px;
   padding:0 var(--pad-x);background:var(--bg-subtle);border-bottom:1px solid var(--line);
@@ -512,14 +522,14 @@ body{margin:0;background:var(--bg-subtle);color:var(--ink);
 /* 칸 사이 선을 nth-child 로 그리면 개수가 바뀔 때마다 규칙을 고쳐야 한다.
    실제로 타일이 넷에서 다섯이 되자 2행과 3행 사이 선이 사라졌다.
    배경색 위에 1px 를 비우는 방식은 개수와 무관하게 맞는다. */
-.tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;
+/* 네 숫자(매출·성장·규모·수습)가 한 줄에 놓이면 한 문장처럼 읽힌다.
+   다섯째 타일(1인당 매출)은 아래 기본 정보에 그대로 있으므로 어디서나 감춘다. */
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
   background:var(--line-2);border-bottom:1px solid var(--line)}
 .tile{padding:14px var(--pad-x);background:var(--bg-subtle)}
-@media(max-width:860px){.tiles{grid-template-columns:repeat(4,1fr)}}
+.tile.opt{display:none}
 @media(max-width:560px){
   .tiles{grid-template-columns:repeat(2,1fr)}
-  /* 폰에서는 넷만 남겨 2×2 로 맞춘다. 1인당 매출은 아래 기본 정보에 있다. */
-  .tile.opt{display:none}
   .tile{padding-left:14px;padding-right:14px}
   .t-value{font-size:18px}
 }
@@ -632,10 +642,12 @@ ${CHART_CSS}
   ${statTiles(firm, latest, first, fin[fin.length - 2] || null)}
 
   <main>
-    ${revenueSection(fin)}
+    <div class="charts">
+      ${revenueSection(fin)}
+      ${headcountSection(fin)}
+    </div>
     ${shareSection(latest)}
     ${rankSection(ranks)}
-    ${headcountSection(fin)}
     ${traineeSection(fin)}
     ${clientSection(clients)}
     ${postingsSection(postings, firm.name)}

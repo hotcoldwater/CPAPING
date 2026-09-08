@@ -281,7 +281,7 @@ ${JSON.stringify({
       <a href="/">공고</a>
       <a href="/firms/" aria-current="page">법인</a>
     </nav>
-    <div class="status"><span class="dot" aria-hidden="true"></span>10분마다 확인 중</div>
+    <div class="status"><span class="dot" aria-hidden="true"></span>1분마다 확인 중</div>
   </header>
 
   <div class="wrap">
