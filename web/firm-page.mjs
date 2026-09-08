@@ -664,7 +664,7 @@ ${CHART_CSS}
       encodeURIComponent(firm.name + " 정보 정정 요청")}">contact@cpaping.com</a>
     으로 알려주세요.
     <div class="links">
-      <a href="/">공고 목록</a><span class="sep">·</span><a href="/privacy">개인정보처리방침</a>
+      <a href="/">공고 목록</a><span class="sep">·</span><a href="/terms">이용약관</a><span class="sep">·</span><a href="/privacy">개인정보처리방침</a>
     </div>
   </footer>
 

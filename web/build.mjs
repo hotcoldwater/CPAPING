@@ -178,6 +178,7 @@ writeFileSync(join(out, "index.html"), withAnalytics(html), "utf8");
 // 방침 페이지, 파비콘, OG 이미지 등 그대로 나가는 파일들
 const ASSETS = [
   "privacy.html",
+  "terms.html",
   // 없는 경로에 진짜 404 를 돌려주기 위한 것. 이 파일이 없으면 Cloudflare
   // Pages 가 index.html 을 200 으로 내주고, 유령 URL 수백 개가 홈페이지와
   // 같은 내용·같은 canonical 로 잡혀 사이트 전체가 중복 덩어리로 보인다.
@@ -216,6 +217,7 @@ function sitemap(paths) {
 const pages = [
   { loc: "/", freq: "hourly" },
   { loc: "/privacy", freq: "yearly" },
+  { loc: "/terms", freq: "yearly" },
 ];
 
 // ── 법인 페이지 ───────────────────────────────────────────
