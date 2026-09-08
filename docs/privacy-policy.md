@@ -5,7 +5,7 @@
 이어지지는 않았다. 이 파일이 원본이며,
 `web/privacy.html` 이 이 내용을 게시한다. 내용을 고칠 때는 두 곳을 함께 바꾼다.
 
-- 공고일 / 시행일: 2026년 9월 9일 (제5판)
+- 공고일 / 시행일: 2026년 9월 9일 (제6판)
 - 게시 위치: https://cpaping.com/privacy
 
 ## 이 방침이 코드에 요구하는 것
@@ -20,11 +20,18 @@
 | §4 재가입 방지용 해시도 남기지 않음 | 삭제 시 아무것도 남기지 않는다 |
 | §3 발송 이력은 함께 삭제 | `notification_logs` 의 외래키 cascade |
 | §9 메일의 해지 링크 | 원클릭. `List-Unsubscribe` 헤더의 POST 도 처리한다 |
-| §8 분석 도구 세 가지(Cloudflare·GA4·Clarity) 고지, 입력 내용 마스킹, localStorage 3개 | `web/build.mjs` 의 `ANALYTICS`; 이메일 입력의 `data-clarity-mask`; `cpaping.filter`, `cpaping.sort`, `cpaping.region` |
+| §8 분석 도구 세 가지(Cloudflare·GA4·Clarity) 고지, 이메일 입력칸만 기록 제외, localStorage 3개 | `web/build.mjs` 의 `ANALYTICS`; 이메일 입력의 `data-clarity-mask` (그 외 화면은 기록됨 — 대시보드 마스킹 안 씀); `cpaping.filter`, `cpaping.sort`, `cpaping.region` |
 | §12 contact@cpaping.com | Cloudflare Email Routing 으로 수신 (설정 완료) |
 | §6·§7 수탁자 목록 | 코드가 실제로 쓰는 서비스와 같아야 한다 |
 
 ## 변경 이력
+
+**2026-09-09 제6판** — 운영자가 Clarity 대시보드 마스킹을 **쓰지 않기로** 결정했다(녹화를
+읽을 수 있어야 화면 개선에 쓸모가 있다). 제5판의 "입력 내용을 가려서 처리" 문구가 사실과
+어긋나게 되어 §7·§8 을 "페이지 내용과 이용 과정이 기록된다, 이메일 입력칸만 제외" 로
+바로잡았다. 이메일 입력칸의 `data-clarity-mask` 는 그대로 둔다 — 우리가 받는 유일한
+개인정보가 이메일이라 그것만은 녹화에 남지 않아야 한다.
+
 
 **2026-09-09 제5판** — Google Analytics 4 와 Microsoft Clarity 를 도입했다(운영자 결정).
 둘 다 쿠키를 쓰고, Clarity 는 **세션 녹화** 도구라 지금까지의 "추적 쿠키 없음"
