@@ -199,6 +199,12 @@ def _firm_url(company_name: str | None) -> str:
     return f"{SITE}/firm/{urllib.parse.quote(slug)}/"
 
 
+def _posting_url(row: dict) -> str:
+    """CPAPING 안의 공고 상세 페이지. 정리된 항목과 법인 정보가 있고, 원문 버튼이 있다."""
+    ij = row.get("ij_id")
+    return f"{SITE}/posting/{ij}/" if ij else ""
+
+
 def _format_posting_text(row: dict) -> str:
     bits = [f"■ {row['title']}"]
     meta = " / ".join(
@@ -216,6 +222,9 @@ def _format_posting_text(row: dict) -> str:
     if note:
         bits.append(f"   {note}")
     # 담당자 연락처는 싣지 않는다. 원문 링크에서 확인하면 된다.
+    page = _posting_url(row)
+    if page:
+        bits.append(f"   자세히 보기  {page}")
     bits.append(f"   공고 원문  {row['detail_url']}")
     firm_url = _firm_url(row.get("company_name"))
     if firm_url:
@@ -243,7 +252,7 @@ def _format_posting_html(row: dict) -> str:
     return (
         "<div style='margin:0 0 22px;padding:0 0 18px;border-bottom:1px solid #eee'>"
         f"<div style='font-size:15px;font-weight:600;margin-bottom:6px'>"
-        f"<a href='{h.escape(row['detail_url'])}' style='color:#111;text-decoration:none'>"
+        f"<a href='{h.escape(_posting_url(row) or row['detail_url'])}' style='color:#111;text-decoration:none'>"
         f"{h.escape(row['title'])}</a></div>"
         f"<div style='color:#666;font-size:13px'>{meta}</div>"
         f"{deadline}{repost}"

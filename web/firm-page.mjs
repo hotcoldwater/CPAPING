@@ -349,8 +349,9 @@ function postingsSection(postings, firmName) {
     const left = daysLeft(p.deadline);
     const closed = p.removed_at || (left !== null && left < 0);
     const due = closed ? "종료" : left === 0 ? "오늘 마감" : `D-${left}`;
+    const href = p.ij_id ? `/posting/${encodeURIComponent(p.ij_id)}/` : p.detail_url;
     return `<a class="row${closed ? " closed" : left <= 7 ? " soon" : ""}"
-      href="${esc(p.detail_url)}" target="_blank" rel="noopener">
+      href="${esc(href)}"${p.ij_id ? "" : ' target="_blank" rel="noopener"'}>
       <div>
         <div class="firm">${esc(shortDate(p.posted_at))} 등록</div>
         <div class="title">${esc(trimTitle(p.title, firmName))}</div>

@@ -13,6 +13,7 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync, copyFileSync } from "node:fs";
 import { renderFirmPage } from "./firm-page.mjs";
 import { renderFirmsPage } from "./firms-page.mjs";
+import { renderPostingPage } from "./posting-page.mjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -101,7 +102,7 @@ let html = readFileSync(join(HERE, "index.html"), "utf8");
 async function fetchPostings(url, key) {
   const query =
     "/rest/v1/job_postings?select=company_name,title,region,region_group,deadline,posted_at," +
-    "employment_type,detail_url,removed_at,original_posted_at,repost_count" +
+    "employment_type,detail_url,removed_at,original_posted_at,repost_count,ij_id" +
     "&is_target=is.true&order=posted_at.desc";
   const res = await fetch(url.replace(/\/$/, "") + query, { headers: { apikey: key } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -254,7 +255,7 @@ if (!missing.length) {
       fetchAll(url, key, "firm_financials?select=*"),
       fetchAll(url, key,
         "job_postings?select=company_name,title,region,region_group,deadline,posted_at," +
-        "employment_type,detail_url,removed_at,is_big4&order=posted_at.desc"),
+        "employment_type,detail_url,removed_at,is_big4,ij_id&order=posted_at.desc"),
     ]);
 
     const ranks = localRanks(firms, financials);
@@ -301,6 +302,45 @@ if (!missing.length) {
   } catch (err) {
     console.warn(`  법인 페이지를 만들지 못했습니다 (${err.message})`);
   }
+}
+
+// ── 공고 상세 페이지 ─────────────────────────────────────
+// 목록에서 공고를 누르면 한공회로 바로 나가지 않고 여기로 온다. 원문은
+// 전재하지 않고 게시판의 항목만 정리한다 — 본문·담당자 연락처는 원문 버튼
+// 너머에 둔다. 내려간 공고도 페이지를 남긴다(주소가 죽으면 검색·링크가 깨진다).
+if (!missing.length) try {
+  const url = read("NEXT_PUBLIC_SUPABASE_URL");
+  const key = read("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
+  const full = await fetchAll(url, key,
+    "job_postings?select=ij_id,title,company_name,region,work_region,employment_type," +
+    "hiring_status,headcount,career,salary,education,posted_at,deadline,detail_url," +
+    "job_category,original_posted_at,repost_count,removed_at,is_expired" +
+    "&is_target=is.true&order=posted_at.desc");
+  const firmsAll = await fetchAll(url, key, "firms?select=id,name,aliases,slug,region");
+  const finAll = await fetchAll(url, key, "firm_financials?select=firm_id,fiscal_year,revenue,cpa_count,trainee_count");
+  const byName = new Map();
+  for (const f of firmsAll) for (const n of [f.name, ...(f.aliases || [])]) byName.set(n, f);
+  const latestFin = new Map();
+  for (const r of finAll) {
+    const cur = latestFin.get(r.firm_id);
+    if (!cur || String(r.fiscal_year) > String(cur.fiscal_year)) latestFin.set(r.firm_id, r);
+  }
+  let made = 0;
+  for (const posting of full) {
+    if (!posting.ij_id) continue;
+    const firm = byName.get(posting.company_name) || null;
+    const others = full.filter((o) => o.company_name === posting.company_name && o.ij_id !== posting.ij_id);
+    const dir = join(out, "posting", String(posting.ij_id));
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "index.html"), withAnalytics(renderPostingPage({
+      posting, firm, latestFin: firm ? latestFin.get(firm.id) || null : null, others })), "utf8");
+    pages.push({ loc: `/posting/${encodeURIComponent(posting.ij_id)}/`,
+                 freq: posting.removed_at ? "monthly" : "daily" });
+    made++;
+  }
+  console.log(`  공고 페이지 ${made}개 생성`);
+} catch (err) {
+  console.warn(`  공고 페이지를 만들지 못했습니다 (${err.message})`);
 }
 
 writeFileSync(join(out, "sitemap.xml"), sitemap(pages), "utf8");

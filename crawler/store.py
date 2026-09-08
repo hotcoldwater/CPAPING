@@ -234,7 +234,7 @@ class Store:
         한꺼번에 보내면 스팸으로 보인다. 그건 사이트에서 보면 된다.
         """
         params = {
-            "select": "id,title,company_name,region,employment_type,deadline,detail_url,original_posted_at,first_seen_at",
+            "select": "id,ij_id,title,company_name,region,employment_type,deadline,detail_url,original_posted_at,first_seen_at",
             "source": f"eq.{source}",
             "is_target": "is.true",
             "is_expired": "is.false",
