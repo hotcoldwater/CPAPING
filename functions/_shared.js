@@ -36,6 +36,22 @@ export async function supabase(env, path, options = {}) {
   return res.status === 204 ? null : res.json();
 }
 
+/**
+ * 요청에 실린 사용자 토큰을 Supabase 에 확인해 "누구인지" 를 돌려준다. 없거나 틀리면 null.
+ * 회원 전용 API 는 전부 이걸 거친다 — 사용자 id 는 토큰에서만 나온다.
+ */
+export async function requireUser(request, env) {
+  const auth = request.headers.get("Authorization") || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (!token) return null;
+  const res = await fetch(`${env.SUPABASE_URL.replace(/\/$/, "")}/auth/v1/user`, {
+    headers: { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return null;
+  const user = await res.json();
+  return user && user.id ? user : null;
+}
+
 export function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,

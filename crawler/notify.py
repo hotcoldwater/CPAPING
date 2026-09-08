@@ -377,7 +377,7 @@ def send_to_subscriber(subscriber: dict, rows: list[dict]) -> None:
         f"{SITE} 에서 볼 수 있습니다.\n\n"
         f"— CPAPING\n"
         f"의견이나 요청은 이 메일에 그대로 답장해 주세요.\n"
-        f"받을 조건 바꾸기(지역·고용형태): {settings}\n"
+        f"알림 조건 바꾸기(지역·고용형태): {settings}\n"
         f"수신 거부: {unsubscribe}"
     )
 
@@ -396,7 +396,7 @@ def send_to_subscriber(subscriber: dict, rows: list[dict]) -> None:
           "border-top:1px solid #EFF1F4;padding-top:14px'>"
         "의견이나 요청은 이 메일에 그대로 답장해 주세요.<br>"
         "CPAPING · "
-        f"<a href='{settings}' style='color:#868D99'>구독 설정</a> · "
+        f"<a href='{settings}' style='color:#868D99'>알림 설정</a> · "
         f"<a href='{unsubscribe}' style='color:#868D99'>수신 거부</a> · "
         f"<a href='{SITE}/privacy' style='color:#868D99'>개인정보처리방침</a></div></div>"
     )

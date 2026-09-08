@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>내 계정 — CPAPING</title>
+<style>select{width:100%;font:inherit;font-size:14px;padding:10px 12px;border:1px solid #CFD3DA;border-radius:4px;background:#fff;color:#101317}</style>
 <meta name="robots" content="noindex">
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -38,6 +39,18 @@
       <div><dt>가입</dt><dd id="joined"></dd></div>
     </dl>
 
+    <section class="alerts" style="margin:0 0 22px;padding:14px 16px;border:1px solid var(--line);border-radius:4px">
+      <label class="check" style="margin:0"><input type="checkbox" id="alert-on">
+        <span><b>새 공고 알림 받기</b> <span class="muted small" id="alert-state"></span></span></label>
+      <div id="alert-opts" hidden style="margin-top:8px">
+        <label for="region">지역</label>
+        <select id="region"><option value="all">전국</option><option value="capital">수도권 (서울·경기·인천)</option><option value="local">지방</option></select>
+        <label for="filter">고용형태</label>
+        <select id="filter"><option value="all">전체</option><option value="full">정규직만</option><option value="part">파트타임만</option></select>
+        <button class="btn" type="button" id="alert-save" style="margin-top:10px">알림 조건 저장</button>
+      </div>
+    </section>
+
     <form id="nick-form" novalidate>
       <label for="nickname">닉네임 바꾸기</label>
       <input id="nickname" type="text" minlength="2" maxlength="12" required>
@@ -49,7 +62,7 @@
     <p style="margin-top:22px"><button class="btn" type="button" id="logout">로그아웃</button></p>
 
     <p class="danger">계정을 지우려면 <button class="linkish" type="button" id="delete">탈퇴</button>.
-      이메일 등 계정 정보는 즉시 삭제됩니다. 남긴 댓글은 "탈퇴한 사용자"로 남습니다(<a href="/terms">약관 제10조</a>).</p>
+      이메일 등 계정 정보와 알림 구독은 즉시 삭제됩니다. 남긴 댓글은 "탈퇴한 사용자"로 남습니다(<a href="/terms">약관 제10조</a>).</p>
 <script>
 (async () => {
   const A = window.cpAuth, $ = (id) => document.getElementById(id);
@@ -85,6 +98,32 @@
     if (error) return msg(A.humanize(error), "err");
     $("nick").textContent = nickname; msg("저장했습니다.", "ok");
   });
+
+  // 알림 구독 — 서버가 사용자 토큰을 확인하고 subscribers 를 대신 만진다
+  const authHeader = async () => { const { data: { session } } = await A.client.auth.getSession(); return { Authorization: "Bearer " + session.access_token }; };
+  async function loadAlert() {
+    const res = await fetch("/api/me/subscription", { headers: await authHeader() }).catch(() => null);
+    const sub = res && res.ok ? await res.json() : { active: false };
+    $("alert-on").checked = !!sub.active;
+    $("alert-opts").hidden = !sub.active;
+    if (sub.active) { $("region").value = sub.region_filter || "all"; $("filter").value = sub.employment_filter || "all"; }
+    $("alert-state").textContent = sub.active ? "— 받는 중" : "— 꺼짐";
+  }
+  await loadAlert();
+  $("alert-on").addEventListener("change", async () => {
+    const on = $("alert-on").checked;
+    const res = await fetch("/api/me/subscription", { method: on ? "PUT" : "DELETE",
+      headers: { ...(await authHeader()), "Content-Type": "application/json" },
+      body: on ? JSON.stringify({ region_filter: $("region").value, employment_filter: $("filter").value }) : undefined });
+    if (!res.ok) { msg("알림 설정을 바꾸지 못했습니다. 잠시 뒤 다시 시도해 주세요.", "err"); return loadAlert(); }
+    msg(on ? "새 공고 알림을 받습니다." : "알림을 껐습니다.", "ok"); await loadAlert();
+  });
+  $("alert-save").onclick = async () => {
+    const res = await fetch("/api/me/subscription", { method: "PUT",
+      headers: { ...(await authHeader()), "Content-Type": "application/json" },
+      body: JSON.stringify({ region_filter: $("region").value, employment_filter: $("filter").value }) });
+    msg(res.ok ? "알림 조건을 저장했습니다. 다음 공고부터 적용됩니다." : "저장하지 못했습니다.", res.ok ? "ok" : "err");
+  };
 
   $("logout").onclick = async () => { await A.signOut(); location.replace("/"); };
 

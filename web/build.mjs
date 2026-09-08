@@ -10,7 +10,7 @@
  *   node web/build.mjs
  */
 
-import { mkdirSync, readFileSync, writeFileSync, existsSync, copyFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, existsSync, copyFileSync, rmSync } from "node:fs";
 import { renderFirmPage } from "./firm-page.mjs";
 import { renderFirmsPage } from "./firms-page.mjs";
 import { renderPostingPage } from "./posting-page.mjs";
@@ -336,7 +336,9 @@ if (!missing.length) try {
     "job_postings?select=ij_id,title,company_name,region,work_region,employment_type," +
     "hiring_status,headcount,career,salary,education,posted_at,deadline,detail_url," +
     "job_category,original_posted_at,repost_count,removed_at,is_expired" +
-    "&is_target=is.true&order=posted_at.desc");
+    // 대상 공고 + 마감돼 대상에서 빠진 로컬 공고. 마감됐다고 페이지를 지우면 목록·메일에서
+    // 이어진 링크가 죽는다. 빅4는 처음부터 다루지 않는다.
+    "&is_big4=is.false&or=(is_target.is.true,is_expired.is.true)&order=posted_at.desc");
   const firmsAll = await fetchAll(url, key, "firms?select=id,name,aliases,slug,region");
   const finAll = await fetchAll(url, key, "firm_financials?select=firm_id,fiscal_year,revenue,cpa_count,trainee_count");
   const byName = new Map();
@@ -346,6 +348,7 @@ if (!missing.length) try {
     const cur = latestFin.get(r.firm_id);
     if (!cur || String(r.fiscal_year) > String(cur.fiscal_year)) latestFin.set(r.firm_id, r);
   }
+  rmSync(join(out, "posting"), { recursive: true, force: true });
   let made = 0;
   for (const posting of full) {
     if (!posting.ij_id) continue;

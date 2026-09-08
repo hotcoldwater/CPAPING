@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>가입 마무리 — CPAPING</title>
+<style>select{width:100%;font:inherit;font-size:14px;padding:10px 12px;border:1px solid #CFD3DA;border-radius:4px;background:#fff;color:#101317}</style>
 <meta name="robots" content="noindex">
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -48,6 +49,23 @@
         <label class="check"><input type="checkbox" id="agree" required>
           <span>만 14세 이상이며 <a href="/terms" target="_blank" rel="noopener">이용약관</a>과 <a href="/privacy" target="_blank" rel="noopener">개인정보처리방침</a>에 동의합니다.</span></label>
         <button class="btn primary" type="submit" style="margin-top:16px">시작하기</button>
+      </form>
+    </section>
+
+    <section id="step-alert" hidden>
+      <h1>새 공고 알림을 받을까요?</h1>
+      <p class="lead">한국공인회계사회에 새 공고가 올라오면 1분 안에 메일로 알려드립니다. 언제든 <b>내 계정</b>에서 끄거나 조건을 바꿀 수 있습니다.</p>
+      <form id="alert-form" novalidate>
+        <label class="check" style="margin-top:0"><input type="checkbox" id="alert-on" checked>
+          <span><b>새 공고 알림 받기</b> — 가입한 이메일로 받습니다</span></label>
+        <div id="alert-opts">
+          <label for="region">지역</label>
+          <select id="region"><option value="all">전국</option><option value="capital">수도권 (서울·경기·인천)</option><option value="local">지방</option></select>
+          <label for="filter">고용형태</label>
+          <select id="filter"><option value="all">전체</option><option value="full">정규직만</option><option value="part">파트타임만</option></select>
+          <p class="fine" style="margin-top:8px">지역무관 공고는 어느 조건에서도 함께 받습니다.</p>
+        </div>
+        <button class="btn primary" type="submit" style="margin-top:16px">완료</button>
       </form>
     </section>
 
@@ -105,6 +123,28 @@
     await A.client.auth.updateUser({ data: { agreed_terms_at: new Date().toISOString(), over14: true } });
     const { error } = await A.client.from("profiles").update({ nickname }).eq("user_id", s.user.id);
     if (error) return msg(A.humanize(error), "err");
+    $("msg").hidden = true;
+    await showAlertStep();
+  });
+
+  // 알림 단계 — 이미 같은 이메일로 구독 중이면 묻지 않고 넘어간다(연결만 된다)
+  async function showAlertStep() {
+    const { data: { session } } = await A.client.auth.getSession();
+    const res = await fetch("/api/me/subscription", { headers: { Authorization: "Bearer " + session.access_token } }).catch(() => null);
+    const sub = res && res.ok ? await res.json() : null;
+    if (sub && sub.active) return location.replace(A.takeReturnTo());
+    $("step-nick").hidden = true; $("step-email").hidden = true; $("step-alert").hidden = false;
+  }
+  $("alert-on").addEventListener("change", () => { $("alert-opts").hidden = !$("alert-on").checked; });
+  $("alert-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if ($("alert-on").checked) {
+      const { data: { session } } = await A.client.auth.getSession();
+      const res = await fetch("/api/me/subscription", { method: "PUT",
+        headers: { Authorization: "Bearer " + session.access_token, "Content-Type": "application/json" },
+        body: JSON.stringify({ region_filter: $("region").value, employment_filter: $("filter").value }) });
+      if (!res.ok) return msg("알림 설정을 저장하지 못했습니다. 내 계정에서 다시 켤 수 있습니다.", "err");
+    }
     location.replace(A.takeReturnTo());
   });
 

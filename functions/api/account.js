@@ -9,18 +9,24 @@
  * 댓글은 남기되 작성자를 "탈퇴한 사용자" 로 표시한다(댓글 Phase 에서 구현).
  */
 
-export async function onRequestDelete({ request, env }) {
-  const auth = request.headers.get("Authorization") || "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  if (!token) return new Response("unauthorized", { status: 401 });
+import { requireUser, supabase } from "../_shared.js";
 
+export async function onRequestDelete({ request, env }) {
+  const user = await requireUser(request, env);
+  if (!user) return new Response("unauthorized", { status: 401 });
   const base = env.SUPABASE_URL.replace(/\/$/, "");
-  const who = await fetch(`${base}/auth/v1/user`, {
-    headers: { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${token}` },
-  });
-  if (!who.ok) return new Response("unauthorized", { status: 401 });
-  const user = await who.json();
-  if (!user?.id) return new Response("unauthorized", { status: 401 });
+
+  // 알림 구독도 함께 지운다 — 연결된 것(user_id)과 같은 이메일로 남은 예전 방식 구독 모두.
+  // "탈퇴하면 이메일을 즉시 삭제한다" 는 약속이다.
+  try {
+    await supabase(env, `subscribers?user_id=eq.${user.id}`, { method: "DELETE", headers: { Prefer: "return=minimal" } });
+    if (user.email) {
+      await supabase(env, `subscribers?email_normalized=eq.${encodeURIComponent(user.email.toLowerCase())}`,
+        { method: "DELETE", headers: { Prefer: "return=minimal" } });
+    }
+  } catch (err) {
+    console.error("탈퇴 시 구독 삭제 실패:", err.message);   // 계정 삭제는 계속한다
+  }
 
   const del = await fetch(`${base}/auth/v1/admin/users/${user.id}`, {
     method: "DELETE",

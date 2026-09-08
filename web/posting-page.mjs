@@ -290,7 +290,7 @@ footer a{color:var(--ink-2)}
   </section>
   <script src="/comments.js" defer></script>
 
-  <p class="sub">이런 공고가 올라오면 1분 안에 메일로 받으세요 — <a href="/#subscribe-form">구독하기</a></p>
+  <p class="sub">이런 공고가 올라오면 1분 안에 메일로 받으세요 — <a href="/login/">가입하기</a></p>
   <footer>한국공인회계사회 구인(수습CPA) 게시판의 공고를 정리했습니다 · 잘못된 내용은
     <a href="mailto:contact@cpaping.com">contact@cpaping.com</a><br>
     <a href="/">공고 목록</a> · <a href="/firms/">법인</a> · <a href="/terms">이용약관</a> · <a href="/privacy">개인정보처리방침</a></footer>

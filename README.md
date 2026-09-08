@@ -265,7 +265,16 @@ python crawler/import_firm_data.py data/주권상장법인_감사인_등록법�
 | §8 분석 도구 쿠키(GA4·Clarity) 고지, localStorage 3개 | `web/build.mjs` 의 `ANALYTICS`; `cpaping.filter`, `cpaping.sort`, `cpaping.region` |
 | §12 contact@cpaping.com | Cloudflare Email Routing 으로 수신. 서비스 문의와 같은 주소를 쓴다 |
 
-**구독 (더블 옵트인)**
+**구독은 회원가입으로 (2026-09-09)**
+
+메일만 구독하는 폼은 없앴다. 가입 마무리에서 "새 공고 알림 받기"(지역·고용형태)를 켜면
+`subscribers` 행이 만들어지고 계정에 연결된다(`user_id`). 이메일은 가입 과정에서 이미
+인증됐으므로 확인 메일 없이 바로 `active` 다. 같은 이메일로 예전 방식의 구독이 있으면
+새로 만들지 않고 연결한다. 내 계정에서 켜고 끄고 조건을 바꾼다(`/api/me/subscription`).
+탈퇴하면 연결된 구독도 함께 지운다. 기존 구독자(계정 없음)는 그대로 받고, 토큰 링크
+(`/api/settings`, `/api/unsubscribe`)도 그대로 동작한다.
+
+**예전 방식 — 더블 옵트인 (기존 구독자용으로 유지)**
 
 신청하면 `pending` 으로 저장하고 확인 메일을 보낸다. 링크를 눌러야 `active` 가
 된다. 남의 주소를 함부로 등록하는 것을 막고 스팸 신고를 줄이기 위해서다.
@@ -275,7 +284,8 @@ python crawler/import_firm_data.py data/주권상장법인_감사인_등록법�
 여기서만 쓰고 브라우저로 나가지 않는다.
 
 ```
-POST /api/subscribe      { email, filter } → pending 저장 + 확인 메일
+POST /api/subscribe      → 410 (은퇴. 알림은 회원가입으로)
+GET/PUT/DELETE /api/me/subscription → 회원의 알림 구독 조회·켜기(조건)·끄기. Bearer 사용자 토큰
 GET  /api/confirm?token  → active 로 변경
 GET  /api/unsubscribe?token → 해지 (재확인 없이 한 번에)
 GET  /api/settings?token    → 받을 조건 보기·바꾸기 (지역·고용형태). 해지 토큰으로 인증
