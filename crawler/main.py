@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 import traceback
 from datetime import datetime, timezone
@@ -36,18 +37,27 @@ STALE_REPEAT_HOURS = 24
 # 확인하지 않은 구독 신청의 보유기간. 개인정보처리방침 제3조와 같아야 한다.
 PENDING_RETENTION_DAYS = 7
 
-# Resend 무료 티어는 하루 100통이고 UTC 자정에 리셋된다. 한 회차에 발견된
-# 공고는 구독자당 한 통으로 묶이므로 하루 발송량은 대략 '공고가 뜬 회차 수 ×
-# 구독자 수' 다. 2026-09-02 에는 공고 6건 · 구독자 17명으로 92통이 나갔다.
-# 구독자 수가 아니라 실제로 나간 통수를 세야 이걸 미리 잡을 수 있다.
-DAILY_MAIL_LIMIT = 100
-DAILY_MAIL_WARN = 80
+# 2026-09-08 Resend Pro 로 올렸다. **일일 캡은 사라졌고 월 50,000통**이다.
+# 아래 값은 요금제 한도가 아니라 **폭주 방지용 안전망**이다. 버그로 같은 메일을
+# 반복 발송하면 한 달치를 하루에 태울 수 있어서 남겨 둔다.
+#
+# 통수를 좌우하는 것은 공고 수가 아니라 '신규 공고가 발견된 회차 수' 다.
+# 한 회차에 공고가 6건 떠도 구독자당 한 통으로 묶여 구독자 수만큼만 나가고,
+# 공고가 1건씩 4회차에 나뉘어 뜨면 그 네 배가 나간다. 2026-09-08 이 후자였다
+# (구독자 24명 · 4회차 · 94통). 무료 티어의 100통은 여기서 바닥났다.
+#
+# 1,500통이면 월 45,000통으로 요금제 안에 들어오고, 구독자 200명이라도
+# 하루 7회차를 감당한다. 요금제를 바꾸면 코드 대신 환경변수로 조정한다.
+DAILY_MAIL_LIMIT = int(os.environ.get("DAILY_MAIL_LIMIT", "1500"))
+DAILY_MAIL_WARN = int(DAILY_MAIL_LIMIT * 0.8)
 
 # 확인 메일이 하루에 쓸 수 있는 몫. functions/api/subscribe.js 의 같은 이름과
 # 맞춰 둔다. 신청 API 가 천장에서 멈춰도 크롤러가 대신 보내 버리면 천장이
-# 없는 것과 같다. 실제 신청은 가장 많았던 날이 11건이라 정상 이용에는
-# 걸리지 않는다.
-DAILY_CONFIRMATION_LIMIT = 40
+# 없는 것과 같다.
+#
+# 이것은 요금제와 무관한 **남용 방지 천장**이다. 홍보를 열면 신청이 몰릴 수
+# 있어(지금까지 가장 많은 날이 11건) 정상 이용을 막지 않도록 넉넉히 둔다.
+DAILY_CONFIRMATION_LIMIT = int(os.environ.get("DAILY_CONFIRMATION_LIMIT", "300"))
 
 # 한 번만 알리고 반복하지 않는다는 뜻. _crossed 의 period 로 쓴다.
 ONCE = float("inf")
@@ -302,13 +312,14 @@ def _warn_if_near_daily_limit(before: int, after: int, subscriber_count: int,
     try:
         notify.send_alert(
             "Resend 일일 한도 임박",
-            f"오늘(UTC) {after}통 발송 — 무료 티어 한도 {DAILY_MAIL_LIMIT}통.\n"
+            f"오늘(UTC) {after}통 발송 — 안전망 {DAILY_MAIL_LIMIT}통.\n"
             f"활성 구독자 {subscriber_count}명.\n"
             f"{tail}\n"
-            f"한도에 닿으면 그 뒤 발송은 건너뛰고 다음 회차에 다시 시도합니다.\n"
-            f"오래 기다린 구독자부터 보내므로 특정인만 계속 밀리지는 않습니다.\n\n"
-            f"Pro($20/월, 월 50,000통 · 일일 캡 없음) 전환을 검토하세요.\n"
-            f"https://resend.com/settings/billing"
+            f"이 숫자는 요금제 한도가 아니라 폭주 방지용 안전망입니다.\n"
+            f"Resend Pro 는 일일 캡이 없고 월 50,000통이므로, 정상적인 증가라면\n"
+            f"DAILY_MAIL_LIMIT 환경변수를 올리면 됩니다. 예상 밖의 숫자라면\n"
+            f"같은 메일이 반복 발송되고 있지 않은지 먼저 확인하세요.\n\n"
+            f"https://resend.com/emails"
         )
     except Exception as exc:
         log.warning("한도 경고를 못 보냈습니다: %s", exc)

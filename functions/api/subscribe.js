@@ -13,10 +13,12 @@ import {
 // 이게 없으면 한 주소를 반복 호출하는 것만으로 메일을 무한히 보낼 수 있다.
 const RESEND_COOLDOWN_MS = 10 * 60 * 1000;
 
-// 하루에 나갈 수 있는 확인 메일 총량. 실제 신청은 가장 많았던 날이 11건이라
-// 정상 이용에는 걸리지 않는다. 주소를 바꿔 가며 부르는 경우를 막기 위한 천장이고,
-// 여기에 걸려도 신청 자체는 남으므로 다음 날 크롤러가 대신 보낸다.
-const DAILY_CONFIRMATION_LIMIT = 40;
+// 하루에 나갈 수 있는 확인 메일 총량. 요금제와 무관한 **남용 방지 천장**이다.
+// 주소를 바꿔 가며 부르는 경우를 막되, 홍보로 신청이 몰리는 정상 상황은
+// 막지 않아야 한다(지금까지 가장 많은 날이 11건). 여기에 걸려도 신청 자체는
+// 남으므로 크롤러가 다음 회차에 대신 보낸다.
+// crawler/main.py 의 같은 이름과 맞춰 둔다.
+const DAILY_CONFIRMATION_LIMIT = 300;
 
 function confirmMail(url, unsubscribeUrl) {
   const text =
@@ -135,7 +137,7 @@ export async function onRequestPost({ request, env }) {
       console.error("확인 메일 통수를 세지 못했습니다:", err.message);
       return json({ status: "pending" });
     }
-    if (sentToday >= DAILY_CONFIRMATION_LIMIT) {
+    if (sentToday >= Number(env.DAILY_CONFIRMATION_LIMIT || DAILY_CONFIRMATION_LIMIT)) {
       console.warn("확인 메일 하루 한도 도달 — 발송을 건너뜁니다");
       return json({ status: "pending" });
     }
