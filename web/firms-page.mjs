@@ -217,8 +217,12 @@ export function renderFirmsPage({ firms, financials }) {
   // 5 년 합계가 아니라 최근 한 해를 보여준다. 3 년 전에 스무 명 뽑고
   // 이후 안 뽑은 곳까지 합쳐지면 지금 채용 시장이 실제보다 커 보인다.
   // 빅4 도 뺀다 — 5 년 합계 기준으로 여덟 할이 빅4 였다.
+  // 수습회계사 총계는 빅4 를 포함해 보여주고, 그 아래 빅4/로컬로 나눈다.
+  // 전에는 로컬만 크게 쓰고 빅4 를 "제외" 로 적었는데, 이 사이트 이용자는
+  // 로컬을 지원하는 사람이라 "전체 중 로컬이 몇 명" 이 더 쓸모 있는 그림이다.
   const big4Tr = rows.filter((r) => r.big4).reduce((s, r) => s + r.trNow, 0);
-  const local = rows.reduce((s, r) => s + r.trNow, 0) - big4Tr;
+  const total = rows.reduce((s, r) => s + r.trNow, 0);
+  const local = total - big4Tr;
   const years = rows.reduce((s, r) => s + r.years.length, 0);
   const sorted = rows.map((r) => r.rev).sort((a, b) => a - b);
   const median = Math.round(sorted[Math.floor(sorted.length / 2)] || 0);
@@ -292,7 +296,7 @@ ${JSON.stringify({
     <div class="tiles">
       <div class="tile"><div class="k">법인</div><div class="v">${rows.length}</div><div class="n">사업연도 ${years.toLocaleString("ko-KR")}개</div></div>
       <div class="tile"><div class="k">수습회계사가 있는 곳</div><div class="v">${hiring}</div><div class="n">최근 결산 기준</div></div>
-      <div class="tile"><div class="k">수습회계사</div><div class="v">${local.toLocaleString("ko-KR")}<em>명</em></div><div class="n">각 법인 최근 결산 기준 · 빅4 ${big4Tr.toLocaleString("ko-KR")}명 제외</div></div>
+      <div class="tile"><div class="k">수습회계사</div><div class="v">${total.toLocaleString("ko-KR")}<em>명</em></div><div class="n">빅4 ${big4Tr.toLocaleString("ko-KR")}명 · 로컬 ${local.toLocaleString("ko-KR")}명 · 각 법인 최근 결산 기준</div></div>
       <div class="tile"><div class="k">매출 중앙값</div><div class="v">${median}<em>억</em></div><div class="n">최근 사업연도</div></div>
     </div>
 
