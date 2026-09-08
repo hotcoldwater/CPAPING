@@ -147,6 +147,10 @@ writeFileSync(join(out, "index.html"), html, "utf8");
 // 방침 페이지, 파비콘, OG 이미지 등 그대로 나가는 파일들
 const ASSETS = [
   "privacy.html",
+  // 없는 경로에 진짜 404 를 돌려주기 위한 것. 이 파일이 없으면 Cloudflare
+  // Pages 가 index.html 을 200 으로 내주고, 유령 URL 수백 개가 홈페이지와
+  // 같은 내용·같은 canonical 로 잡혀 사이트 전체가 중복 덩어리로 보인다.
+  "404.html",
   "robots.txt",
   "favicon.ico",
   "favicon.svg",
@@ -245,7 +249,10 @@ if (!missing.length) {
                     renderFirmPage({ firm, financials: fin, postings: mine,
                                      ranks: ranks.get(firm.id),
                                      clients: clients.get(firm.name) }), "utf8");
-      pages.push({ loc: `/firm/${encodeURIComponent(firm.slug)}`, freq: "weekly" });
+            // 슬래시를 붙인 형태가 서버가 실제로 200 을 주는 주소다. 안 붙이면
+      // Cloudflare Pages 가 308 로 붙여서 보내는데, sitemap 과 canonical 이
+      // 리다이렉트되는 쪽을 가리키면 검색엔진이 대표 URL 을 스스로 고른다.
+      pages.push({ loc: `/firm/${encodeURIComponent(firm.slug)}/`, freq: "weekly" });
       built++;
     }
     console.log(`  법인 페이지 ${built}개 생성`);
@@ -257,7 +264,7 @@ if (!missing.length) {
     mkdirSync(firmsDir, { recursive: true });
     writeFileSync(join(firmsDir, "index.html"),
       renderFirmsPage({ firms, financials }).replace("__BASE__", baseCss), "utf8");
-    pages.push({ loc: "/firms", freq: "weekly" });
+    pages.push({ loc: "/firms/", freq: "weekly" });
     console.log(`  법인 비교표 생성 (/firms)`);
   } catch (err) {
     console.warn(`  법인 페이지를 만들지 못했습니다 (${err.message})`);

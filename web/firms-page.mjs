@@ -226,7 +226,7 @@ export function renderFirmsPage({ firms, financials }) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>회계법인 ${rows.length}곳 비교 — 매출·회계사 수·수습회계사 | CPAPING</title>
 <meta name="description" content="국내 회계법인 ${rows.length}곳의 매출, 회계사 수, 수습회계사 현황을 사업보고서 기준으로 정리했습니다. 매출·전년 대비 성장률·감사 비중으로 정렬할 수 있습니다.">
-<link rel="canonical" href="https://cpaping.com/firms">
+<link rel="canonical" href="https://cpaping.com/firms/">
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -270,7 +270,7 @@ ${JSON.stringify({
     <div class="wordmark">CPAPING</div>
     <nav class="tabs" aria-label="주요 화면">
       <a href="/">공고</a>
-      <a href="/firms" aria-current="page">법인</a>
+      <a href="/firms/" aria-current="page">법인</a>
     </nav>
     <div class="status"><span class="dot" aria-hidden="true"></span>10분마다 확인 중</div>
   </header>
@@ -388,7 +388,7 @@ function render() {
     const g = f.growth;
     return '<tr>' +
       '<td class="firm"><div class="cell"><span class="rank">' + (i + 1) + '</span>' +
-        '<span class="nm"><a href="/firm/' + encodeURIComponent(f.slug) + '">' + esc(f.name) + '</a>' +
+        '<span class="nm"><a href="/firm/' + encodeURIComponent(f.slug) + '/">' + esc(f.name) + '</a>' +
         (f.big4 ? '<span class="b4">빅4</span>' : "") +
         (f.region ? '<span class="rg">' + esc(f.region) + '</span>' : "") + '</span></div></td>' +
       '<td class="hist"><span class="marks">' + marks(f) + '</span></td>' +

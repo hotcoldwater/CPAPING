@@ -428,7 +428,7 @@ export function renderFirmPage({ firm, financials, postings, ranks, clients }) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
-<link rel="canonical" href="${SITE}/firm/${encodeURIComponent(firm.slug)}">
+<link rel="canonical" href="${SITE}/firm/${encodeURIComponent(firm.slug)}/">
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <meta name="theme-color" content="#123A8A">
@@ -436,7 +436,7 @@ export function renderFirmPage({ firm, financials, postings, ranks, clients }) {
 <meta property="og:title" content="${esc(firm.name)} — 규모·채용 정보">
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:image" content="${SITE}/og.png">
-<meta property="og:url" content="${SITE}/firm/${encodeURIComponent(firm.slug)}">
+<meta property="og:url" content="${SITE}/firm/${encodeURIComponent(firm.slug)}/">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
 <script type="application/ld+json">
 ${jsonLd({
@@ -445,14 +445,14 @@ ${jsonLd({
     {
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "회계법인", item: `${SITE}/firms` },
+        { "@type": "ListItem", position: 1, name: "회계법인", item: `${SITE}/firms/` },
         { "@type": "ListItem", position: 2, name: firm.name },
       ],
     },
     {
       "@type": "Organization",
       name: firm.name,
-      url: `${SITE}/firm/${encodeURIComponent(firm.slug)}`,
+      url: `${SITE}/firm/${encodeURIComponent(firm.slug)}/`,
       ...(firm.address ? { address: { "@type": "PostalAddress",
                                       streetAddress: firm.address,
                                       addressCountry: "KR" } } : {}),

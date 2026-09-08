@@ -337,7 +337,7 @@ footer .footer-mail { margin-top: 4px; font-size: 11px; opacity: .75; user-selec
     <div class="wordmark">CPAPING</div>
     <nav class="tabs" aria-label="주요 화면">
       <a href="/" aria-current="page">공고</a>
-      <a href="/firms">법인</a>
+      <a href="/firms/">법인</a>
     </nav>
     <div class="status"><span class="dot" aria-hidden="true"></span>10분마다 확인 중</div>
   </header>
@@ -545,7 +545,7 @@ function renderRow(p, options = {}) {
   if (slug) {
     const link = document.createElement("a");
     link.className = "firm-link";
-    link.href = "/firm/" + encodeURIComponent(slug);
+    link.href = "/firm/" + encodeURIComponent(slug) + "/";
     link.textContent = firmLabel(p.company_name);
     firm.append(link);
   } else {
