@@ -332,6 +332,38 @@ class Store:
         return subscriber_mails + confirmations + admin_postings + failures
 
     # ------------------------------------------------------------------
+    # 커뮤니티 — 운영자 알림용
+    # ------------------------------------------------------------------
+    def unnotified_activity(self) -> tuple[list[dict], list[dict]]:
+        """운영자에게 아직 알리지 않은 새 댓글과 신고.
+
+        첫 달은 모든 글이 운영자 메일로 온다 — 양이 적을 때 문화가 정해진다.
+        신고는 들어온 즉시 댓글이 비공개로 바뀌므로(DB 트리거) 운영자가 30일 안에
+        보기만 하면 된다(약관 §7).
+        """
+        comments = self._request(
+            "GET", "comments",
+            params={"select": "id,target_type,target_id,body,status,created_at",
+                    "admin_notified_at": "is.null", "order": "created_at.asc", "limit": "50"},
+        )
+        reports = self._request(
+            "GET", "reports",
+            params={"select": "id,comment_id,reason,detail,created_at",
+                    "admin_notified_at": "is.null", "order": "created_at.asc", "limit": "50"},
+        )
+        return comments, reports
+
+    def mark_admin_notified(self, table: str, ids: list[int]) -> None:
+        if not ids:
+            return
+        self._request(
+            "PATCH", table,
+            params={"id": f"in.({','.join(str(i) for i in ids)})"},
+            headers={"Prefer": "return=minimal"},
+            json={"admin_notified_at": _now_iso()},
+        )
+
+    # ------------------------------------------------------------------
     def start_run(self, board: str) -> int | None:
         rows = self._request(
             "POST", "crawl_runs",

@@ -25,6 +25,9 @@
 | §5-1 탈퇴 즉시 삭제 | `functions/api/account.js` 가 토큰의 주인만 admin API 로 삭제. `profiles` 는 cascade |
 | §5-1 닉네임 규칙 | `007_profiles.sql` 의 CHECK(2~12자, 사칭 문구 금지) + `lower(nickname)` 유니크 |
 | §5-1 동의 기록 | `auth.users.raw_user_meta_data.agreed_terms_at / over14` |
+| §5-1 게시물은 탈퇴 후 익명화 존치 | `comments.author_id … on delete set null` → 뷰가 "탈퇴한 사용자" 로 표시 |
+| 약관 §7 신고 즉시 임시조치 | `reports_after_insert` 트리거가 댓글을 hidden 으로. 운영자가 30일 내 처리 |
+| 약관 §6 연락처 금지 | `comments_no_contact` CHECK (휴대폰·이메일 패턴) |
 | §12 contact@cpaping.com | Cloudflare Email Routing 으로 수신 (설정 완료) |
 | §6·§7 수탁자 목록 | 코드가 실제로 쓰는 서비스와 같아야 한다 |
 

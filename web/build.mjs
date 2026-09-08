@@ -184,6 +184,7 @@ const inject = (text) => {
   return text;
 };
 writeFileSync(join(out, "auth.js"), inject(readFileSync(join(HERE, "auth.js"), "utf8")), "utf8");
+writeFileSync(join(out, "comments.js"), inject(readFileSync(join(HERE, "comments.js"), "utf8")), "utf8");
 copyFileSync(join(HERE, "auth.css"), join(out, "auth.css"));
 const AUTH_PAGES = { "login.html": "login", "auth-callback.html": "auth/callback",
                      "onboarding.html": "onboarding", "account.html": "account" };

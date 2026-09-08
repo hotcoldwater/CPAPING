@@ -212,6 +212,24 @@ dl.facts dt{color:var(--ink-2);margin:0;white-space:nowrap} dl.facts dd{margin:0
 .row:last-child{border-bottom:0} .row:hover .t{color:var(--accent)}
 .row .meta{font-size:11.5px;color:var(--ink-3)} .row .t{font-size:13.5px;font-weight:500}
 .row .due{font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--ink-2)} .row.closed .due,.row.closed .t{color:var(--ink-3)}
+/* 댓글 */
+.comments{padding:20px var(--pad-x) 22px;border-top:1px solid var(--line)}
+.cm-list{list-style:none;margin:0 0 16px;padding:0}
+.cm{padding:10px 0;border-bottom:1px solid var(--line-2)} .cm:last-child{border-bottom:0}
+.cm-head{display:flex;gap:8px;align-items:baseline;font-size:12.5px} .cm-head b{font-weight:600} .cm-head b.left{color:var(--ink-3);font-weight:500}
+.cm-time{color:var(--ink-3);font-size:11.5px} .cm-act{margin-left:auto;display:flex;gap:10px}
+.cm-body{margin:4px 0 0;font-size:14px;white-space:pre-wrap;word-break:break-word} .cm-body.muted{color:var(--ink-3);font-style:normal}
+.cm-form textarea,.cm-inline textarea,.cm-report input[type=text]{width:100%;font:inherit;font-size:13.5px;padding:9px 11px;border:1px solid #CFD3DA;border-radius:var(--radius);background:var(--bg);color:var(--ink);resize:vertical}
+.cm-form-row{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px}
+.cm-count{font-size:11.5px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.cm-gate{margin:6px 0 0;font-size:13px;color:var(--ink-2)} .cm-gate a{color:var(--accent);font-weight:500}
+.cm-fine{margin:12px 0 0;font-size:11.5px;color:var(--ink-3);line-height:1.6} .cm-fine a{color:var(--ink-2)}
+.cm-inline{margin-top:8px} .cm-report label{display:block;font-size:12.5px;margin:4px 0} .cm-report b{display:block;font-size:12.5px;margin-bottom:6px}
+.linkish{font:inherit;font-size:12px;color:var(--ink-2);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline} .linkish:hover{color:var(--accent)}
+.comments .btn{display:inline-flex;align-items:center;font-size:13px;font-weight:500;padding:8px 14px;border-radius:var(--radius);border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+.comments .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)} .comments .btn:disabled{opacity:.55}
+.msg{margin:10px 0 0;padding:9px 12px;font-size:13px;border-radius:var(--radius);background:var(--bg-subtle);border:1px solid var(--line);color:var(--ink-2)}
+.msg.ok{background:#E6F5ED;border-color:transparent;color:var(--live)} .msg.err{background:#FBEBE7;border-color:transparent;color:var(--urgent)}
 .sub{margin:0;padding:18px var(--pad-x);background:var(--bg-subtle);border-top:1px solid var(--line);font-size:13px;color:var(--ink-2)}
 .sub a{color:var(--accent);font-weight:500}
 footer{padding:16px var(--pad-x);background:var(--bg-subtle);border-top:1px solid var(--line);font-size:11.5px;color:var(--ink-3);line-height:1.7;text-align:center}
@@ -265,6 +283,12 @@ footer a{color:var(--ink-2)}
       <div class="rows">${otherRows}</div>
     </section>` : ""}
   </main>
+
+  <section class="comments" id="comments" data-target-type="posting" data-target-id="${esc(p.ij_id)}">
+    <div class="sec-head"><h2>댓글</h2></div>
+    <p class="muted small">댓글을 불러오는 중…</p>
+  </section>
+  <script src="/comments.js" defer></script>
 
   <p class="sub">이런 공고가 올라오면 1분 안에 메일로 받으세요 — <a href="/#subscribe-form">구독하기</a></p>
   <footer>한국공인회계사회 구인(수습CPA) 게시판의 공고를 정리했습니다 · 잘못된 내용은
