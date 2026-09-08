@@ -2,6 +2,8 @@
 :root{--ink:#101317;--ink-2:#5B6472;--ink-3:#868D99;--line:#E4E6EA;--line-2:#EDEFF2;--bg:#fff;--bg-subtle:#FBFBFC;
 --accent:#123A8A;--urgent:#B4341F;--ok:#17A05F;--ok-bg:#E6F5ED;--chip-bg:#EEF1F6;--chip-fg:#4A5462;--radius:4px;--pad-x:18px}
 *{box-sizing:border-box}
+/* hidden 속성이 .btn{display:flex} 같은 규칙에 밀리지 않게. 카카오 버튼이 hidden 인데도 보였다. */
+[hidden]{display:none!important}
 body{margin:0;background:var(--bg-subtle);color:var(--ink);font-family:"IBM Plex Sans KR","Pretendard","Apple SD Gothic Neo",-apple-system,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
 .shell{max-width:720px;margin:0 auto;min-height:100vh;background:var(--bg);border-inline:1px solid var(--line);display:flex;flex-direction:column}
 @media(max-width:720px){.shell{border-inline:0}}

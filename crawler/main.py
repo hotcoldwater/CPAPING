@@ -307,8 +307,9 @@ def _notify_admin_activity(db) -> None:
 
     lines = []
     for c in comments:
-        where = (f"https://cpaping.com/posting/{c['target_id']}/" if c["target_type"] == "posting"
-                 else f"{c['target_type']}:{c['target_id']}")
+        where = {"posting": f"https://cpaping.com/posting/{c['target_id']}/",
+                 "firm": f"https://cpaping.com/firm/{c['target_id']}/"}.get(
+                     c["target_type"], f"{c['target_type']}:{c['target_id']}")
         lines.append(f"[댓글 #{c['id']}] {c['status']} · {c['created_at'][:16]}\n{where}\n{c['body'][:300]}\n")
     for r in reports:
         lines.append(f"[신고 #{r['id']}] 댓글 #{r['comment_id']} · 사유 {r['reason']} · {r['created_at'][:16]}"

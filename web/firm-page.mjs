@@ -444,6 +444,7 @@ export function renderFirmPage({ firm, financials, postings, ranks, clients }) {
 <meta property="og:image" content="${SITE}/og.png">
 <meta property="og:url" content="${SITE}/firm/${encodeURIComponent(firm.slug)}/">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/comments.css">
 <script type="application/ld+json">
 ${jsonLd({
   "@context": "https://schema.org",
@@ -590,6 +591,8 @@ details.more-clients ul.clients{margin-top:8px}
 .table-toggle[open] summary::before{content:"▾"}
 .table-toggle summary:hover{color:var(--ink)}
 .scroll{overflow-x:auto;margin-top:10px}
+.comments .sec-head{margin-bottom:10px}
+.comments .nodata{padding:0;font-size:13px;color:var(--ink-2)}
 
 .rows{display:flex;flex-direction:column}
 .row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;
@@ -658,6 +661,12 @@ ${CHART_CSS}
     ${profileSection(firm, latest)}
     ${!hasData ? `<p class="nodata">재무 정보는 준비 중입니다.</p>` : ""}
   </main>
+
+  <section class="comments" id="comments" data-target-type="firm" data-target-id="${esc(firm.slug)}">
+    <div class="sec-head"><h2>댓글</h2></div>
+    <p class="nodata">댓글을 불러오는 중…</p>
+  </section>
+  <script src="/comments.js" defer></script>
 
   <footer>
     ${hasData
