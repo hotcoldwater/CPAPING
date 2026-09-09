@@ -73,6 +73,8 @@
     $("password").autocomplete = mode === "signup" ? "new-password" : "current-password";
     $("forgot").hidden = mode === "signup"; $("resend").hidden = true; $("msg").hidden = true;
   }));
+  // 댓글창의 "댓글 남기기" 처럼 가입을 권하는 자리에서 왔으면 가입 탭을 먼저 보여 준다
+  if (params.get("mode") === "signup") document.querySelector('[role=tab][data-mode="signup"]').click();
 
   $("google").onclick = async () => { busy(true); try { await A.signInWith("google"); } catch (e) { msg(A.humanize(e), "err"); busy(false); } };
   $("kakao").onclick  = async () => { busy(true); try { await A.signInWith("kakao"); }  catch (e) { msg(A.humanize(e), "err"); busy(false); } };

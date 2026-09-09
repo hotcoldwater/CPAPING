@@ -55,6 +55,11 @@
   const humanize = (e) => { const m = String(e?.message || e || ""); for (const [re, t] of HUMAN) if (re.test(m)) return t; return "처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요." + (m ? ` (${m})` : ""); };
   const hasContact = (t) => /01[016789][-. ]?\d{3,4}[-. ]?\d{4}/.test(t) || /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i.test(t);
 
+  // 비회원이 쓰던 댓글은 가입하고 돌아올 때까지 잠시 보관한다(이 대상에만).
+  const DRAFT_KEY = `cpaping.commentDraft:${TT}:${TID}`;
+  const saveDraft = (t) => { try { if (t) sessionStorage.setItem(DRAFT_KEY, t); } catch {} };
+  const takeDraft = () => { try { const t = sessionStorage.getItem(DRAFT_KEY) || ""; sessionStorage.removeItem(DRAFT_KEY); return t; } catch { return ""; } };
+
   let auth = null;      // window.cpAuth (세션이 있을 때만)
   let me = { state: "anon" };
   let list = [];        // 뷰가 준 그대로(시간순). 답글도 섞여 있다.
@@ -127,14 +132,12 @@
   function render() {
     const S = shape();
     const count = list.filter((c) => c.status !== "removed").length;
-    const gate =
-      me.state === "complete" ? `
+    // 댓글창은 누구에게나 보인다. 회원이 아니면 "댓글 남기기" 를 누를 때 가입으로 보낸다(운영자 결정 2026-09-10).
+    const gate = `
         <form id="cm-form" class="cm-form" novalidate>
           <textarea id="cm-body" maxlength="1000" rows="3" placeholder="${esc(COPY.ph)}"></textarea>
           <div class="cm-form-row"><span class="cm-count" id="cm-count">0 / 1000</span><button class="btn primary" type="submit">댓글 남기기</button></div>
-        </form>` :
-      me.state === "anon" ? `<p class="cm-gate"><a href="/login/?returnTo=${encodeURIComponent(location.pathname + "#comments")}">로그인</a>하면 댓글을 쓰고 추천할 수 있습니다. 읽는 데는 필요 없습니다.</p>` :
-      `<p class="cm-gate"><a href="/onboarding/">가입을 마무리</a>하면 댓글을 쓰고 추천할 수 있습니다.</p>`;
+        </form>`;
 
     root.innerHTML = `
       <div class="sec-head"><h2>댓글</h2><span class="unit">${count}개</span></div>
@@ -150,10 +153,10 @@
   const msg = (t, kind) => { const m = document.getElementById("cm-msg"); if (!m) return; m.textContent = t; m.className = "msg" + (kind ? " " + kind : ""); m.hidden = false; };
   const find = (id) => list.find((x) => String(x.id) === String(id));
 
-  /** 회원이 아니면 로그인·가입 마무리로 보낸다. 회원이면 true. */
+  /** 회원이 아니면 가입(로그인 화면의 가입 탭)·가입 마무리로 보낸다. 회원이면 true. */
   function requireMember() {
     if (me.state === "complete") return true;
-    if (me.state === "anon") { location.href = `/login/?returnTo=${encodeURIComponent(location.pathname + "#comments")}`; return false; }
+    if (me.state === "anon") { location.href = `/login/?mode=signup&returnTo=${encodeURIComponent(location.pathname + "#comments")}`; return false; }
     location.href = "/onboarding/";
     return false;
   }
@@ -175,8 +178,10 @@
     if (form) {
       const ta = document.getElementById("cm-body"), cnt = document.getElementById("cm-count");
       ta.addEventListener("input", () => { cnt.textContent = `${ta.value.length} / 1000`; });
+      if (me.state === "complete") { const d = takeDraft(); if (d && !ta.value) { ta.value = d; cnt.textContent = `${d.length} / 1000`; } }
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
+        if (me.state !== "complete") { saveDraft(ta.value.trim()); return requireMember(); }
         const btn = form.querySelector("button"); btn.disabled = true;
         const ok = await post(ta.value.trim(), null);
         if (!ok) btn.disabled = false;
@@ -200,9 +205,8 @@
       await refresh();
     });
 
-    // 답글
+    // 답글 — 답글창도 누구에게나 열리고, 보낼 때 회원인지 본다
     root.querySelectorAll("[data-reply]").forEach((b) => b.onclick = () => {
-      if (!requireMember()) return;
       const id = b.dataset.reply, box = document.getElementById("inline-" + id);
       box.hidden = false;
       box.innerHTML = `<textarea maxlength="1000" rows="2" placeholder="답글을 남겨 주세요. 연락처는 쓸 수 없습니다."></textarea>
@@ -210,6 +214,7 @@
       box.querySelector("textarea").focus();
       box.querySelector("[data-cancel]").onclick = () => { box.hidden = true; box.innerHTML = ""; };
       box.querySelector("[data-send]").onclick = async () => {
+        if (!requireMember()) return;
         box.querySelector("[data-send]").disabled = true;
         const ok = await post(box.querySelector("textarea").value.trim(), id);
         if (!ok) box.querySelector("[data-send]").disabled = false;
