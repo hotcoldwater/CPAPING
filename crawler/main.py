@@ -69,7 +69,8 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
     session = kicpa.make_session()
 
     # 1. 목록 (상세는 신규 건만 — 상대 서버 부담을 줄인다)
-    postings, total = kicpa.fetch_list(session, board=board, list_cnt=50)
+    # 경력 게시판은 한 달치가 50건을 넘는다(2026-09-09 실측 65건). 첫 수집에서 빠지지 않게 100건.
+    postings, total = kicpa.fetch_list(session, board=board, list_cnt=100 if board == kicpa.BOARD_CPA else 50)
     log.info("%s 목록 %d건 (전체 %s건)", kicpa.BOARDS[board][1], len(postings), total)
 
     if not postings:
@@ -140,12 +141,19 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
         # 7. 알림 — 구독자별로 보낸다
         # 6 이 보낸 통수는 mark_confirmation_sent 로 이미 DB 에 남았으므로
         # 7 이 다시 세면 그대로 반영된다. 따로 넘겨줄 것이 없다.
-        notified = _notify_subscribers(db, source, send_mail)
+        # 경력 게시판은 아직 구독자에게 보내지 않는다(1단계: 수집·분류만).
+        # 종류 스위치(want_career)를 알림이 읽게 되는 2단계에서 켠다.
+        career = board == kicpa.BOARD_CPA
+        notified = 0 if career else _notify_subscribers(db, source, send_mail)
 
         # 관리자에게도 계속 보낸다. 구독자가 없어도 서비스가 살아있는지 확인할 수 있다.
-        pending = db.unnotified_targets(source)
+        # 경력 게시판은 판단 불가 건도 같이 보여 분류를 검수한다.
+        pending = db.unnotified_targets(source, include_unknown=career)
+        for r in pending:
+            if r.get("audience") == "unknown":
+                r["title"] = "[검수 필요] " + (r.get("title") or "")
         if pending and send_mail:
-            notify.send_new_postings(pending)
+            notify.send_new_postings(pending, kind="경력 회계사" if career else "수습회계사")
             db.mark_notified([r["id"] for r in pending])
             log.info("관리자 알림 %d건", len(pending))
         elif pending:
@@ -424,6 +432,7 @@ def _print_dry_run(postings: list) -> None:
         print(f"{mark:9s} {p.title[:50]}")
         print(f"          {p.company_name} | {p.region} | {p.employment_type} | ~{p.deadline}")
         print(f"          유형={L['posting_type']} ({L['posting_type_reason']})")
+        print(f"          대상={L['audience']} ({L['audience_reason']}) 연차={L['career_min_years']}~{L['career_max_years']} 대상여부={L['is_target']}")
         print(f"          직무={L['job_category']}/{L['job_category_confidence']} ({L['job_category_reason']})")
     print(f"{'=' * 76}")
     print("dry-run 이므로 DB 저장과 메일 발송은 하지 않았습니다.")
@@ -434,8 +443,8 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true",
                         help="DB 저장과 메일 발송 없이 결과만 출력")
     parser.add_argument("--no-mail", action="store_true", help="저장만 하고 메일은 생략")
-    parser.add_argument("--board", default=kicpa.BOARD_TRAINEE,
-                        choices=list(kicpa.BOARDS), help="수집할 게시판")
+    parser.add_argument("--board", default=None,
+                        choices=list(kicpa.BOARDS), help="수집할 게시판 (기본: 수습 → 경력 둘 다)")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -447,7 +456,11 @@ def main() -> int:
     )
 
     try:
-        code = crawl(dry_run=args.dry_run, send_mail=not args.no_mail, board=args.board)
+        # 수습 게시판을 먼저 — 알림이 걸린 쪽이라 경력 수집이 오래 걸려도 늦지 않게.
+        boards = [args.board] if args.board else [kicpa.BOARD_TRAINEE, kicpa.BOARD_CPA]
+        code = 0
+        for board in boards:
+            code = crawl(dry_run=args.dry_run, send_mail=not args.no_mail, board=board) or code
         if not args.dry_run:
             notify.ping_healthcheck(ok=True)
         return code

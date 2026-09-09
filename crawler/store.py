@@ -151,19 +151,24 @@ class Store:
         )
         return len(rows)
 
-    def unnotified_targets(self, source: str) -> list[dict]:
-        """아직 알리지 않은 알림 대상 공고."""
-        return self._request(
-            "GET", "job_postings",
-            params={
-                "select": "*",
-                "source": f"eq.{source}",
-                "is_target": "is.true",
-                "is_expired": "is.false",
-                "notified_at": "is.null",
-                "order": "posted_at.desc",
-            },
-        )
+    def unnotified_targets(self, source: str, include_unknown: bool = False) -> list[dict]:
+        """아직 알리지 않은 알림 대상 공고.
+
+        include_unknown 이면 대상은 아니지만 판단 불가(audience=unknown)인 공고도
+        함께 돌려준다 — 경력 게시판의 검수용. 운영자 메일에만 쓴다.
+        """
+        params = {
+            "select": "*",
+            "source": f"eq.{source}",
+            "is_expired": "is.false",
+            "notified_at": "is.null",
+            "order": "posted_at.desc",
+        }
+        if include_unknown:
+            params["or"] = "(is_target.is.true,audience.eq.unknown)"
+        else:
+            params["is_target"] = "is.true"
+        return self._request("GET", "job_postings", params=params)
 
     def mark_notified(self, ids: list[int]) -> None:
         if not ids:
@@ -538,6 +543,9 @@ def to_row(posting) -> dict:
         "job_category": labels.get("job_category"),
         "job_category_confidence": labels.get("job_category_confidence"),
         "needs_review": bool(labels.get("needs_review")),
+        "audience": labels.get("audience"),
+        "career_min_years": labels.get("career_min_years"),
+        "career_max_years": labels.get("career_max_years"),
         "is_expired": bool(labels.get("is_expired")),
         "is_target": bool(labels.get("is_target")),
         "content_hash": content_hash(posting),

@@ -817,7 +817,8 @@ async function load() {
     const url = SUPABASE_URL +
       "/rest/v1/job_postings?select=company_name,title,region,region_group,deadline,posted_at," +
       "employment_type,detail_url,removed_at,original_posted_at,repost_count,ij_id,view_count" +
-      "&is_target=is.true&order=posted_at.desc";
+      // 경력 게시판(kicpa:cpa)도 수집하지만 홈 탭이 생기기 전까지는 수습만 보여 준다
+      "&source=eq.kicpa:trainee&is_target=is.true&order=posted_at.desc";
     const res = await fetch(url, { headers: { apikey: SUPABASE_KEY } });
     if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();

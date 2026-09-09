@@ -126,6 +126,88 @@ def classify_posting_type(
 
 
 # --------------------------------------------------------------------------
+# 대상 — 회계사를 뽑는 공고인가, 직원(기장·세무대리·사무)을 뽑는 공고인가
+# --------------------------------------------------------------------------
+# 구인(CPA) 게시판은 이름과 달리 기장·세무대리 직원 공고가 절반을 넘는다(2026-09-09
+# 실측 65건). 운영자 결정: 직원 공고는 제외, 회계사 공고는 빅4·일반기업까지 포함.
+# 제목이 가장 믿을 만하고, 본문은 업무 서술 구간과 앞부분만 본다.
+AUDIENCE_CPA = "cpa"
+AUDIENCE_STAFF = "staff"
+AUDIENCE_UNKNOWN = "unknown"
+
+STAFF_PATTERNS = re.compile(
+    r"기장|세무대리|장부|경리|사무직|사무원|사무\s*보조|사무\s*직원|어시스턴트|비서|총무|"
+    r"안내|운전|청소|아르바이트|알바|인턴|정산\s*보조|보조\s*(직원|업무)|"
+    r"회계\s*직원|세무\s*직원|직원(?:을|를)?\s*(모집|채용|구인|구합)|"
+    r"(경력|신입|계약)\s*직원|\bBPO\b",
+    re.I,
+)
+# '회계사' 가 제목에 있으면 직원 단어가 함께 있어도 회계사 공고로 본다
+# ("세무대리 업무 담당 회계사"). '회계사무소' 는 회계사가 아니라 사무소다.
+# 영문 약칭은 빅4 판정과 같은 이유로 영문자만 배제한다. AICPA(미국 회계사)도 회계사다.
+CPA_WORD = r"회계사(?!무소)"
+CPA_WORDS = re.compile(rf"{CPA_WORD}|{_acronym('CPA')}|{_acronym('AICPA')}", re.I)
+CPA_TITLE_PATTERNS = re.compile(
+    rf"{CPA_WORD}|{_acronym('CPA')}|{_acronym('AICPA')}|감사\s*(본부|팀|업무|인력|인원|부문)|{_acronym('Audit')}|{_acronym('Assurance')}|"
+    rf"{_acronym('FAS')}|{_acronym('Deal')}|M&A|{_acronym('Valuation')}|가치평가|밸류에이션|이전가격|"
+    rf"{_acronym('Tax')}\s*(매니저|시니어|본부|팀|{_acronym('Manager')}|{_acronym('Senior')}|{_acronym('Associate')})|"
+    rf"매니저|{_acronym('Manager')}|시니어|{_acronym('Senior')}|{_acronym('Associate')}|인차지|{_acronym('Incharge')}|"
+    rf"파트너|{_acronym('Partner')}|디렉터|{_acronym('Director')}",
+    re.I,
+)
+CPA_BODY_PATTERNS = re.compile(
+    rf"(공인)?회계사(?!무소)\s*(자격|우대|채용|모집|구인|대상|필수)|{_acronym('CPA')}\s*(자격|우대|필수|보유)|"
+    r"회계사\s*시험\s*합격|수습\s*회계사",
+    re.I,
+)
+
+
+def classify_audience(title: str, body: str = "", board: str = "") -> tuple[str, str]:
+    """(대상, 판정 근거). 수습 게시판은 한공회가 합격자·수습 대상으로만 받으므로 항상 회계사."""
+    if board == "trainee":
+        return AUDIENCE_CPA, "구인(수습CPA) 게시판 등록"
+
+    if CPA_WORDS.search(title):
+        return AUDIENCE_CPA, "제목에 '회계사'"
+    m = STAFF_PATTERNS.search(title)
+    if m:
+        return AUDIENCE_STAFF, f"제목에 '{m.group(0).strip()}'"
+    m = CPA_TITLE_PATTERNS.search(title)
+    if m:
+        return AUDIENCE_CPA, f"제목에 '{m.group(0).strip()}'"
+
+    scope = f"{extract_duty_text(body)}\n{body[:600]}"
+    m = CPA_BODY_PATTERNS.search(scope)
+    if m:
+        return AUDIENCE_CPA, f"본문에 '{m.group(0).strip()}'"
+    m = STAFF_PATTERNS.search(extract_duty_text(body))
+    if m:
+        return AUDIENCE_STAFF, f"업무 내용에 '{m.group(0).strip()}'"
+    return AUDIENCE_UNKNOWN, "제목·본문에 단서 없음"
+
+
+# 경력 연차: "3~5년" → (3, 5), "5년 이상"·"5년차" → (5, None), "3년 이하" → (None, 3)
+YEARS_RANGE = re.compile(r"(\d{1,2})\s*[~\-–]\s*(\d{1,2})\s*년")
+YEARS_MIN = re.compile(r"(\d{1,2})\s*년\s*(?:차\s*)?이상|(\d{1,2})\s*년\s*차")
+YEARS_MAX = re.compile(r"(\d{1,2})\s*년\s*(?:차\s*)?(?:이하|이내|미만)")
+
+
+def extract_career_years(career: str = "", title: str = "") -> tuple[int | None, int | None]:
+    """상세의 '경력' 필드를 먼저, 없으면 제목에서 연차를 읽는다."""
+    for text in (career or "", title or ""):
+        m = YEARS_RANGE.search(text)
+        if m:
+            return int(m.group(1)), int(m.group(2))
+        m = YEARS_MIN.search(text)
+        if m:
+            return int(m.group(1) or m.group(2)), None
+        m = YEARS_MAX.search(text)
+        if m:
+            return None, int(m.group(1))
+    return None, None
+
+
+# --------------------------------------------------------------------------
 # 직무
 # --------------------------------------------------------------------------
 
@@ -208,6 +290,25 @@ def classify(posting) -> dict:
         posting.title, posting.career, posting.body, getattr(posting, "board", "")
     )
     job, job_conf, job_reason = classify_job_category(posting.title, posting.body)
+    board = getattr(posting, "board", "")
+    audience, audience_reason = classify_audience(posting.title, posting.body, board)
+    career_min, career_max = extract_career_years(posting.career, posting.title)
+    expired = is_expired(posting)
+
+    if board == "cpa":
+        # 경력(구인(CPA) 게시판): 회계사 공고면 빅4·일반기업도 대상(운영자 결정 2026-09-09).
+        # 직원 공고는 제외, 판단 불가는 대상에서 빼고 검수 큐로 — 직원 공고가 회계사
+        # 공고로 나가는 것이 놓치는 것보다 나쁘다. 운영자가 확인하면 is_target 을 켠다.
+        is_target = audience == AUDIENCE_CPA and not expired
+        needs_review = audience == AUDIENCE_UNKNOWN
+    else:
+        # 수습: 빅4가 아니고, 신입이거나 판단 불가한 공고. 놓치는 것보다 한 번 더 보낸다.
+        is_target = (
+            big4 is None
+            and ptype in (TYPE_ENTRY, TYPE_AMBIGUOUS)
+            and not expired
+        )
+        needs_review = ptype == TYPE_AMBIGUOUS
 
     labels = {
         "big4": big4,
@@ -217,15 +318,13 @@ def classify(posting) -> dict:
         "job_category": job,
         "job_category_confidence": job_conf,
         "job_category_reason": job_reason,
-        # MVP 알림 대상: 빅4가 아니고, 신입이거나 판단 불가한 공고.
-        # 이미 마감된 공고는 보내지 않는다.
-        "is_target": (
-            big4 is None
-            and ptype in (TYPE_ENTRY, TYPE_AMBIGUOUS)
-            and not is_expired(posting)
-        ),
-        "is_expired": is_expired(posting),
-        "needs_review": ptype == TYPE_AMBIGUOUS,
+        "audience": audience,
+        "audience_reason": audience_reason,
+        "career_min_years": career_min,
+        "career_max_years": career_max,
+        "is_target": is_target,
+        "is_expired": expired,
+        "needs_review": needs_review,
     }
     posting.labels = labels
     return labels

@@ -267,13 +267,13 @@ def _format_posting_html(row: dict) -> str:
     )
 
 
-def send_new_postings(rows: list[dict], to: str | None = None) -> None:
-    """신규 공고 알림 메일."""
+def send_new_postings(rows: list[dict], to: str | None = None, kind: str = "수습회계사") -> None:
+    """신규 공고 알림 메일(운영자용). kind 는 제목에 붙는 종류 — '수습회계사' 또는 '경력 회계사'."""
     if not rows:
         return
 
     count = len(rows)
-    subject = f"[CPAPING] 신규 수습회계사 공고 {count}건"
+    subject = f"[CPAPING] 신규 {kind} 공고 {count}건"
     if count == 1:
         subject = f"[CPAPING] {rows[0].get('company_name') or '신규'} — {rows[0]['title'][:40]}"
 

@@ -103,7 +103,7 @@ async function fetchPostings(url, key) {
   const query =
     "/rest/v1/job_postings?select=company_name,title,region,region_group,deadline,posted_at," +
     "employment_type,detail_url,removed_at,original_posted_at,repost_count,ij_id,view_count" +
-    "&is_target=is.true&order=posted_at.desc";
+    "&source=eq.kicpa:trainee&is_target=is.true&order=posted_at.desc";   // 경력 탭 전까지 수습만
   const res = await fetch(url.replace(/\/$/, "") + query, { headers: { apikey: key } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
@@ -277,7 +277,7 @@ if (!missing.length) {
       fetchAll(url, key, "firm_financials?select=*"),
       fetchAll(url, key,
         "job_postings?select=company_name,title,region,region_group,deadline,posted_at," +
-        "employment_type,detail_url,removed_at,is_big4,ij_id&order=posted_at.desc"),
+        "employment_type,detail_url,removed_at,is_big4,ij_id&source=eq.kicpa:trainee&order=posted_at.desc"),
     ]);
 
     const ranks = localRanks(firms, financials);
@@ -339,7 +339,7 @@ if (!missing.length) try {
     "job_category,original_posted_at,repost_count,removed_at,is_expired,view_count" +
     // 대상 공고 + 마감돼 대상에서 빠진 로컬 공고. 마감됐다고 페이지를 지우면 목록·메일에서
     // 이어진 링크가 죽는다. 빅4는 처음부터 다루지 않는다.
-    "&is_big4=is.false&or=(is_target.is.true,is_expired.is.true)&order=posted_at.desc");
+    "&source=eq.kicpa:trainee&is_big4=is.false&or=(is_target.is.true,is_expired.is.true)&order=posted_at.desc");
   const firmsAll = await fetchAll(url, key, "firms?select=id,name,aliases,slug,region");
   const finAll = await fetchAll(url, key, "firm_financials?select=firm_id,fiscal_year,revenue,cpa_count,trainee_count");
   const byName = new Map();

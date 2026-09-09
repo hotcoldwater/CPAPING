@@ -70,10 +70,12 @@ def slugify(name: str) -> str:
     return re.sub(r"[^가-힣A-Za-z0-9]+", "-", name).strip("-")
 
 
-def build(postings: list[dict]) -> list[dict]:
+def build(postings: list[dict], accounting_only: bool = False) -> list[dict]:
     """공고 목록에서 법인 행을 만든다.
 
     postings 는 job_postings 에서 읽은 dict 리스트.
+    accounting_only 면 이름에 '회계법인' 이 없는 고용주(일반기업·세무법인)는 건너뛴다 —
+    경력 게시판에는 회계법인이 아닌 고용주가 섞여 있고, 법인 DB 는 회계법인만 다룬다.
     """
     from collections import defaultdict
     from datetime import datetime, timezone
@@ -86,6 +88,8 @@ def build(postings: list[dict]) -> list[dict]:
         if p.get("is_big4"):
             continue
         name = canonical_name(p.get("company_name", ""))
+        if accounting_only and (not name or "회계법인" not in name):
+            continue
         if name:
             grouped[name].append(p)
 
@@ -121,7 +125,7 @@ def sync(db, source: str) -> int:
             "source": f"eq.{source}",
         },
     )
-    rows = build(postings)
+    rows = build(postings, accounting_only=source.endswith(":cpa"))
     if not rows:
         return 0
 
