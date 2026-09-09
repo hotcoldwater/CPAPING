@@ -357,8 +357,11 @@ function postingsSection(postings, firmName) {
         <div class="title">${esc(trimTitle(p.title, firmName))}</div>
         <div class="chips">
           ${p.region ? `<span class="chip">${esc(p.region)}</span>` : ""}
-          <span class="chip${p.employment_type === "Part Time" ? " pt" : ""}">${
-            p.employment_type === "Part Time" ? "파트타임" : "정규직"}</span>
+          ${(p.source || "").endsWith(":cpa")
+            ? `<span class="chip career">경력</span>${p.career_min_years != null || p.career_max_years != null
+                ? `<span class="chip">${p.career_min_years != null && p.career_max_years != null ? `${p.career_min_years}~${p.career_max_years}년`
+                    : p.career_min_years != null ? `${p.career_min_years}년 이상` : `${p.career_max_years}년 이하`}</span>` : ""}`
+            : `<span class="chip">수습</span>${p.employment_type === "Part Time" ? `<span class="chip pt">파트타임</span>` : ""}`}
         </div>
       </div>
       <div class="due"><span class="dday">${esc(due)}</span>
@@ -521,6 +524,7 @@ body{margin:0;background:var(--bg-subtle);color:var(--ink);
   background:var(--chip-bg);color:var(--chip-fg)}
 .chip.hi{background:var(--chip-pt-bg);color:var(--chip-pt-fg)}
 .chip.pt{background:var(--chip-pt-bg);color:var(--chip-pt-fg)}
+.chip.career{background:#E7EDF9;color:var(--accent)}
 
 /* 칸 사이 선을 nth-child 로 그리면 개수가 바뀔 때마다 규칙을 고쳐야 한다.
    실제로 타일이 넷에서 다섯이 되자 2행과 3행 사이 선이 사라졌다.

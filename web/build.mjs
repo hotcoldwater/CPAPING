@@ -102,8 +102,9 @@ let html = readFileSync(join(HERE, "index.html"), "utf8");
 async function fetchPostings(url, key) {
   const query =
     "/rest/v1/job_postings?select=company_name,title,region,region_group,deadline,posted_at," +
-    "employment_type,detail_url,removed_at,original_posted_at,repost_count,ij_id,view_count" +
-    "&source=eq.kicpa:trainee&is_target=is.true&order=posted_at.desc";   // 경력 탭 전까지 수습만
+    "employment_type,detail_url,removed_at,original_posted_at,repost_count,ij_id,view_count," +
+    "source,is_big4,career_min_years,career_max_years" +
+    "&is_target=is.true&order=posted_at.desc";
   const res = await fetch(url.replace(/\/$/, "") + query, { headers: { apikey: key } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
@@ -277,7 +278,7 @@ if (!missing.length) {
       fetchAll(url, key, "firm_financials?select=*"),
       fetchAll(url, key,
         "job_postings?select=company_name,title,region,region_group,deadline,posted_at," +
-        "employment_type,detail_url,removed_at,is_big4,ij_id&source=eq.kicpa:trainee&order=posted_at.desc"),
+        "employment_type,detail_url,removed_at,is_big4,ij_id,source,career_min_years,career_max_years&order=posted_at.desc"),
     ]);
 
     // 법인별 댓글 수 — 뷰가 아직 없으면(012 전) 0 으로 간다
@@ -343,10 +344,11 @@ if (!missing.length) try {
   const full = await fetchAll(url, key,
     "job_postings?select=ij_id,title,company_name,region,work_region,employment_type," +
     "hiring_status,headcount,career,salary,education,posted_at,deadline,detail_url," +
-    "job_category,original_posted_at,repost_count,removed_at,is_expired,view_count" +
-    // 대상 공고 + 마감돼 대상에서 빠진 로컬 공고. 마감됐다고 페이지를 지우면 목록·메일에서
-    // 이어진 링크가 죽는다. 빅4는 처음부터 다루지 않는다.
-    "&source=eq.kicpa:trainee&is_big4=is.false&or=(is_target.is.true,is_expired.is.true)&order=posted_at.desc");
+    "job_category,original_posted_at,repost_count,removed_at,is_expired,view_count,source,audience,career_min_years,career_max_years" +
+    // 수습: 빅4 아닌 대상 공고 + 마감돼 대상에서 빠진 것. 경력: 회계사 공고(빅4 포함) + 마감된 것.
+    // 마감됐다고 페이지를 지우면 목록·메일에서 이어진 링크가 죽는다.
+    "&or=(and(source.eq.kicpa:trainee,is_big4.is.false,or(is_target.is.true,is_expired.is.true))," +
+    "and(source.eq.kicpa:cpa,audience.eq.cpa,or(is_target.is.true,is_expired.is.true)))&order=posted_at.desc");
   const firmsAll = await fetchAll(url, key, "firms?select=id,name,aliases,slug,region");
   const finAll = await fetchAll(url, key, "firm_financials?select=firm_id,fiscal_year,revenue,cpa_count,trainee_count");
   const byName = new Map();

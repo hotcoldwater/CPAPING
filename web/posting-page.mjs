@@ -87,24 +87,31 @@ export function renderPostingPage({ posting: p, firm, latestFin, others }) {
   const region = p.work_region && p.work_region !== p.region && !/무관/.test(p.work_region)
     ? p.work_region : p.region;
   const pt = p.employment_type === "Part Time";
+  const career = (p.source || "").endsWith(":cpa");          // 구인(CPA) 게시판 = 경력
+  const kindLabel = career ? "경력" : "수습";
+  const board = career ? "구인(CPA)" : "구인(수습CPA)";
+  const years = p.career_min_years != null && p.career_max_years != null ? `${p.career_min_years}~${p.career_max_years}년`
+    : p.career_min_years != null ? `${p.career_min_years}년 이상` : p.career_max_years != null ? `${p.career_max_years}년 이하` : null;
   const job = JOB[p.job_category];
   const isNew = st.key === "open" && p.posted_at &&
     (Date.now() - new Date(p.posted_at)) / 86400000 <= 3 && !p.original_posted_at;
 
   // 요약 문장 — meta description 과 JobPosting.description 이 함께 쓴다
   const bits = [
-    `${p.company_name}의 ${pt ? "파트타임 " : ""}수습회계사 공고.`,
+    `${p.company_name}의 ${career ? "경력 회계사" : `${pt ? "파트타임 " : ""}수습회계사`} 공고.`,
+    career && years ? `경력 ${years}.` : "",
     region ? `근무지 ${region}.` : "",
     p.headcount ? `모집인원 ${p.headcount}.` : "",
     p.deadline ? `마감 ${longDate(p.deadline)}.` : "",
     p.salary ? `급여 ${p.salary}.` : "",
-    "한국공인회계사회 구인(수습CPA) 게시판에 올라온 공고를 정리한 것으로, 지원과 문의는 원문에서 합니다.",
+    `한국공인회계사회 ${board} 게시판에 올라온 공고를 정리한 것으로, 지원과 문의는 원문에서 합니다.`,
   ].filter(Boolean);
   const summary = bits.join(" ");
 
   const rows = [
+    ["종류", career ? `경력${p.is_big4 ? " · 빅4" : ""}` : "수습"],
     ["근무지역", region],
-    ["고용형태", pt ? "파트타임" : "정규직"],
+    ["고용형태", career ? (p.employment_type || null) : (pt ? "파트타임" : "정규직")],
     ["직무", job],
     ["모집인원", p.headcount],
     ["경력", p.career],
@@ -184,6 +191,7 @@ h1{margin:8px 0 10px;font-size:21px;font-weight:600;letter-spacing:-.02em;line-h
 .chips{display:flex;gap:5px;flex-wrap:wrap}
 .chip{font-size:11px;padding:2px 7px;border-radius:2px;background:var(--chip-bg);color:var(--chip-fg)}
 .chip.pt{background:var(--chip-pt-bg);color:var(--chip-pt-fg)}
+.chip.career{background:#E7EDF9;color:var(--accent)}
 .status{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line-2)}
 .dday{font-size:22px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .dday.soon{color:var(--urgent)} .dday.closed{color:var(--ink-3);font-weight:500;font-size:16px}
@@ -240,7 +248,7 @@ footer a{color:var(--ink-2)}
     <h1>${esc(title)}</h1>
     <div class="chips">
       ${region ? `<span class="chip">${esc(region)}</span>` : ""}
-      <span class="chip${pt ? " pt" : ""}">${pt ? "파트타임" : "정규직"}</span>
+      <span class="chip${career ? " career" : ""}">${kindLabel}</span>${career && years ? `<span class="chip">${esc(years)}</span>` : ""}${!career && pt ? `<span class="chip pt">파트타임</span>` : ""}${career && p.is_big4 ? `<span class="chip">빅4</span>` : ""}
       ${job ? `<span class="chip">${esc(job)}</span>` : ""}
     </div>
     <div class="status">
@@ -305,7 +313,7 @@ footer a{color:var(--ink-2)}
   </script>
 
   <p class="sub">이런 공고가 올라오면 1분 안에 메일로 받으세요 — <a href="/login/">가입하기</a></p>
-  <footer>한국공인회계사회 구인(수습CPA) 게시판의 공고를 정리했습니다 · 잘못된 내용은
+  <footer>한국공인회계사회 ${board} 게시판의 공고를 정리했습니다 · 잘못된 내용은
     <a href="mailto:contact@cpaping.com">contact@cpaping.com</a><br>
     <a href="/">공고 목록</a> · <a href="/firms/">법인</a> · <a href="/board/">게시판</a> · <a href="/terms">이용약관</a> · <a href="/privacy">개인정보처리방침</a></footer>
 </div>
