@@ -301,6 +301,7 @@ a.title:hover { color: var(--accent); }
 .row .dday { font-size: 12px; font-weight: 500; }
 .row .date { display: block; font-size: 10.5px; color: var(--ink-3); }
 .row .views { display: block; margin-top: 3px; font-size: 10.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.row .cmt { display: block; font-size: 10.5px; color: var(--accent); font-variant-numeric: tabular-nums; }
 .row.soon .dday { color: var(--urgent); }
 .row.soon .date { color: var(--urgent-2); }
 
@@ -371,6 +372,7 @@ footer .footer-mail { margin-top: 4px; font-size: 11px; opacity: .75; user-selec
     <nav class="tabs" aria-label="주요 화면">
       <a href="/" aria-current="page">공고</a>
       <a href="/firms/">법인</a>
+      <a href="/board/">게시판</a>
     </nav>
     <div class="status"><span class="dot" aria-hidden="true"></span>1분마다 확인 중</div>
     <a class="me me-after-status" id="auth-link" href="/login/">로그인</a>
@@ -486,7 +488,7 @@ const SORTS = {
 const SORT_CYCLE = ["posted", "deadline", "views"];
 const DEFAULT_SORT = "posted";
 
-const state = { postings: [], filter: "all", region: "all", query: "", sort: DEFAULT_SORT };
+const state = { postings: [], filter: "all", region: "all", query: "", sort: DEFAULT_SORT, comments: {} };
 
 const $ = (id) => document.getElementById(id);
 
@@ -654,6 +656,14 @@ function renderRow(p, options = {}) {
     views.className = "views";
     views.textContent = "조회 " + Number(p.view_count).toLocaleString("ko-KR");
     due.append(views);
+  }
+  // 이 공고에 달린 댓글 수. 목록을 그린 뒤 따로 받아와 다시 그린다.
+  const cmt = p.ij_id && state.comments[p.ij_id];
+  if (cmt) {
+    const c = document.createElement("small");
+    c.className = "cmt";
+    c.textContent = "댓글 " + cmt;
+    due.append(c);
   }
 
   row.append(main, due);
@@ -827,6 +837,18 @@ async function load() {
     // 실시간 조회에 실패해도 화면은 그대로 둔다
     console.warn("공고를 불러오지 못했습니다:", err.message);
   }
+  // 댓글 수는 따로 — 없어도 목록은 그대로다
+  try {
+    const res = await fetch(SUPABASE_URL + "/rest/v1/comment_counts?select=target_id,comments&target_type=eq.posting",
+      { headers: { apikey: SUPABASE_KEY } });
+    if (res.ok) {
+      const rows = await res.json();
+      if (Array.isArray(rows) && rows.length) {
+        state.comments = Object.fromEntries(rows.map((r) => [r.target_id, r.comments]));
+        renderList();
+      }
+    }
+  } catch (err) { /* 댓글 수 없이 간다 */ }
 }
 
 // 구독 폼은 2026-09-09 에 없앴다. 알림은 회원가입으로 받는다 (/login/ → 온보딩 → 내 계정).

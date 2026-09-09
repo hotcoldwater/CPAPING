@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>자유게시판 — CPAPING</title>
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#123A8A">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/auth.css">
+<link rel="stylesheet" href="/comments.css">
+<link rel="stylesheet" href="/board.css">
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <a class="wordmark" href="/">CPAPING</a>
+    <nav aria-label="주요 화면"><a href="/">공고</a><a href="/firms/">법인</a><a href="/board/" aria-current="page">게시판</a></nav>
+    <a class="me" id="auth-link" href="/login/">로그인</a>
+<script>(function(){try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(/^sb-.*-auth-token$/.test(k)&&localStorage.getItem(k)){var a=document.getElementById("auth-link");a.textContent="내 계정";a.href="/account/";break;}}}catch(e){}})();</script>
+  </header>
+  <main>
+    <p class="crumb"><a href="/board/">자유게시판</a></p>
+    <article id="post"><p class="muted small">불러오는 중…</p></article>
+    <div class="msg" id="msg" hidden role="status" aria-live="polite"></div>
+    <!-- 댓글은 공고·법인과 같은 컴포넌트. 글 번호를 주소에서 읽어 넣은 뒤 comments.js 가 돈다. -->
+    <section class="comments" id="comments" data-target-type="post" data-target-id="">
+      <div class="sec-head"><h2>댓글</h2></div>
+      <p class="muted small">댓글을 불러오는 중…</p>
+    </section>
+<script>
+  // 글 번호. /board/123/ 를 함수(functions/board/[[path]].js)가 이 화면으로 잇는다.
+  window.POST_ID = (location.pathname.match(/\/board\/(\d+)/) || [])[1] || "";
+  document.getElementById("comments").dataset.targetId = window.POST_ID;
+  if (!window.POST_ID) document.getElementById("comments").hidden = true;
+</script>
+<script src="/comments.js" defer></script>
+  </main>
+  <footer>CPAPING · <a href="/terms">이용약관</a> · <a href="/privacy">개인정보처리방침</a> · <a href="mailto:contact@cpaping.com">contact@cpaping.com</a></footer>
+</div>
+<script>
+(function () {
+  const URL = "__SUPABASE_URL__", KEY = "__SUPABASE_PUBLISHABLE_KEY__";
+  const ID = window.POST_ID;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const when = (iso) => new Date(iso).toLocaleString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const REASONS = [["defamation", "허위사실·명예훼손"], ["privacy", "개인정보·연락처"], ["ad", "광고·홍보"], ["abuse", "욕설·비하"], ["other", "기타"]];
+  const HUMAN = [
+    [/rate_limited/, "너무 빠릅니다. 잠시 뒤에 다시 시도해 주세요."],
+    [/profile_incomplete/, "닉네임을 정하면 추천할 수 있습니다."],
+    [/email_required/, "이메일 인증을 마치면 추천할 수 있습니다."],
+    [/votes_own/, "내 글은 추천할 수 없습니다."],
+    [/votes_unavailable/, "지금은 추천할 수 없는 글입니다."],
+    [/reports_post_once/, "이미 신고한 글입니다."],
+    [/post_votes_pkey/, "이미 추천한 글입니다."],
+    [/JWT|jwt|401|403|42501/, "로그인이 풀렸습니다. 다시 로그인해 주세요."],
+  ];
+  const humanize = (e) => { const m = String(e?.message || e || ""); for (const [re, t] of HUMAN) if (re.test(m)) return t; return "처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요." + (m ? ` (${m})` : ""); };
+  const msg = (t, kind) => { const m = $("msg"); m.textContent = t; m.className = "msg" + (kind ? " " + kind : ""); m.hidden = false; };
+
+  let auth = null, me = { state: "anon" }, post = null;
+  function hasSessionKey() {
+    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (/^sb-.*-auth-token$/.test(k) && localStorage.getItem(k)) return true; } } catch {}
+    return false;
+  }
+  const loadScript = (src) => new Promise((ok, no) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => no(new Error("load " + src)); document.head.append(s); });
+  async function loadAuth() {
+    if (window.cpAuth) return window.cpAuth;
+    await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js");
+    await loadScript("/auth.js");
+    return window.cpAuth;
+  }
+  async function fetchPost() {
+    const headers = { apikey: KEY, Authorization: "Bearer " + (me.session ? me.session.access_token : KEY) };
+    const res = await fetch(`${URL}/rest/v1/posts_public?select=*&id=eq.${encodeURIComponent(ID)}`, { headers });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const rows = await res.json();
+    return rows[0] || null;
+  }
+  function requireMember() {
+    if (me.state === "complete") return true;
+    if (me.state === "anon") { location.href = `/login/?returnTo=${encodeURIComponent(location.pathname)}`; return false; }
+    location.href = "/onboarding/"; return false;
+  }
+
+  function render() {
+    const el = $("post");
+    if (!post) {
+      el.innerHTML = `<h1>글을 찾을 수 없습니다</h1><p class="muted small">지워졌거나 주소가 잘못됐습니다. <a href="/board/">목록으로</a></p>`;
+      document.title = "글을 찾을 수 없습니다 — CPAPING"; return;
+    }
+    if (post.status !== "visible") {
+      el.innerHTML = `<h1 class="muted">신고되어 검토 중인 글입니다</h1><p class="muted small">운영자가 30일 안에 확인합니다. <a href="/board/">목록으로</a></p>`;
+      document.title = "검토 중인 글 — CPAPING"; return;
+    }
+    document.title = `${post.title} — CPAPING 자유게시판`;
+    const canWrite = me.state === "complete";
+    el.innerHTML = `
+      <h1>${esc(post.title)}</h1>
+      <div class="post-meta"><b class="${post.author_left ? "muted" : ""}">${esc(post.nickname)}</b><span>${when(post.created_at)}</span>${post.edited_at ? "<span>· 수정됨</span>" : ""}</div>
+      <div class="post-body">${esc(post.body)}</div>
+      <div class="post-foot">
+        <button type="button" class="cm-vote${post.voted ? " on" : ""}" id="vote" aria-pressed="${post.voted ? "true" : "false"}">▲ 추천 <span>${post.votes || 0}</span></button>
+        <span class="post-acts">
+          ${post.mine ? `<a class="linkish" href="/board/write/?edit=${post.id}">수정</a><button type="button" class="linkish" id="del">삭제</button>` : ""}
+          ${!post.mine && canWrite ? `<button type="button" class="linkish" id="report">신고</button>` : ""}
+        </span>
+      </div>
+      <div class="cm-inline" id="inline" hidden></div>`;
+    $("vote").onclick = async () => {
+      if (!requireMember()) return;
+      if (post.mine) return msg("내 글은 추천할 수 없습니다.", "err");
+      const was = { votes: post.votes || 0, voted: !!post.voted };
+      post.voted = !was.voted; post.votes = Math.max(0, was.votes + (post.voted ? 1 : -1)); render();
+      const q = auth.client.from("post_votes");
+      const { error } = was.voted ? await q.delete().eq("post_id", post.id).eq("voter_id", me.user.id)
+                                  : await q.insert({ post_id: post.id, voter_id: me.user.id });
+      if (error) { post.votes = was.votes; post.voted = was.voted; render(); return msg(humanize(error), "err"); }
+      await refresh();
+    };
+    const del = $("del");
+    if (del) del.onclick = async () => {
+      if (!confirm("이 글을 삭제할까요? 댓글도 함께 보이지 않게 됩니다.")) return;
+      const { error } = await auth.client.from("posts").delete().eq("id", post.id);
+      if (error) return msg(humanize(error), "err");
+      location.replace("/board/");
+    };
+    const rep = $("report");
+    if (rep) rep.onclick = () => {
+      const box = $("inline"); box.hidden = false;
+      box.innerHTML = `<div class="cm-report"><b>이 글을 신고합니다</b>
+        ${REASONS.map(([v, l], i) => `<label><input type="radio" name="reason" value="${v}"${i === 0 ? " checked" : ""}> ${l}</label>`).join("")}
+        <input type="text" maxlength="500" placeholder="구체적인 내용 (선택)" id="detail">
+        <div class="cm-form-row"><button type="button" class="linkish" id="cancel">취소</button><button type="button" class="btn inline" id="send">신고하기</button></div>
+        <p class="cm-fine" style="margin-top:6px">신고가 접수되면 글은 즉시 비공개로 바뀌고, 운영자가 30일 안에 확인해 결과를 알립니다.</p></div>`;
+      $("cancel").onclick = () => { box.hidden = true; box.innerHTML = ""; };
+      $("send").onclick = async () => {
+        const reason = box.querySelector("input[name=reason]:checked").value, detail = $("detail").value.trim() || null;
+        const { error } = await auth.client.from("reports").insert({ post_id: post.id, reporter_id: me.user.id, reason, detail });
+        if (error) return msg(humanize(error), "err");
+        await refresh(); msg("신고를 접수했습니다. 글은 검토가 끝날 때까지 비공개로 바뀝니다.", "ok");
+      };
+    };
+  }
+  async function refresh() {
+    try { post = await fetchPost(); } catch (e) { $("post").innerHTML = `<p class="muted small">글을 불러오지 못했습니다. 잠시 뒤 새로고침해 주세요.</p>`; return; }
+    render();
+  }
+  (async () => {
+    if (!ID) { post = null; render(); return; }
+    await refresh();
+    if (!hasSessionKey()) return;
+    try { auth = await loadAuth(); me = await auth.getState(); await refresh(); }
+    catch (e) { console.warn("로그인 상태 확인 실패:", e.message); }
+  })();
+})();
+</script>
+</body>
+</html>

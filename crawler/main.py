@@ -311,29 +311,36 @@ def _notify_admin_activity(db) -> None:
     이 메일은 발송 통수에 세지 않는다 — 하루 몇 통이고 Pro 안전망(1,500)이 넉넉하다.
     """
     try:
-        comments, reports = db.unnotified_activity()
+        comments, reports, posts = db.unnotified_activity()
     except Exception as exc:
         log.debug("커뮤니티 알림 조회 생략: %s", exc)
         return
-    if not comments and not reports:
+    if not comments and not reports and not posts:
         return
 
     lines = []
+    for p in posts:
+        lines.append(f"[글 #{p['id']}] {p['status']} · {p['created_at'][:16]}\n"
+                     f"https://cpaping.com/board/{p['id']}/\n{p['title']}\n{p['body'][:300]}\n")
     for c in comments:
         where = {"posting": f"https://cpaping.com/posting/{c['target_id']}/",
-                 "firm": f"https://cpaping.com/firm/{c['target_id']}/"}.get(
+                 "firm": f"https://cpaping.com/firm/{c['target_id']}/",
+                 "post": f"https://cpaping.com/board/{c['target_id']}/"}.get(
                      c["target_type"], f"{c['target_type']}:{c['target_id']}")
         lines.append(f"[댓글 #{c['id']}] {c['status']} · {c['created_at'][:16]}\n{where}\n{c['body'][:300]}\n")
     for r in reports:
-        lines.append(f"[신고 #{r['id']}] 댓글 #{r['comment_id']} · 사유 {r['reason']} · {r['created_at'][:16]}"
+        target = f"글 #{r['post_id']} (https://cpaping.com/board/{r['post_id']}/)" if r.get("post_id") else f"댓글 #{r['comment_id']}"
+        lines.append(f"[신고 #{r['id']}] {target} · 사유 {r['reason']} · {r['created_at'][:16]}"
                      f"{(' · ' + r['detail'][:200]) if r.get('detail') else ''}\n"
-                     f"→ 댓글은 이미 비공개(임시조치). 30일 안에 Supabase 에서 status 를 visible/removed 로 정하고 통지.\n")
+                     f"→ 이미 비공개(임시조치). 30일 안에 Supabase 에서 status 를 visible/removed 로 정하고 통지.\n")
     subject = " · ".join(filter(None, [
+        f"새 글 {len(posts)}건" if posts else "",
         f"새 댓글 {len(comments)}건" if comments else "",
         f"신고 {len(reports)}건" if reports else "",
     ]))
     try:
         notify.send_alert(f"[CPAPING 커뮤니티] {subject}", "\n".join(lines))
+        db.mark_admin_notified("posts", [p["id"] for p in posts])
         db.mark_admin_notified("comments", [c["id"] for c in comments])
         db.mark_admin_notified("reports", [r["id"] for r in reports])
         log.info("커뮤니티 알림: %s", subject)

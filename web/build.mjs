@@ -280,6 +280,13 @@ if (!missing.length) {
         "employment_type,detail_url,removed_at,is_big4,ij_id&source=eq.kicpa:trainee&order=posted_at.desc"),
     ]);
 
+    // 법인별 댓글 수 — 뷰가 아직 없으면(012 전) 0 으로 간다
+    let firmComments = {};
+    try {
+      const cc = await fetchAll(url, key, "comment_counts?select=target_id,comments&target_type=eq.firm");
+      firmComments = Object.fromEntries(cc.map((r) => [r.target_id, r.comments]));
+    } catch { /* 댓글 수 없이 */ }
+
     const ranks = localRanks(firms, financials);
     // 상장사 감사 고객을 회계법인별로 묶는다.
     const clientRows = await fetchAll(url, key,
@@ -318,7 +325,7 @@ if (!missing.length) {
     const firmsDir = join(out, "firms");
     mkdirSync(firmsDir, { recursive: true });
     writeFileSync(join(firmsDir, "index.html"),
-      withAnalytics(renderFirmsPage({ firms, financials }).replace("__BASE__", baseCss)), "utf8");
+      withAnalytics(renderFirmsPage({ firms, financials, comments: firmComments }).replace("__BASE__", baseCss)), "utf8");
     pages.push({ loc: "/firms/", freq: "weekly" });
     console.log(`  법인 비교표 생성 (/firms)`);
   } catch (err) {
@@ -368,6 +375,17 @@ if (!missing.length) try {
 } catch (err) {
   console.warn(`  공고 페이지를 만들지 못했습니다 (${err.message})`);
 }
+
+// 게시판 — 공개 화면이라 분석 스니펫을 넣고, 글은 화면이 Supabase 에서 읽으므로 공개 키를 채운다.
+// /board/<번호>/ 는 functions/board/[[path]].js 가 /board/post/ 셸로 잇는다.
+const BOARD_PAGES = { "board.html": "board", "board-write.html": "board/write", "board-post.html": "board/post" };
+for (const [file, dir] of Object.entries(BOARD_PAGES)) {
+  const target = join(out, dir); mkdirSync(target, { recursive: true });
+  writeFileSync(join(target, "index.html"), inject(withAnalytics(readFileSync(join(HERE, file), "utf8"))), "utf8");
+}
+copyFileSync(join(HERE, "board.css"), join(out, "board.css"));
+pages.push({ loc: "/board/", freq: "hourly" });
+console.log(`  게시판 화면 ${Object.keys(BOARD_PAGES).length}개 생성 (/board/ /board/write/ /board/post/)`);
 
 writeFileSync(join(out, "sitemap.xml"), sitemap(pages), "utf8");
 

@@ -224,7 +224,7 @@ footer a{color:var(--ink-2)}
 <div class="shell">
   <header class="topbar">
     <a class="wordmark" href="/">CPAPING</a>
-    <nav aria-label="주요 화면"><a href="/" aria-current="page">공고</a><a href="/firms/">법인</a></nav>
+    <nav aria-label="주요 화면"><a href="/" aria-current="page">공고</a><a href="/firms/">법인</a><a href="/board/">게시판</a></nav>
     <a class="me" id="auth-link" href="/login/">로그인</a>
 <script>(function(){try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(/^sb-.*-auth-token$/.test(k)&&localStorage.getItem(k)){var a=document.getElementById("auth-link");a.textContent="내 계정";a.href="/account/";break;}}}catch(e){}})();</script>
   </header>
@@ -307,7 +307,7 @@ footer a{color:var(--ink-2)}
   <p class="sub">이런 공고가 올라오면 1분 안에 메일로 받으세요 — <a href="/login/">가입하기</a></p>
   <footer>한국공인회계사회 구인(수습CPA) 게시판의 공고를 정리했습니다 · 잘못된 내용은
     <a href="mailto:contact@cpaping.com">contact@cpaping.com</a><br>
-    <a href="/">공고 목록</a> · <a href="/firms/">법인</a> · <a href="/terms">이용약관</a> · <a href="/privacy">개인정보처리방침</a></footer>
+    <a href="/">공고 목록</a> · <a href="/firms/">법인</a> · <a href="/board/">게시판</a> · <a href="/terms">이용약관</a> · <a href="/privacy">개인정보처리방침</a></footer>
 </div>
 </body>
 </html>`;

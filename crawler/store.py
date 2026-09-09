@@ -359,8 +359,8 @@ class Store:
     # ------------------------------------------------------------------
     # 커뮤니티 — 운영자 알림용
     # ------------------------------------------------------------------
-    def unnotified_activity(self) -> tuple[list[dict], list[dict]]:
-        """운영자에게 아직 알리지 않은 새 댓글과 신고.
+    def unnotified_activity(self) -> tuple[list[dict], list[dict], list[dict]]:
+        """운영자에게 아직 알리지 않은 새 댓글·신고·게시판 글.
 
         첫 달은 모든 글이 운영자 메일로 온다 — 양이 적을 때 문화가 정해진다.
         신고는 들어온 즉시 댓글이 비공개로 바뀌므로(DB 트리거) 운영자가 30일 안에
@@ -373,10 +373,18 @@ class Store:
         )
         reports = self._request(
             "GET", "reports",
-            params={"select": "id,comment_id,reason,detail,created_at",
+            params={"select": "id,comment_id,post_id,reason,detail,created_at",
                     "admin_notified_at": "is.null", "order": "created_at.asc", "limit": "50"},
         )
-        return comments, reports
+        try:
+            posts = self._request(
+                "GET", "posts",
+                params={"select": "id,title,body,status,created_at",
+                        "admin_notified_at": "is.null", "order": "created_at.asc", "limit": "50"},
+            )
+        except SupabaseError:          # 012 전(표 없음)에도 댓글 알림은 계속
+            posts = []
+        return comments, reports, posts
 
     def mark_admin_notified(self, table: str, ids: list[int]) -> None:
         if not ids:

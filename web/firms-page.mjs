@@ -154,6 +154,7 @@ td.firm a:hover { color: var(--accent); text-decoration: underline; }
 td.firm .rank { color: var(--ink-3); font-size: 10.5px;
   font-variant-numeric: tabular-nums; flex: 0 0 26px; text-align: right; }
 td.firm .rg { color: var(--ink-3); font-size: 10.5px; margin-left: 6px; }
+td.firm .cmt { color: var(--accent); font-size: 10.5px; margin-left: 6px; white-space: nowrap; }
 td.firm .b4 { font-size: 9.5px; background: var(--chip-bg); color: var(--chip-fg);
   border-radius: 2px; padding: 1px 4px; margin-left: 6px; vertical-align: 1px; }
 .muted { color: var(--ink-3); }
@@ -202,7 +203,7 @@ td.hist { text-align: center; }
 }
 `;
 
-export function renderFirmsPage({ firms, financials }) {
+export function renderFirmsPage({ firms, financials, comments = {} }) {
   const byFirm = new Map();
   for (const f of financials) {
     if (!byFirm.has(f.firm_id)) byFirm.set(f.firm_id, []);
@@ -213,6 +214,8 @@ export function renderFirmsPage({ firms, financials }) {
     .map((f) => toRow(f, byFirm.get(f.id) || []))
     .filter(Boolean)
     .sort((a, b) => b.rev - a.rev);
+  // 법인 페이지에 달린 댓글 수(comment_counts 뷰, slug 기준). 없으면 0.
+  for (const r of rows) r.cm = comments[r.slug] || 0;
 
   const hiring = rows.filter((r) => r.trNow > 0).length;
   // 5 년 합계가 아니라 최근 한 해를 보여준다. 3 년 전에 스무 명 뽑고
@@ -285,6 +288,7 @@ ${JSON.stringify({
     <nav class="tabs" aria-label="주요 화면">
       <a href="/">공고</a>
       <a href="/firms/" aria-current="page">법인</a>
+      <a href="/board/">게시판</a>
     </nav>
     <div class="status"><span class="dot" aria-hidden="true"></span>1분마다 확인 중</div>
     <a class="me me-after-status" id="auth-link" href="/login/">로그인</a>
@@ -406,7 +410,8 @@ function render() {
       '<td class="firm"><div class="cell"><span class="rank">' + (i + 1) + '</span>' +
         '<span class="nm"><a href="/firm/' + encodeURIComponent(f.slug) + '/">' + esc(f.name) + '</a>' +
         (f.big4 ? '<span class="b4">빅4</span>' : "") +
-        (f.region ? '<span class="rg">' + esc(f.region) + '</span>' : "") + '</span></div></td>' +
+        (f.region ? '<span class="rg">' + esc(f.region) + '</span>' : "") +
+        (f.cm ? '<span class="cmt">댓글 ' + f.cm + '</span>' : "") + '</span></div></td>' +
       '<td class="hist"><span class="marks">' + marks(f) + '</span></td>' +
       '<td>' + num(Math.round(f.rev)) + '억</td>' +
       '<td class="t2">' + f.cpa + '명</td>' +

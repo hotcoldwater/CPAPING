@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>자유게시판 — CPAPING</title>
+<meta name="description" content="회계사 준비생·합격생·현직자가 이야기하는 자유게시판. 회원이면 누구나 글을 쓰고 댓글을 답니다.">
+<link rel="canonical" href="https://cpaping.com/board/">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#123A8A">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/auth.css">
+<link rel="stylesheet" href="/board.css">
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <a class="wordmark" href="/">CPAPING</a>
+    <nav aria-label="주요 화면"><a href="/">공고</a><a href="/firms/">법인</a><a href="/board/" aria-current="page">게시판</a></nav>
+    <a class="me" id="auth-link" href="/login/">로그인</a>
+<script>(function(){try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(/^sb-.*-auth-token$/.test(k)&&localStorage.getItem(k)){var a=document.getElementById("auth-link");a.textContent="내 계정";a.href="/account/";break;}}}catch(e){}})();</script>
+  </header>
+  <main>
+    <div class="board-head">
+      <div><h1>자유게시판</h1><p class="lead">회계사 준비생·합격생·현직자의 이야기. 회원이면 누구나 씁니다.</p></div>
+      <a class="btn primary write" href="/board/write/">글쓰기</a>
+    </div>
+    <ul class="posts" id="posts"><li class="muted small" style="padding:14px 0">불러오는 중…</li></ul>
+    <button class="btn more" type="button" id="more" hidden>더 보기</button>
+    <div class="msg" id="msg" hidden role="status"></div>
+    <p class="fine">글과 댓글은 <a href="/terms">이용약관</a> 제6조를 따릅니다. 연락처·광고·확인되지 않은 사실은 쓸 수 없습니다.
+      권리 침해 신고는 글의 <b>신고</b> 또는 <a href="mailto:contact@cpaping.com">contact@cpaping.com</a>.</p>
+  </main>
+  <footer>CPAPING · <a href="/terms">이용약관</a> · <a href="/privacy">개인정보처리방침</a> · <a href="mailto:contact@cpaping.com">contact@cpaping.com</a></footer>
+</div>
+<script>
+(function () {
+  const URL = "__SUPABASE_URL__", KEY = "__SUPABASE_PUBLISHABLE_KEY__", PAGE = 30;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const ago = (iso) => {
+    const s = (Date.now() - new Date(iso)) / 1000;
+    if (s < 60) return "방금"; if (s < 3600) return `${Math.floor(s / 60)}분 전`;
+    if (s < 86400) return `${Math.floor(s / 3600)}시간 전`; if (s < 86400 * 7) return `${Math.floor(s / 86400)}일 전`;
+    return iso.slice(0, 10).replace(/-/g, ".");
+  };
+  let offset = 0;
+  async function load() {
+    $("more").disabled = true;
+    try {
+      const res = await fetch(`${URL}/rest/v1/posts_public?select=id,title,created_at,nickname,author_left,votes,comment_count` +
+        `&category=eq.free&status=eq.visible&order=created_at.desc&limit=${PAGE}&offset=${offset}`, { headers: { apikey: KEY } });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const rows = await res.json();
+      const list = $("posts");
+      if (offset === 0) list.innerHTML = "";
+      if (offset === 0 && !rows.length) list.innerHTML = `<li class="muted small" style="padding:16px 0">아직 글이 없습니다. 첫 글을 남겨 보세요.</li>`;
+      for (const p of rows) {
+        list.insertAdjacentHTML("beforeend", `<li class="post">
+          <div><a class="t" href="/board/${p.id}/">${esc(p.title)}</a>
+            <div class="m"><span class="${p.author_left ? "muted" : ""}">${esc(p.nickname)}</span> · ${ago(p.created_at)}</div></div>
+          <div class="n">${p.comment_count ? `댓글 ${p.comment_count}<br>` : ""}${p.votes ? `추천 ${p.votes}` : ""}</div></li>`);
+      }
+      offset += rows.length;
+      $("more").hidden = rows.length < PAGE;
+    } catch (e) {
+      if (offset === 0) $("posts").innerHTML = "";
+      const m = $("msg"); m.textContent = "글을 불러오지 못했습니다. 잠시 뒤 새로고침해 주세요."; m.className = "msg err"; m.hidden = false;
+    }
+    $("more").disabled = false;
+  }
+  $("more").onclick = load;
+  load();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>글쓰기 — CPAPING</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#123A8A">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/auth.css">
+<link rel="stylesheet" href="/board.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" crossorigin="anonymous"></script>
+<script src="/auth.js"></script>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <a class="wordmark" href="/">CPAPING</a>
+    <nav aria-label="주요 화면"><a href="/">공고</a><a href="/firms/">법인</a><a href="/board/" aria-current="page">게시판</a></nav>
+    <a class="me" href="/account/">내 계정</a>
+  </header>
+  <main>
+    <p class="crumb"><a href="/board/">자유게시판</a></p>
+    <h1 id="heading">글쓰기</h1>
+    <p class="lead">직접 겪거나 확인한 것을 적어 주세요. 개인 연락처, 광고, 확인되지 않은 사실은 쓸 수 없습니다.</p>
+    <form id="form" novalidate hidden>
+      <label for="title">제목</label>
+      <input id="title" type="text" maxlength="80" placeholder="2~80자">
+      <label for="body">내용</label>
+      <textarea id="body" rows="12" maxlength="5000" placeholder="본문 (5,000자까지)"></textarea>
+      <div class="counter" id="count">0 / 5000</div>
+      <div class="actions">
+        <a class="btn inline" href="/board/">취소</a>
+        <button class="btn primary inline" type="submit" id="submit">등록</button>
+      </div>
+    </form>
+    <p class="spinner" id="loading">확인 중…</p>
+    <div class="msg" id="msg" hidden role="status" aria-live="polite"></div>
+    <p class="fine">글은 <a href="/terms">이용약관</a> 제6조를 따릅니다. 신고가 들어오면 즉시 비공개로 바뀌고 운영자가 30일 안에 확인합니다. 탈퇴해도 글은 남고 작성자는 "탈퇴한 사용자"로 표시됩니다.</p>
+  </main>
+  <footer>CPAPING · <a href="/terms">이용약관</a> · <a href="/privacy">개인정보처리방침</a></footer>
+</div>
+<script>
+(async () => {
+  const A = window.cpAuth, $ = (id) => document.getElementById(id);
+  const msg = (t, kind) => { const m = $("msg"); m.textContent = t; m.className = "msg" + (kind ? " " + kind : ""); m.hidden = false; };
+  const HUMAN = [
+    [/rate_limited/, "글은 10분에 3개까지 쓸 수 있습니다. 잠시 뒤에 다시 시도해 주세요."],
+    [/profile_incomplete/, "닉네임을 정하면 글을 쓸 수 있습니다."],
+    [/email_required/, "이메일 인증을 마치면 글을 쓸 수 있습니다."],
+    [/posts_no_contact/, "전화번호나 이메일 주소는 글에 쓸 수 없습니다."],
+    [/posts_title_len/, "제목은 2~80자여야 합니다."],
+    [/posts_body_len/, "본문은 1~5,000자여야 합니다."],
+    [/JWT|jwt|401|403|42501/, "로그인이 풀렸습니다. 다시 로그인해 주세요."],
+  ];
+  const humanize = (e) => { const m = String(e?.message || e || ""); for (const [re, t] of HUMAN) if (re.test(m)) return t; return "처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요." + (m ? ` (${m})` : ""); };
+  const hasContact = (t) => /01[016789][-. ]?\d{3,4}[-. ]?\d{4}/.test(t) || /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i.test(t);
+
+  const me = await A.ensure("complete");
+  if (me.state !== "complete") return;            // ensure 가 로그인·온보딩으로 보냈다
+  const editId = new URLSearchParams(location.search).get("edit");
+
+  if (editId) {
+    const { data: p, error } = await A.client.from("posts_public").select("id,title,body,mine,status").eq("id", Number(editId)).maybeSingle();
+    if (error || !p || !p.mine || p.status !== "visible") { $("loading").hidden = true; return msg("고칠 수 있는 글이 아닙니다.", "err"); }
+    $("heading").textContent = "글 수정"; document.title = "글 수정 — CPAPING";
+    $("title").value = p.title; $("body").value = p.body; $("submit").textContent = "저장";
+  }
+  $("loading").hidden = true; $("form").hidden = false;
+  $("body").addEventListener("input", () => { $("count").textContent = `${$("body").value.length} / 5000`; });
+  $("count").textContent = `${$("body").value.length} / 5000`;
+
+  $("form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const title = $("title").value.trim(), body = $("body").value.trim();
+    if (title.length < 2 || title.length > 80) return msg("제목은 2~80자여야 합니다.", "err");
+    if (!body) return msg("내용을 입력해 주세요.", "err");
+    if (hasContact(title + " " + body)) return msg("전화번호나 이메일 주소는 글에 쓸 수 없습니다.", "err");
+    $("submit").disabled = true;
+    let id = editId, error;
+    if (editId) {
+      ({ error } = await A.client.from("posts").update({ title, body }).eq("id", Number(editId)));
+    } else {
+      const res = await A.client.from("posts").insert({ author_id: me.user.id, title, body, category: "free" }).select("id").single();
+      error = res.error; id = res.data && res.data.id;
+    }
+    if (error || !id) { $("submit").disabled = false; return msg(humanize(error || "no id"), "err"); }
+    location.replace(`/board/${id}/`);
+  });
+})();
+</script>
+</body>
+</html>
