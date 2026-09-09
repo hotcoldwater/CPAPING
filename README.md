@@ -271,7 +271,7 @@ python crawler/import_firm_data.py data/주권상장법인_감사인_등록법�
 메일만 구독하는 폼은 없앴다. 가입 마무리에서 "새 공고 알림 받기"(지역·고용형태)를 켜면
 `subscribers` 행이 만들어지고 계정에 연결된다(`user_id`). 이메일은 가입 과정에서 이미
 인증됐으므로 확인 메일 없이 바로 `active` 다. 같은 이메일로 예전 방식의 구독이 있으면
-새로 만들지 않고 연결한다. 내 계정에서 켜고 끄고 조건을 바꾼다(`/api/me/subscription`).
+새로 만들지 않고 연결한다. 마이페이지에서 켜고 끄고 조건을 바꾼다(`/api/me/subscription`).
 탈퇴하면 연결된 구독도 함께 지운다. 기존 구독자(계정 없음)는 그대로 받고, 토큰 링크
 (`/api/settings`, `/api/unsubscribe`)도 그대로 동작한다.
 
@@ -298,7 +298,7 @@ DELETE /api/account         → 회원 탈퇴. Authorization: Bearer <사용자 
 `@supabase/supabase-js@2.116.0`(jsdelivr, 버전 고정)로 Supabase Auth 를 직접 쓴다. 공개 키만
 브라우저에 있고, 회원 식별은 `auth.users.id` 다. 온보딩 상태는 저장하지 않고
 `email`·`email_confirmed_at`·`nickname` 세 사실로 계산한다(`web/auth.js`). 공개 페이지 상단바의
-로그인/내 계정 링크는 라이브러리 없이 localStorage 의 세션 키 유무만 본다.
+로그인/마이페이지 링크는 라이브러리 없이 localStorage 의 세션 키 유무만 본다.
 
 **구독 설정은 로그인 없이 해지 토큰으로 연다.** 알림 메일 하단의 '구독 설정'
 링크와 확정 페이지의 '받을 조건 바꾸기' 가 입구다. 조건이 두 축이 되면서

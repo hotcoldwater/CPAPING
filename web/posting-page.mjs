@@ -234,7 +234,7 @@ footer a{color:var(--ink-2)}
     <a class="wordmark" href="/">CPAPING</a>
     <nav aria-label="주요 화면"><a href="/" aria-current="page">공고</a><a href="/firms/">법인</a><a href="/board/">게시판</a></nav>
     <a class="me" id="auth-link" href="/login/">로그인</a>
-<script>(function(){try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(/^sb-.*-auth-token$/.test(k)&&localStorage.getItem(k)){var a=document.getElementById("auth-link");a.textContent="내 계정";a.href="/account/";break;}}}catch(e){}})();</script>
+<script>(function(){try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(/^sb-.*-auth-token$/.test(k)&&localStorage.getItem(k)){var a=document.getElementById("auth-link");a.textContent="마이페이지";a.href="/account/";break;}}}catch(e){}})();</script>
   </header>
 
   <div class="head">

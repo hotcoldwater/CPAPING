@@ -189,12 +189,14 @@ body {
 
 /* ── 목록 ────────────────────────────────────────────── */
 .listhead {
-  display: flex; align-items: baseline; justify-content: space-between;
+  display: flex; align-items: center; gap: 10px;
   padding: 13px var(--pad-x) 10px; background: var(--bg-subtle);
   border-bottom: 1px solid var(--line);
 }
 .listhead h2 { margin: 0; font-size: 13px; font-weight: 600; }
 .listhead .count { font-size: 12px; color: var(--ink-2); }
+/* 로그인한 사람에게는 가입 안내가 필요 없다(운영자 결정 2026-09-10). 세션 키가 있으면 헤더 스크립트가 html.member 를 단다. */
+html.member #hero { display: none; }
 
 /* 필터 + 정렬 */
 .controls {
@@ -203,8 +205,9 @@ body {
   background: var(--bg-subtle); border-bottom: 1px solid var(--line);
 }
 .filters { display: flex; gap: 5px; }
-.controls .facets { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
-.controls .right { display: flex; gap: 6px; align-items: center; }
+/* 종류·지역 버튼만 남겨 한 줄에 둔다. 검색·정렬은 위 머리줄 오른쪽에 있다. */
+.controls .facets { display: flex; gap: 5px; flex-wrap: nowrap; align-items: center; }
+.listhead .right { margin-left: auto; display: flex; gap: 6px; align-items: center; }
 .search {
   font: inherit; font-size: 11.5px; width: 128px; min-width: 0;
   padding: 4px 8px; border-radius: var(--radius);
@@ -215,8 +218,9 @@ body {
 /* 지역 묶음을 고용형태와 시각적으로 갈라 준다 */
 #regions { padding-left: 5px; border-left: 1px solid var(--line); }
 @media (max-width: 560px) {
-  .controls { flex-wrap: wrap; }
-  .controls .right { width: 100%; }
+  .controls .facets { flex-wrap: wrap; }
+  .listhead { flex-wrap: wrap; }
+  .listhead .right { width: 100%; margin-left: 0; }
   .search { flex: 1; width: auto; }
   #regions { padding-left: 0; border-left: 0; }
 }
@@ -377,10 +381,10 @@ footer .footer-mail { margin-top: 4px; font-size: 11px; opacity: .75; user-selec
     </nav>
     <div class="status"><span class="dot" aria-hidden="true"></span>1분마다 확인 중</div>
     <a class="me me-after-status" id="auth-link" href="/login/">로그인</a>
-<script>(function(){try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(/^sb-.*-auth-token$/.test(k)&&localStorage.getItem(k)){var a=document.getElementById("auth-link");a.textContent="내 계정";a.href="/account/";break;}}}catch(e){}})();</script>
+<script>(function(){try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(/^sb-.*-auth-token$/.test(k)&&localStorage.getItem(k)){var a=document.getElementById("auth-link");a.textContent="마이페이지";a.href="/account/";document.documentElement.classList.add("member");break;}}}catch(e){}})();</script>
   </header>
 
-  <section class="hero">
+  <section class="hero" id="hero">
     <h1>회계법인 수습·경력 공고를 놓치지 마세요</h1>
     <p class="sub">한국공인회계사회에 새 공고가 올라오면 메일로 알려드립니다.</p>
 
@@ -394,17 +398,17 @@ footer .footer-mail { margin-top: 4px; font-size: 11px; opacity: .75; user-selec
   <section class="listhead">
     <h2>지원 가능한 공고</h2>
     <span class="count" id="count"></span>
+    <div class="right">
+      <input class="search" id="search" type="search" autocomplete="off"
+             placeholder="법인명·공고 검색" aria-label="법인명 또는 공고 제목으로 검색">
+      <button type="button" class="sort" id="sort"></button>
+    </div>
   </section>
 
   <div class="controls" id="controls">
     <div class="facets">
       <div class="filters" id="filters" role="group" aria-label="공고 종류"></div>
       <div class="filters" id="regions" role="group" aria-label="지역"></div>
-    </div>
-    <div class="right">
-      <input class="search" id="search" type="search" autocomplete="off"
-             placeholder="법인명·공고 검색" aria-label="법인명 또는 공고 제목으로 검색">
-      <button type="button" class="sort" id="sort"></button>
     </div>
   </div>
 

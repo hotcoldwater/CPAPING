@@ -636,7 +636,7 @@ ${CHART_CSS}
     <a class="wordmark" href="/">CPAPING</a>
     <a class="back" href="/">← 공고 목록</a>
     <a class="me" id="auth-link" href="/login/">로그인</a>
-<script>(function(){try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(/^sb-.*-auth-token$/.test(k)&&localStorage.getItem(k)){var a=document.getElementById("auth-link");a.textContent="내 계정";a.href="/account/";break;}}}catch(e){}})();</script>
+<script>(function(){try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(/^sb-.*-auth-token$/.test(k)&&localStorage.getItem(k)){var a=document.getElementById("auth-link");a.textContent="마이페이지";a.href="/account/";break;}}}catch(e){}})();</script>
   </header>
 
   <div class="head">
