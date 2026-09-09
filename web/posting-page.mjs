@@ -88,7 +88,7 @@ export function renderPostingPage({ posting: p, firm, latestFin, others }) {
     ? p.work_region : p.region;
   const pt = p.employment_type === "Part Time";
   const career = (p.source || "").endsWith(":cpa");          // 구인(CPA) 게시판 = 경력
-  const kindLabel = career ? "경력" : "수습";
+  const kindLabel = career ? "경력" : "신입";
   const board = career ? "구인(CPA)" : "구인(수습CPA)";
   const years = p.career_min_years != null && p.career_max_years != null ? `${p.career_min_years}~${p.career_max_years}년`
     : p.career_min_years != null ? `${p.career_min_years}년 이상` : p.career_max_years != null ? `${p.career_max_years}년 이하` : null;
@@ -98,7 +98,7 @@ export function renderPostingPage({ posting: p, firm, latestFin, others }) {
 
   // 요약 문장 — meta description 과 JobPosting.description 이 함께 쓴다
   const bits = [
-    `${p.company_name}의 ${career ? "경력 회계사" : `${pt ? "파트타임 " : ""}수습회계사`} 공고.`,
+    `${p.company_name}의 ${career ? "경력 회계사" : `${pt ? "파트타임 " : ""}신입 회계사`} 공고.`,
     career && years ? `경력 ${years}.` : "",
     region ? `근무지 ${region}.` : "",
     p.headcount ? `모집인원 ${p.headcount}.` : "",
@@ -109,7 +109,7 @@ export function renderPostingPage({ posting: p, firm, latestFin, others }) {
   const summary = bits.join(" ");
 
   const rows = [
-    ["종류", career ? `경력${p.is_big4 ? " · 빅4" : ""}` : "수습"],
+    ["종류", career ? `경력${p.is_big4 ? " · 빅4" : ""}` : "신입"],
     ["근무지역", region],
     ["고용형태", career ? (p.employment_type || null) : (pt ? "파트타임" : "정규직")],
     ["직무", job],

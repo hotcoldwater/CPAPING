@@ -361,7 +361,7 @@ function postingsSection(postings, firmName) {
             ? `<span class="chip career">경력</span>${p.career_min_years != null || p.career_max_years != null
                 ? `<span class="chip">${p.career_min_years != null && p.career_max_years != null ? `${p.career_min_years}~${p.career_max_years}년`
                     : p.career_min_years != null ? `${p.career_min_years}년 이상` : `${p.career_max_years}년 이하`}</span>` : ""}`
-            : `<span class="chip">수습</span>${p.employment_type === "Part Time" ? `<span class="chip pt">파트타임</span>` : ""}`}
+            : `<span class="chip">신입</span>${p.employment_type === "Part Time" ? `<span class="chip pt">파트타임</span>` : ""}`}
         </div>
       </div>
       <div class="due"><span class="dday">${esc(due)}</span>

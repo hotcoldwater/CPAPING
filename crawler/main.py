@@ -152,7 +152,7 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
             if r.get("audience") == "unknown":
                 r["title"] = "[검수 필요] " + (r.get("title") or "")
         if pending and send_mail:
-            notify.send_new_postings(pending, kind="경력 회계사" if career else "수습회계사")
+            notify.send_new_postings(pending, kind="경력 회계사" if career else "신입 회계사")
             db.mark_notified([r["id"] for r in pending])
             log.info("관리자 알림 %d건", len(pending))
         elif pending:

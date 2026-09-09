@@ -285,7 +285,7 @@ def _format_posting_html(row: dict) -> str:
     )
 
 
-def send_new_postings(rows: list[dict], to: str | None = None, kind: str = "수습회계사") -> None:
+def send_new_postings(rows: list[dict], to: str | None = None, kind: str = "신입 회계사") -> None:
     """신규 공고 알림 메일(운영자용). kind 는 제목에 붙는 종류 — '수습회계사' 또는 '경력 회계사'."""
     if not rows:
         return
@@ -389,7 +389,7 @@ def send_to_subscriber(subscriber: dict, rows: list[dict], career: bool = False)
                 else f"{SITE}/api/settings?token={subscriber['unsubscribe_token']}")
     count = len(rows)
     tag = "[CPAPING 경력]" if career else "[CPAPING]"
-    what = "경력 회계사 공고" if career else "수습회계사 공고"
+    what = "경력 회계사 공고" if career else "신입 회계사 공고"
 
     subject = f"{tag} 신규 {what} {count}건"
     if count == 1:

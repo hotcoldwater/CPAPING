@@ -17,8 +17,8 @@ import { supabase, page, SITE } from "../_shared.js";
 
 // 받을 공고 종류. 여러 개 고를 수 있고 하나는 골라야 한다.
 const KINDS = [
-  ["full", "수습 정규직", "구인(수습CPA) 게시판의 정규직 공고", "want_trainee_full"],
-  ["part", "수습 파트타임", "구인(수습CPA) 게시판의 파트타임 공고", "want_trainee_part"],
+  ["full", "신입 정규직", "구인(수습CPA) 게시판의 정규직 공고", "want_trainee_full"],
+  ["part", "신입 파트타임", "구인(수습CPA) 게시판의 파트타임 공고", "want_trainee_part"],
   ["career", "경력", "구인(CPA) 게시판의 회계사 경력 채용. 빅4·일반기업 포함, 기장·사무 직원 공고는 제외", "want_career"],
 ];
 const REGIONS = [
