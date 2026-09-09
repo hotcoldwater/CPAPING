@@ -61,8 +61,11 @@
         <div id="alert-opts">
           <label for="region">지역</label>
           <select id="region"><option value="all">전국</option><option value="capital">수도권 (서울·경기·인천)</option><option value="local">지방</option></select>
-          <label for="filter">고용형태</label>
-          <select id="filter"><option value="all">전체</option><option value="full">정규직만</option><option value="part">파트타임만</option></select>
+          <div class="kinds" role="group" aria-label="받을 공고" style="margin-top:10px">
+            <label class="check"><input type="checkbox" id="kind-full" checked> <span>수습 정규직</span></label>
+            <label class="check"><input type="checkbox" id="kind-part" checked> <span>수습 파트타임</span></label>
+            <label class="check"><input type="checkbox" id="kind-career"> <span>경력 <span class="muted small">회계사 경력 채용 · 빅4·일반기업 포함, 기장·사무 직원 공고 제외</span></span></label>
+          </div>
           <p class="fine" style="margin-top:8px">지역무관 공고는 어느 조건에서도 함께 받습니다.</p>
         </div>
         <button class="btn primary" type="submit" style="margin-top:16px">완료</button>
@@ -139,10 +142,14 @@
   $("alert-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     if ($("alert-on").checked) {
+      const body = { region_filter: $("region").value, want_trainee_full: $("kind-full").checked,
+                     want_trainee_part: $("kind-part").checked, want_career: $("kind-career").checked };
+      if (!body.want_trainee_full && !body.want_trainee_part && !body.want_career)
+        return msg("받을 공고를 하나 이상 골라 주세요. 알림을 원하지 않으면 위의 체크를 끄세요.", "err");
       const { data: { session } } = await A.client.auth.getSession();
       const res = await fetch("/api/me/subscription", { method: "PUT",
         headers: { Authorization: "Bearer " + session.access_token, "Content-Type": "application/json" },
-        body: JSON.stringify({ region_filter: $("region").value, employment_filter: $("filter").value }) });
+        body: JSON.stringify(body) });
       if (!res.ok) return msg("알림 설정을 저장하지 못했습니다. 내 계정에서 다시 켤 수 있습니다.", "err");
     }
     location.replace(A.takeReturnTo());

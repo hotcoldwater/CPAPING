@@ -141,10 +141,9 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
         # 7. 알림 — 구독자별로 보낸다
         # 6 이 보낸 통수는 mark_confirmation_sent 로 이미 DB 에 남았으므로
         # 7 이 다시 세면 그대로 반영된다. 따로 넘겨줄 것이 없다.
-        # 경력 게시판은 아직 구독자에게 보내지 않는다(1단계: 수집·분류만).
-        # 종류 스위치(want_career)를 알림이 읽게 되는 2단계에서 켠다.
+        # 경력 게시판(kicpa:cpa)은 want_career 를 켠 구독자에게만 간다 — store.wanted_employment.
         career = board == kicpa.BOARD_CPA
-        notified = 0 if career else _notify_subscribers(db, source, send_mail)
+        notified = _notify_subscribers(db, source, send_mail)
 
         # 관리자에게도 계속 보낸다. 구독자가 없어도 서비스가 살아있는지 확인할 수 있다.
         # 경력 게시판은 판단 불가 건도 같이 보여 분류를 검수한다.
@@ -288,7 +287,7 @@ def _notify_subscribers(db, source: str, send_mail: bool) -> int:
             skipped += 1
             continue
         try:
-            notify.send_to_subscriber(subscriber, rows)
+            notify.send_to_subscriber(subscriber, rows, career=source.endswith(":cpa"))
             db.log_notifications(subscriber["id"], [r["id"] for r in rows])
             total += len(rows)
             mails += 1

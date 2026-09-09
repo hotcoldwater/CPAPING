@@ -239,7 +239,8 @@ class Store:
         return self._request(
             "GET", "subscribers",
             params={
-                "select": "id,email,unsubscribe_token,employment_filter,region_filter,confirmed_at",
+                "select": "id,email,unsubscribe_token,employment_filter,region_filter,confirmed_at,"
+                          "want_trainee_full,want_trainee_part,want_career,user_id",
                 "status": "eq.active",
                 # 순서를 지정하지 않으면 DB 가 주는 대로 돌아 매 회차 순서가
                 # 달라질 수 있다. 실제 발송 순서는 main.py 가 다시 정한다.
@@ -253,8 +254,14 @@ class Store:
         구독 시점 이전 공고는 보내지 않는다. 갓 구독한 사람에게 기존 공고를
         한꺼번에 보내면 스팸으로 보인다. 그건 사이트에서 보면 된다.
         """
+        # 종류 스위치(수습 정규·수습 파트·경력)가 이 게시판을 원하지 않으면 조회조차 하지 않는다
+        employment = wanted_employment(source, subscriber)
+        if employment == SKIP:
+            return []
+
         params = {
-            "select": "id,ij_id,title,company_name,region,employment_type,deadline,detail_url,original_posted_at,first_seen_at",
+            "select": "id,ij_id,title,company_name,region,employment_type,deadline,detail_url,"
+                      "original_posted_at,first_seen_at,career_min_years,career_max_years,is_big4,source",
             "source": f"eq.{source}",
             "is_target": "is.true",
             "is_expired": "is.false",
@@ -262,10 +269,8 @@ class Store:
         }
         if subscriber.get("confirmed_at"):
             params["first_seen_at"] = f"gt.{subscriber['confirmed_at']}"
-
-        employment = {"full": "neq.Part Time", "part": "eq.Part Time"}
-        if subscriber.get("employment_filter") in employment:
-            params["employment_type"] = employment[subscriber["employment_filter"]]
+        if employment:
+            params["employment_type"] = employment
 
         # 지역무관 공고는 어느 필터에도 걸리지 않고 모두에게 나간다.
         # 지역 판정이 틀려서 공고를 감추면 지원자가 기회를 놓치기 때문이다.
@@ -470,6 +475,30 @@ def content_hash(posting) -> str:
     """공고 내용이 바뀌었는지 비교하기 위한 해시."""
     parts = [str(getattr(posting, f, "") or "") for f in _HASH_FIELDS]
     return hashlib.sha256("\x1f".join(parts).encode("utf-8")).hexdigest()
+
+
+SKIP = "skip"   # wanted_employment: 이 구독자는 이 게시판 공고를 받지 않는다
+
+
+def wanted_employment(source: str, subscriber: dict) -> str | None:
+    """구독자의 종류 스위치를 이 게시판의 고용형태 조건으로 옮긴다.
+
+    None → 고용형태 제한 없음, SKIP → 아무것도 받지 않음, 그 외 → PostgREST 필터 값.
+    경력 게시판(kicpa:cpa)은 want_career 하나로 정하고, 수습 게시판은
+    want_trainee_full(정규)·want_trainee_part(파트타임) 조합이다. 011 이 예전
+    employment_filter 를 스위치로 옮겼으므로 여기서는 스위치만 본다.
+    """
+    if source.endswith(":cpa"):
+        return None if subscriber.get("want_career") else SKIP
+    full = subscriber.get("want_trainee_full", True)
+    part = subscriber.get("want_trainee_part", True)
+    if full and part:
+        return None
+    if full:
+        return "neq.Part Time"
+    if part:
+        return "eq.Part Time"
+    return SKIP
 
 
 def kst_today():

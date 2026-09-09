@@ -45,8 +45,11 @@
       <div id="alert-opts" hidden style="margin-top:8px">
         <label for="region">지역</label>
         <select id="region"><option value="all">전국</option><option value="capital">수도권 (서울·경기·인천)</option><option value="local">지방</option></select>
-        <label for="filter">고용형태</label>
-        <select id="filter"><option value="all">전체</option><option value="full">정규직만</option><option value="part">파트타임만</option></select>
+        <div class="kinds" role="group" aria-label="받을 공고" style="margin-top:10px">
+          <label class="check"><input type="checkbox" id="kind-full" checked> <span>수습 정규직</span></label>
+          <label class="check"><input type="checkbox" id="kind-part" checked> <span>수습 파트타임</span></label>
+          <label class="check"><input type="checkbox" id="kind-career"> <span>경력 <span class="muted small">회계사 경력 채용 · 빅4·일반기업 포함, 기장·사무 직원 공고 제외</span></span></label>
+        </div>
         <button class="btn" type="button" id="alert-save" style="margin-top:10px">알림 조건 저장</button>
       </div>
     </section>
@@ -106,22 +109,32 @@
     const sub = res && res.ok ? await res.json() : { active: false };
     $("alert-on").checked = !!sub.active;
     $("alert-opts").hidden = !sub.active;
-    if (sub.active) { $("region").value = sub.region_filter || "all"; $("filter").value = sub.employment_filter || "all"; }
+    if (sub.active) {
+      $("region").value = sub.region_filter || "all";
+      $("kind-full").checked = sub.want_trainee_full !== false;
+      $("kind-part").checked = sub.want_trainee_part !== false;
+      $("kind-career").checked = sub.want_career === true;
+    }
     $("alert-state").textContent = sub.active ? "— 받는 중" : "— 꺼짐";
   }
   await loadAlert();
+  const conditions = () => ({ region_filter: $("region").value, want_trainee_full: $("kind-full").checked,
+                              want_trainee_part: $("kind-part").checked, want_career: $("kind-career").checked });
+  const nothing = (c) => !c.want_trainee_full && !c.want_trainee_part && !c.want_career;
   $("alert-on").addEventListener("change", async () => {
     const on = $("alert-on").checked;
     const res = await fetch("/api/me/subscription", { method: on ? "PUT" : "DELETE",
       headers: { ...(await authHeader()), "Content-Type": "application/json" },
-      body: on ? JSON.stringify({ region_filter: $("region").value, employment_filter: $("filter").value }) : undefined });
+      body: on ? JSON.stringify(conditions()) : undefined });
     if (!res.ok) { msg("알림 설정을 바꾸지 못했습니다. 잠시 뒤 다시 시도해 주세요.", "err"); return loadAlert(); }
     msg(on ? "새 공고 알림을 받습니다." : "알림을 껐습니다.", "ok"); await loadAlert();
   });
   $("alert-save").onclick = async () => {
+    const c = conditions();
+    if (nothing(c)) return msg("받을 공고를 하나 이상 골라 주세요. 알림을 그만 받으려면 위의 체크를 끄세요.", "err");
     const res = await fetch("/api/me/subscription", { method: "PUT",
       headers: { ...(await authHeader()), "Content-Type": "application/json" },
-      body: JSON.stringify({ region_filter: $("region").value, employment_filter: $("filter").value }) });
+      body: JSON.stringify(c) });
     msg(res.ok ? "알림 조건을 저장했습니다. 다음 공고부터 적용됩니다." : "저장하지 못했습니다.", res.ok ? "ok" : "err");
   };
 

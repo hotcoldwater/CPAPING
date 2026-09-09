@@ -2,7 +2,7 @@
  * 구독 조건 변경.
  *
  *   GET  /api/settings?token=...   현재 조건을 보여주고 바꿀 수 있는 화면
- *   POST /api/settings             (폼) token, filter, region → 저장
+ *   POST /api/settings             (폼) token, kind(여러 개: full/part/career), region → 저장
  *
  * 로그인이 없다. 알림 메일 하단의 링크에 실린 **해지 토큰**이 곧 인증이다 —
  * 메일을 받은 사람만 그 링크를 갖고 있고, 토큰은 추측할 수 없다(24바이트).
@@ -15,10 +15,11 @@
 
 import { supabase, page, SITE } from "../_shared.js";
 
-const FILTERS = [
-  ["all", "전체", "정규직·파트타임 모두"],
-  ["full", "정규직", "파트타임 공고는 받지 않습니다"],
-  ["part", "파트타임", "정규직 공고는 받지 않습니다"],
+// 받을 공고 종류. 여러 개 고를 수 있고 하나는 골라야 한다.
+const KINDS = [
+  ["full", "수습 정규직", "구인(수습CPA) 게시판의 정규직 공고", "want_trainee_full"],
+  ["part", "수습 파트타임", "구인(수습CPA) 게시판의 파트타임 공고", "want_trainee_part"],
+  ["career", "경력", "구인(CPA) 게시판의 회계사 경력 채용. 빅4·일반기업 포함, 기장·사무 직원 공고는 제외", "want_career"],
 ];
 const REGIONS = [
   ["all", "전국", "모든 지역"],
@@ -42,7 +43,7 @@ function mask(email) {
 async function findByToken(env, token) {
   const rows = await supabase(
     env,
-    `subscribers?select=id,email,status,employment_filter,region_filter` +
+    `subscribers?select=id,email,status,employment_filter,region_filter,want_trainee_full,want_trainee_part,want_career` +
       `&unsubscribe_token=eq.${encodeURIComponent(token)}`
   );
   return rows[0] || null;
@@ -60,7 +61,18 @@ function radios(name, options, current) {
     .join("\n");
 }
 
-function settingsPage({ row, token, saved = false }) {
+function checks(row) {
+  return KINDS.map(([value, label, hint, col]) => {
+    const id = `kind-${value}`;
+    const on = col === "want_career" ? row[col] === true : row[col] !== false;
+    return `<label class="opt" for="${id}">
+  <input type="checkbox" id="${id}" name="kind" value="${value}"${on ? " checked" : ""}>
+  <span class="lb">${esc(label)}</span><span class="hint">${esc(hint)}</span>
+</label>`;
+  }).join("\n");
+}
+
+function settingsPage({ row, token, saved = false, error = "" }) {
   const status = row.status === "active"
     ? `<span class="chip on">구독 중</span>`
     : `<span class="chip">확인 대기</span>`;
@@ -124,11 +136,12 @@ function settingsPage({ row, token, saved = false }) {
     <h1>구독 설정</h1>
     <div class="who">${esc(mask(row.email))} ${status}</div>
     ${saved ? `<p class="saved" role="status">저장했습니다. 다음 공고부터 이 조건으로 보냅니다.</p>` : ""}
+    ${error ? `<p class="saved" role="alert" style="color:#C7462A;background:#FBEBE7">${esc(error)}</p>` : ""}
     <form method="post" action="/api/settings">
       <input type="hidden" name="token" value="${esc(token)}">
       <fieldset>
-        <legend>고용형태</legend>
-        ${radios("filter", FILTERS, row.employment_filter)}
+        <legend>받을 공고</legend>
+        ${checks(row)}
       </fieldset>
       <fieldset>
         <legend>지역</legend>
@@ -192,15 +205,22 @@ export async function onRequestPost({ request, env }) {
 
   // 화이트리스트 밖의 값은 무시하고 현재 값을 유지한다. DB 의 CHECK 제약이
   // 마지막 방어선이지만, 거기까지 가면 사용자에게 500 이 보인다.
-  const filter = FILTERS.some(([v]) => v === form.get("filter")) ? form.get("filter") : null;
+  const kinds = form.getAll("kind").filter((v) => KINDS.some(([k]) => k === v));
   const region = REGIONS.some(([v]) => v === form.get("region")) ? form.get("region") : null;
 
   try {
     const row = await findByToken(env, token);
     if (!row) return expiredLink();
+    if (!kinds.length) return settingsPage({ row, token, error: "받을 공고를 하나 이상 골라 주세요. 알림을 그만 받으시려면 아래 구독 해지를 누르세요." });
 
-    const patch = {};
-    if (filter) patch.employment_filter = filter;
+    const patch = {
+      want_trainee_full: kinds.includes("full"),
+      want_trainee_part: kinds.includes("part"),
+      want_career: kinds.includes("career"),
+    };
+    // 예전 컬럼도 맞춰 둔다
+    patch.employment_filter = patch.want_trainee_full && !patch.want_trainee_part ? "full"
+      : !patch.want_trainee_full && patch.want_trainee_part ? "part" : "all";
     if (region) patch.region_filter = region;
     if (Object.keys(patch).length) {
       await supabase(env, `subscribers?id=eq.${row.id}`, {

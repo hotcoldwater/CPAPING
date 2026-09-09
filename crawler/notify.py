@@ -199,6 +199,18 @@ def _firm_url(company_name: str | None) -> str:
     return f"{SITE}/firm/{urllib.parse.quote(slug)}/"
 
 
+def _career_note(row: dict) -> str:
+    """경력 공고의 연차 요구. "경력 3~5년" / "경력 5년 이상" / "경력 3년 이하"."""
+    lo, hi = row.get("career_min_years"), row.get("career_max_years")
+    if lo is not None and hi is not None:
+        return f"경력 {lo}~{hi}년"
+    if lo is not None:
+        return f"경력 {lo}년 이상"
+    if hi is not None:
+        return f"경력 {hi}년 이하"
+    return ""
+
+
 def _posting_url(row: dict) -> str:
     """CPAPING 안의 공고 상세 페이지. 정리된 항목과 법인 정보가 있고, 원문 버튼이 있다."""
     ij = row.get("ij_id")
@@ -218,6 +230,9 @@ def _format_posting_text(row: dict) -> str:
         bits.append(f"   {meta}")
     if row.get("deadline"):
         bits.append(f"   마감 {row['deadline']}")
+    career = _career_note(row)
+    if career:
+        bits.append(f"   {career}" + (" · 빅4" if row.get("is_big4") else ""))
     note = _repost_note(row)
     if note:
         bits.append(f"   {note}")
@@ -243,6 +258,9 @@ def _format_posting_html(row: dict) -> str:
         ) if v
     )
     deadline = f"<div style='color:#888'>마감 {h.escape(str(row['deadline']))}</div>" if row.get("deadline") else ""
+    career = _career_note(row)
+    if career:
+        deadline += f"<div style='color:#888'>{h.escape(career)}{' · 빅4' if row.get('is_big4') else ''}</div>"
     firm_url = _firm_url(row.get("company_name"))
     note = _repost_note(row)
     repost = (
@@ -355,36 +373,49 @@ def send_confirmation(email: str, confirm_token: str, unsubscribe_token: str = "
               extra_headers=headers)
 
 
-def send_to_subscriber(subscriber: dict, rows: list[dict]) -> None:
-    """구독자 한 명에게 신규 공고 알림. 하단에 원클릭 해지 링크를 넣는다."""
+def send_to_subscriber(subscriber: dict, rows: list[dict], career: bool = False) -> None:
+    """구독자 한 명에게 신규 공고 알림. 하단에 원클릭 해지 링크를 넣는다.
+
+    career 면 경력 게시판 공고다 — 제목에 [경력] 을 붙이고 연차를 보여 준다.
+    수습 메일에는 경력 알림을 아직 안 켠 사람에게 한 줄로 알려 준다(운영자 결정: 별도 메일 대신).
+    """
     if not rows:
         return
 
     unsubscribe = f"{SITE}/api/unsubscribe?token={subscriber['unsubscribe_token']}"
     # 같은 토큰으로 조건을 바꾼다. 해지밖에 길이 없으면 조건이 안 맞는 사람은
-    # 떠나는 수밖에 없다.
-    settings = f"{SITE}/api/settings?token={subscriber['unsubscribe_token']}"
+    # 떠나는 수밖에 없다. 회원이면 내 계정으로 보낸다.
+    settings = (f"{SITE}/account/" if subscriber.get("user_id")
+                else f"{SITE}/api/settings?token={subscriber['unsubscribe_token']}")
     count = len(rows)
+    tag = "[CPAPING 경력]" if career else "[CPAPING]"
+    what = "경력 회계사 공고" if career else "수습회계사 공고"
 
-    subject = f"[CPAPING] 신규 수습회계사 공고 {count}건"
+    subject = f"{tag} 신규 {what} {count}건"
     if count == 1:
-        subject = f"[CPAPING] {rows[0].get('company_name') or '신규'} — {rows[0]['title'][:40]}"
+        subject = f"{tag} {rows[0].get('company_name') or '신규'} — {rows[0]['title'][:40]}"
+
+    upsell = "" if career or subscriber.get("want_career") else (
+        f"경력(회계사 경력 채용) 공고 알림도 받을 수 있습니다: {settings}\n")
+    upsell_html = "" if career or subscriber.get("want_career") else (
+        f"<a href='{settings}' style='color:#868D99'>경력 공고 알림도 받기</a> · ")
 
     text = "\n\n".join(_format_posting_text(r) for r in rows)
     text = (
-        f"새로 올라온 공고 {count}건입니다.\n\n{text}\n\n"
+        f"새로 올라온 {'경력 ' if career else ''}공고 {count}건입니다.\n\n{text}\n\n"
         f"지금 지원할 수 있는 공고 전체와 회계법인 248곳의 매출·회계사 수는\n"
         f"{SITE} 에서 볼 수 있습니다.\n\n"
         f"— CPAPING\n"
         f"의견이나 요청은 이 메일에 그대로 답장해 주세요.\n"
-        f"알림 조건 바꾸기(지역·고용형태): {settings}\n"
+        f"{upsell}"
+        f"알림 조건 바꾸기(종류·지역): {settings}\n"
         f"수신 거부: {unsubscribe}"
     )
 
     html = (
         "<div style='font-family:-apple-system,BlinkMacSystemFont,\"Apple SD Gothic Neo\",sans-serif;"
         "max-width:600px;margin:0 auto;padding:24px'>"
-        f"<div style='font-size:13px;color:#666;margin-bottom:20px'>새로 올라온 공고 {count}건</div>"
+        f"<div style='font-size:13px;color:#666;margin-bottom:20px'>새로 올라온 {'경력 ' if career else ''}공고 {count}건</div>"
         + "".join(_format_posting_html(r) for r in rows)
         + f"<div style='margin:4px 0 18px'>"
           f"<a href='{SITE}' style='display:inline-block;padding:9px 16px;"
@@ -396,6 +427,7 @@ def send_to_subscriber(subscriber: dict, rows: list[dict]) -> None:
           "border-top:1px solid #EFF1F4;padding-top:14px'>"
         "의견이나 요청은 이 메일에 그대로 답장해 주세요.<br>"
         "CPAPING · "
+        f"{upsell_html}"
         f"<a href='{settings}' style='color:#868D99'>알림 설정</a> · "
         f"<a href='{unsubscribe}' style='color:#868D99'>수신 거부</a> · "
         f"<a href='{SITE}/privacy' style='color:#868D99'>개인정보처리방침</a></div></div>"
