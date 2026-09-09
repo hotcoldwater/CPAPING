@@ -44,6 +44,11 @@
 | ③ | 게시판 — 자유 | 잡담 | 셋 다 |
 
 게시판은 **글 + 댓글 + 추천 + 카테고리(태그)** 단일 모델로 만들고, 위 넷은 카테고리다.
+
+**추천·베스트 규칙(운영자 결정 2026-09-09).** 글과 댓글 모두 추천이 있다(한 사람 한 번, 취소 가능,
+비추천 없음). 댓글 베스트는 공고·법인 댓글과 같은 규칙 — 추천 10개 이상인 원댓글 중 많은 순 3개를
+상단 고정(`web/comments.js` 의 `BEST_MIN`·`BEST_MAX`). 글도 같은 기준으로 "베스트" 표시·정렬을 둔다
+(`post_votes` 테이블, `posts.vote_count` 트리거 — `comment_votes` 와 같은 모양). 댓글은 한 단계 대댓글.
 공고 댓글과 법인 댓글도 같은 댓글 테이블을 쓰되 `target_type`(posting/firm/post)만 다르다.
 테이블 하나로 신고·임시조치·운영자 삭제가 한 곳에서 처리된다.
 
@@ -61,9 +66,11 @@ profiles          user_id(auth) · nickname(unique) · kind(준비생/합격생/
 verifications     id · user_id · type(합격/등록/재직) · status · submitted_at · reviewed_at ·
                   file_path(비공개 버킷, 심사 후 null) · reviewer_note
 posts             id · author_id · category · title · body · status(visible/hidden/removed) ·
-                  created_at · edited_at · like_count
+                  created_at · edited_at · vote_count
+post_votes        post_id · voter_id · created_at        -- comment_votes(010) 와 같은 규칙
+comment_votes     comment_id · voter_id · created_at     -- 010 에서 배포
 comments          id · author_id · target_type(posting/firm/post) · target_id(text) ·
-                  parent_id · body · status · created_at
+                  parent_id(한 단계) · body · status · vote_count · created_at
 reports           id · reporter_id · target(type,id) · reason · status · acted_at
 firm_domains      firm_id · domain          -- 법인 소속 자동 인증
 ```

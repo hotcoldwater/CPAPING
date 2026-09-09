@@ -102,7 +102,7 @@ let html = readFileSync(join(HERE, "index.html"), "utf8");
 async function fetchPostings(url, key) {
   const query =
     "/rest/v1/job_postings?select=company_name,title,region,region_group,deadline,posted_at," +
-    "employment_type,detail_url,removed_at,original_posted_at,repost_count,ij_id" +
+    "employment_type,detail_url,removed_at,original_posted_at,repost_count,ij_id,view_count" +
     "&is_target=is.true&order=posted_at.desc";
   const res = await fetch(url.replace(/\/$/, "") + query, { headers: { apikey: key } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -336,7 +336,7 @@ if (!missing.length) try {
   const full = await fetchAll(url, key,
     "job_postings?select=ij_id,title,company_name,region,work_region,employment_type," +
     "hiring_status,headcount,career,salary,education,posted_at,deadline,detail_url," +
-    "job_category,original_posted_at,repost_count,removed_at,is_expired" +
+    "job_category,original_posted_at,repost_count,removed_at,is_expired,view_count" +
     // 대상 공고 + 마감돼 대상에서 빠진 로컬 공고. 마감됐다고 페이지를 지우면 목록·메일에서
     // 이어진 링크가 죽는다. 빅4는 처음부터 다루지 않는다.
     "&is_big4=is.false&or=(is_target.is.true,is_expired.is.true)&order=posted_at.desc");
@@ -357,8 +357,9 @@ if (!missing.length) try {
     const others = full.filter((o) => o.company_name === posting.company_name && o.ij_id !== posting.ij_id);
     const dir = join(out, "posting", String(posting.ij_id));
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, "index.html"), withAnalytics(renderPostingPage({
-      posting, firm, latestFin: firm ? latestFin.get(firm.id) || null : null, others })), "utf8");
+    // inject: 조회수 갱신 스크립트가 쓰는 공개 키를 채운다
+    writeFileSync(join(dir, "index.html"), inject(withAnalytics(renderPostingPage({
+      posting, firm, latestFin: firm ? latestFin.get(firm.id) || null : null, others }))), "utf8");
     pages.push({ loc: `/posting/${encodeURIComponent(posting.ij_id)}/`,
                  freq: posting.removed_at ? "monthly" : "daily" });
     made++;

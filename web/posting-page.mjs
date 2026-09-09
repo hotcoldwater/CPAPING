@@ -196,6 +196,7 @@ h1{margin:8px 0 10px;font-size:21px;font-weight:600;letter-spacing:-.02em;line-h
 main{flex:1;padding:0 var(--pad-x) 32px}
 section{padding:20px 0;border-bottom:1px solid var(--line-2)}
 section:last-of-type{border-bottom:0}
+.facts .delta{color:var(--ink-3);font-size:12px;margin-left:2px}
 .sec-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
 .sec-head h2{margin:0;font-size:14px;font-weight:600;letter-spacing:-.01em}
 .sec-head .more,.sec-head .unit{font-size:12px;color:var(--ink-2);text-decoration:none}
@@ -256,7 +257,8 @@ footer a{color:var(--ink-2)}
   <main>
     <section>
       <div class="sec-head"><h2>공고 요약</h2><span class="unit">한공회 게시판 기준</span></div>
-      <dl class="facts">${rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>
+      <dl class="facts">${rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}${
+        p.view_count != null ? `<div><dt>한공회 조회수</dt><dd id="views" data-ij="${esc(p.ij_id)}" data-live="${st.key === "open" ? "1" : "0"}">${Number(p.view_count).toLocaleString("ko-KR")}회<span class="delta" id="views-delta"></span></dd></div>` : ""}</dl>
       <p class="note">공고 본문과 담당자 연락처는 원문에서 확인하세요. CPAPING은 원문을 전재하지 않고
         게시판에 적힌 항목만 정리합니다.${st.key === "removed" ? " 이 공고는 게시판에서 내려갔습니다 — 한공회는 등록 1개월이 지난 공고를 자동으로 지우며, 원문 링크가 열리지 않을 수 있습니다." : ""}</p>
     </section>
@@ -272,6 +274,35 @@ footer a{color:var(--ink-2)}
     <p class="muted small">댓글을 불러오는 중…</p>
   </section>
   <script src="/comments.js" defer></script>
+  <script>
+  // 한공회 조회수는 크롤러가 매분 갱신하지만 이 페이지는 배포 시점에 만들어진다.
+  // 열린 공고만, 열 때 최신값과 "오늘 +N"(어제 이력 대비)을 한 번 받아온다.
+  (async function () {
+    var el = document.getElementById("views");
+    if (!el || el.dataset.live !== "1") return;
+    var U = "__SUPABASE_URL__", K = "__SUPABASE_PUBLISHABLE_KEY__";
+    if (U.indexOf("__") === 0) return;
+    var h = { headers: { apikey: K } }, ij = encodeURIComponent(el.dataset.ij);
+    try {
+      var r = await Promise.all([
+        fetch(U + "/rest/v1/job_postings?select=view_count&ij_id=eq." + ij, h).then(function (x) { return x.json(); }),
+        fetch(U + "/rest/v1/posting_view_snapshots?select=day,view_count&ij_id=eq." + ij + "&order=day.desc&limit=2", h).then(function (x) { return x.json(); }),
+      ]);
+      var now = r[0] && r[0][0] && r[0][0].view_count;
+      if (typeof now !== "number") return;
+      el.firstChild.textContent = now.toLocaleString("ko-KR") + "회";
+      var snaps = Array.isArray(r[1]) ? r[1] : [];
+      // 이력이 오늘·어제 둘 다 있을 때만 증가분을 보여준다. 하루가 비면 뜻이 달라진다.
+      if (snaps.length === 2) {
+        var d0 = new Date(snaps[0].day), d1 = new Date(snaps[1].day);
+        if (Math.round((d0 - d1) / 86400000) === 1) {
+          var delta = now - snaps[1].view_count;
+          if (delta > 0) document.getElementById("views-delta").textContent = " · 오늘 +" + delta.toLocaleString("ko-KR");
+        }
+      }
+    } catch (e) { /* 표시는 배포 시점 값으로 남는다 */ }
+  })();
+  </script>
 
   <p class="sub">이런 공고가 올라오면 1분 안에 메일로 받으세요 — <a href="/login/">가입하기</a></p>
   <footer>한국공인회계사회 구인(수습CPA) 게시판의 공고를 정리했습니다 · 잘못된 내용은

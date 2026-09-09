@@ -300,6 +300,7 @@ a.title:hover { color: var(--accent); }
 }
 .row .dday { font-size: 12px; font-weight: 500; }
 .row .date { display: block; font-size: 10.5px; color: var(--ink-3); }
+.row .views { display: block; margin-top: 3px; font-size: 10.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .row.soon .dday { color: var(--urgent); }
 .row.soon .date { color: var(--urgent-2); }
 
@@ -479,7 +480,10 @@ const SORTS = {
   // 최신순을 기본으로 둔다. 마감 임박 건은 D-day 가 빨갛게 표시된다.
   posted:   { label: "최신순",      compare: (a, b) => (b.posted_at || "").localeCompare(a.posted_at || "") },
   deadline: { label: "마감 임박순", compare: (a, b) => a.deadline.localeCompare(b.deadline) },
+  // 한공회 게시판의 조회수. 크롤러가 매분 갱신한다 — 사람들이 많이 본 공고가 위로.
+  views:    { label: "조회 많은 순", compare: (a, b) => (b.view_count || 0) - (a.view_count || 0) },
 };
+const SORT_CYCLE = ["posted", "deadline", "views"];
 const DEFAULT_SORT = "posted";
 
 const state = { postings: [], filter: "all", region: "all", query: "", sort: DEFAULT_SORT };
@@ -644,6 +648,13 @@ function renderRow(p, options = {}) {
     date.textContent = shortDate(p.deadline);
   }
   due.append(dday, date);
+  // 한공회 게시판 조회수. 내려간 공고는 마지막으로 본 값이다.
+  if (p.view_count != null) {
+    const views = document.createElement("small");
+    views.className = "views";
+    views.textContent = "조회 " + Number(p.view_count).toLocaleString("ko-KR");
+    due.append(views);
+  }
 
   row.append(main, due);
   return row;
@@ -794,7 +805,7 @@ async function load() {
   state.sort = SORTS[savedSort] ? savedSort : DEFAULT_SORT;
 
   $("sort").onclick = () => {
-    state.sort = state.sort === "posted" ? "deadline" : "posted";
+    state.sort = SORT_CYCLE[(SORT_CYCLE.indexOf(state.sort) + 1) % SORT_CYCLE.length];
     remember.set("sort", state.sort);
     renderList();
   };
@@ -805,7 +816,7 @@ async function load() {
     // 내려간 공고도 함께 받아 하단 구역에 보여준다
     const url = SUPABASE_URL +
       "/rest/v1/job_postings?select=company_name,title,region,region_group,deadline,posted_at," +
-      "employment_type,detail_url,removed_at,original_posted_at,repost_count,ij_id" +
+      "employment_type,detail_url,removed_at,original_posted_at,repost_count,ij_id,view_count" +
       "&is_target=is.true&order=posted_at.desc";
     const res = await fetch(url, { headers: { apikey: SUPABASE_KEY } });
     if (!res.ok) throw new Error("HTTP " + res.status);

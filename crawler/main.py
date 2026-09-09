@@ -112,6 +112,12 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
         db.upsert_postings([store.to_row(p) for p in postings if p.ij_id in fresh_ids])
         db.upsert_postings([store.to_light_row(p) for p in postings if p.ij_id not in fresh_ids])
 
+        # 4-0. 한공회 조회수 이력 — 부가 기능이라 실패해도 크롤을 멈추지 않는다
+        try:
+            db.snapshot_views(store.view_snapshot_rows(postings, store.kst_today()))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("조회수 이력 저장 실패: %s", exc)
+
         expired = db.expire_past_deadline(source)
         if expired:
             log.info("마감일이 지난 공고 %d건 만료 처리", expired)

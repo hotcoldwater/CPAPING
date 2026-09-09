@@ -26,6 +26,7 @@
 | §5-1 닉네임 규칙 | `007_profiles.sql` 의 CHECK(2~12자, 사칭 문구 금지) + `lower(nickname)` 유니크 |
 | §5-1 동의 기록 | `auth.users.raw_user_meta_data.agreed_terms_at / over14` |
 | §5-1 게시물은 탈퇴 후 익명화 존치 | `comments.author_id … on delete set null` → 뷰가 "탈퇴한 사용자" 로 표시 |
+| §5-1 추천 기록은 취소·삭제·탈퇴 시 즉시 삭제 | `comment_votes` — 취소는 행 삭제, `comment_id`·`voter_id` 모두 on delete cascade (010) |
 | 약관 §7 신고 즉시 임시조치 | `reports_after_insert` 트리거가 댓글을 hidden 으로. 운영자가 30일 내 처리 |
 | 약관 §6 연락처 금지 | `comments_no_contact` CHECK (휴대폰·이메일 패턴) |
 | §12 contact@cpaping.com | Cloudflare Email Routing 으로 수신 (설정 완료) |
@@ -36,6 +37,7 @@
 **2026-09-09 제7판** — 로그인(Phase 3). §5-1 회원 계정 절 신설. 계정은 Supabase Auth, 우리는
 닉네임만. 카카오는 이메일 없이 들어오므로 이메일 입력·인증을 강제한다(운영자 결정 8). 탈퇴는
 `/api/account` DELETE — 토큰의 주인만 지운다. 게시물 익명화 존치는 댓글 Phase 에서 구현.
+같은 날 밤 댓글·추천을 열며 §5-1 표에 게시물·신고 내역·추천 기록(어느 댓글을 추천했는지) 항목을 보완했다.
 카카오는 국내 사업자라 §7(국외)에는 넣지 않고 §6(위탁)에만 적었다.
 
 

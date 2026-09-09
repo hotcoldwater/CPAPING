@@ -95,6 +95,21 @@ class Store:
             json=rows,
         )
 
+    def snapshot_views(self, rows: list[dict]) -> None:
+        """공고별 하루 1행으로 한공회 조회수를 남긴다. 같은 날은 마지막 값으로 덮어쓴다.
+
+        "오늘 +N" 표시와 인기 공고 계산이 여기서 나온다. 매분 upsert 해도
+        행 수는 (공고 수 × 날짜) 로만 늘어난다.
+        """
+        if not rows:
+            return
+        self._request(
+            "POST", "posting_view_snapshots",
+            params={"on_conflict": "ij_id,day"},
+            headers={"Prefer": "resolution=merge-duplicates,return=minimal"},
+            json=rows,
+        )
+
     def mark_removed(self, source: str, alive_ij_ids: list[str]) -> int:
         """게시판에서 사라진 공고에 removed_at 을 남긴다.
 
@@ -450,6 +465,21 @@ def content_hash(posting) -> str:
     """공고 내용이 바뀌었는지 비교하기 위한 해시."""
     parts = [str(getattr(posting, f, "") or "") for f in _HASH_FIELDS]
     return hashlib.sha256("\x1f".join(parts).encode("utf-8")).hexdigest()
+
+
+def kst_today():
+    """한국 시간 기준 오늘. 한공회 조회수 이력의 날짜 키."""
+    from datetime import datetime, timedelta, timezone
+    return datetime.now(timezone(timedelta(hours=9))).date()
+
+
+def view_snapshot_rows(postings, day) -> list[dict]:
+    """조회수가 있는 공고만, ij_id 당 한 행(같은 공고가 두 번 오면 마지막 값)."""
+    out: dict[str, dict] = {}
+    for p in postings:
+        if p.ij_id and p.view_count is not None:
+            out[p.ij_id] = {"ij_id": p.ij_id, "day": day.isoformat(), "view_count": int(p.view_count)}
+    return list(out.values())
 
 
 def to_light_row(posting) -> dict:
