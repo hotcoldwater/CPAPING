@@ -19,15 +19,8 @@
   const root = document.getElementById("comments");
   if (!root) return;
   const TT = root.dataset.targetType, TID = root.dataset.targetId;
-  const COPY = {
-    posting: { ph: "이 공고에 대해 묻거나 아는 것을 나눠 주세요. 사실이 아닌 내용, 담당자 연락처, 광고는 쓸 수 없습니다.",
-               empty: "아직 댓글이 없습니다. 첫 댓글을 남겨 보세요.",
-               fine: "댓글은 <a href=\"/terms\">이용약관</a> 제6조를 따릅니다." },
-    firm:    { ph: "이 법인에 대해 아는 것을 나눠 주세요. 직접 겪거나 확인한 사실을 적고, 확인되지 않은 내용을 사실처럼 쓰면 명예훼손이 될 수 있습니다. 개인 이름·연락처는 쓸 수 없습니다.",
-               empty: "아직 댓글이 없습니다. 이 법인에 대해 아는 것이 있으면 나눠 주세요.",
-               fine: "법인에 대한 댓글은 <a href=\"/terms\">이용약관</a> 제6조를 따르며, 확인되지 않은 내용을 사실처럼 쓰면 명예훼손이 될 수 있습니다. 법인 측은 <a href=\"mailto:contact@cpaping.com\">contact@cpaping.com</a> 으로 정정·삭제를 요청할 수 있습니다." },
-    post:    { ph: "댓글을 남겨 주세요.", empty: "아직 댓글이 없습니다.", fine: "댓글은 <a href=\"/terms\">이용약관</a> 제6조를 따릅니다." },
-  }[TT] || { ph: "댓글을 남겨 주세요.", empty: "아직 댓글이 없습니다.", fine: "" };
+  // 안내문은 두지 않는다(운영자 결정 2026-09-10). 규칙은 약관과 DB 검사(연락처 금지 등)가 지킨다.
+  const COPY = { ph: "댓글을 남겨 주세요.", empty: "아직 댓글이 없습니다." };
 
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const ago = (iso) => {
@@ -145,8 +138,7 @@
         <ul class="cm-list">${S.best.map((c) => item(c, S, { pinned: true })).join("")}</ul></div>` : ""}
       ${S.tops.length ? `<ul class="cm-list">${S.tops.map((c) => item(c, S)).join("")}</ul>` : `<p class="muted small" style="margin:0 0 12px">${esc(COPY.empty)}</p>`}
       ${gate}
-      <div class="msg" id="cm-msg" hidden role="status" aria-live="polite"></div>
-      <p class="cm-fine">${COPY.fine} 권리 침해 신고는 댓글의 <b>신고</b> 또는 <a href="mailto:contact@cpaping.com">contact@cpaping.com</a>.</p>`;
+      <div class="msg" id="cm-msg" hidden role="status" aria-live="polite"></div>`;
     wire();
   }
 
