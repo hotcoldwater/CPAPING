@@ -1,5 +1,12 @@
 # CPAPING
 
+**궁극적 목표: 준비생·합격생·현직자가 계속 이용하는 국내 최대 회계사 커뮤니티.**
+
+앞으로의 실행 순서·완료 조건·진행 상태는 **[성장 실행 로드맵](docs/growth-roadmap.md)** 을 따른다.
+현재는 **Phase 1 — 공고 신뢰성 / 1A — 빅4 수습 포함·전체 목록 검증**을 진행한다.
+아래 기존 Phase 표와 MVP 범위는 이전 개발 이력이다. 빅4 수습 제외 정책은 2026-09-11 사용자 지시로
+변경했으며, 소스 구현과 실서비스 배포 상태는 새 로드맵에서 구분한다.
+
 한국공인회계사회(한공회) 채용 게시판에 **회계법인 신입 공고**가 올라오면 즉시 이메일로 알려주는 서비스.
 
 빅4에 가지 못해 로컬 회계법인을 지원하는 수험생·합격자가 공고를 놓치지 않도록 하는 것이 목표다.
@@ -447,11 +454,10 @@ python crawler/main.py --no-mail
 # 5. 실제 실행 (수집 → 저장 → 신규 건 메일)
 python crawler/main.py
 
-# 테스트
-python crawler/test_classify.py
-python crawler/test_repost.py
+# 테스트 (외부 DB·메일 호출 없음)
+python -m unittest discover -s crawler -p 'test_*.py'
 python crawler/test_limits.py
-python crawler/test_extract_checks.py
+node --test web/test-posting-page.mjs
 ```
 
 ### 웹 페이지 미리보기

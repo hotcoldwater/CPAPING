@@ -1,6 +1,7 @@
 """공고 분류: 빅4 판정 / 채용 유형 판정 / 직무 태깅.
 
-MVP 대상은 "빅4가 아닌 로컬 회계법인의 신입 채용" 이다.
+수습 채용은 빅4를 포함한다. 경력 게시판의 직원·판단 불가 공고는
+전체 알림 선택 기능이 도입되기 전까지 기존 검수 정책을 유지한다.
 실제 한공회 데이터를 보면 공고는 크게 네 갈래로 나뉜다.
 
   entry        신입·수습 채용            ← 알림 대상
@@ -302,10 +303,9 @@ def classify(posting) -> dict:
         is_target = audience == AUDIENCE_CPA and not expired
         needs_review = audience == AUDIENCE_UNKNOWN
     else:
-        # 수습: 빅4가 아니고, 신입이거나 판단 불가한 공고. 놓치는 것보다 한 번 더 보낸다.
+        # 수습: 법인 규모와 무관하게 신입·판단 불가 공고를 포함한다.
         is_target = (
-            big4 is None
-            and ptype in (TYPE_ENTRY, TYPE_AMBIGUOUS)
+            ptype in (TYPE_ENTRY, TYPE_AMBIGUOUS)
             and not expired
         )
         needs_review = ptype == TYPE_AMBIGUOUS

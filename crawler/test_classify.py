@@ -118,8 +118,19 @@ class TargetTest(unittest.TestCase):
     def test_로컬_수습공고는_알림_대상(self):
         self.assertTrue(C.classify(self._posting())["is_target"])
 
-    def test_빅4는_제외(self):
-        p = self._posting(company_name="한영회계법인", title="[EY한영] 신입/경력직")
+    def test_빅4_수습도_알림_대상(self):
+        for name in ("삼일회계법인", "삼정회계법인", "안진회계법인", "한영회계법인"):
+            with self.subTest(name=name):
+                labels = C.classify(self._posting(company_name=name))
+                self.assertTrue(labels["is_target"])
+                self.assertTrue(labels["is_big4"])
+
+    def test_빅4도_마감되면_제외(self):
+        p = self._posting(company_name="한영회계법인", deadline=date.today() - timedelta(days=1))
+        self.assertFalse(C.classify(p)["is_target"])
+
+    def test_빅4도_채용완료면_제외(self):
+        p = self._posting(company_name="삼일회계법인", is_closed=True)
         self.assertFalse(C.classify(p)["is_target"])
 
     def test_마감된_공고는_제외(self):

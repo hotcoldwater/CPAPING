@@ -109,7 +109,7 @@ export function renderPostingPage({ posting: p, firm, latestFin, others }) {
   const summary = bits.join(" ");
 
   const rows = [
-    ["종류", career ? `경력${p.is_big4 ? " · 빅4" : ""}` : "신입"],
+    ["종류", `${kindLabel}${p.is_big4 ? " · 빅4" : ""}`],
     ["근무지역", region],
     ["고용형태", career ? (p.employment_type || null) : (pt ? "파트타임" : "정규직")],
     ["직무", job],
@@ -248,7 +248,7 @@ footer a{color:var(--ink-2)}
     <h1>${esc(title)}</h1>
     <div class="chips">
       ${region ? `<span class="chip">${esc(region)}</span>` : ""}
-      <span class="chip${career ? " career" : ""}">${kindLabel}</span>${career && years ? `<span class="chip">${esc(years)}</span>` : ""}${!career && pt ? `<span class="chip pt">파트타임</span>` : ""}${career && p.is_big4 ? `<span class="chip">빅4</span>` : ""}
+      <span class="chip${career ? " career" : ""}">${kindLabel}</span>${career && years ? `<span class="chip">${esc(years)}</span>` : ""}${!career && pt ? `<span class="chip pt">파트타임</span>` : ""}${p.is_big4 ? `<span class="chip">빅4</span>` : ""}
       ${job ? `<span class="chip">${esc(job)}</span>` : ""}
     </div>
     <div class="status">

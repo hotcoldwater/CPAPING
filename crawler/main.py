@@ -4,8 +4,8 @@
     python crawler/main.py              수집 → DB 저장 → 신규 건 메일 발송
     python crawler/main.py --no-mail    저장은 하되 메일은 보내지 않음
 
-MVP 는 '구인(수습CPA)' 게시판만 본다. 이 게시판은 한공회가 수습회계사 및
-시험 합격자 대상 공고만 받도록 운영해서, 올라온 글이 곧 신입 공고다.
+구인(수습CPA)·구인(CPA) 게시판의 전체 목록을 확인하고 수집한다.
+수습 공고는 빅4도 포함한다. 세부 정책은 docs/growth-roadmap.md 를 참고한다.
 """
 
 from __future__ import annotations
@@ -69,8 +69,8 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
     session = kicpa.make_session()
 
     # 1. 목록 (상세는 신규 건만 — 상대 서버 부담을 줄인다)
-    # 경력 게시판은 한 달치가 50건을 넘는다(2026-09-09 실측 65건). 첫 수집에서 빠지지 않게 100건.
-    postings, total = kicpa.fetch_list(session, board=board, list_cnt=100 if board == kicpa.BOARD_CPA else 50)
+    # 전체 목록이 확인돼야 저장·발송·내려간 공고 판정을 진행한다.
+    postings, total = kicpa.fetch_complete_list(session, board=board)
     log.info("%s 목록 %d건 (전체 %s건)", kicpa.BOARDS[board][1], len(postings), total)
 
     if not postings:
@@ -429,8 +429,6 @@ def _print_dry_run(postings: list) -> None:
         L = p.labels
         if L["is_target"]:
             mark = "🎯"
-        elif L["is_big4"]:
-            mark = f"빅4({L['big4']})"
         elif L["is_expired"]:
             mark = "마감"
         else:

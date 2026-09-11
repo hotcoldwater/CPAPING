@@ -645,12 +645,12 @@ function renderRow(p, options = {}) {
     chips.append(chip("경력", "career"));
     const lo = p.career_min_years, hi = p.career_max_years;
     if (lo != null || hi != null) chips.append(chip(lo != null && hi != null ? `${lo}~${hi}년` : lo != null ? `${lo}년 이상` : `${hi}년 이하`));
-    if (p.is_big4) chips.append(chip("빅4"));
   } else {
     chips.append(chip("신입"));
     if (p.employment_type === "Part Time") chips.append(chip("파트타임", "pt"));
   }
 
+  if (p.is_big4) chips.append(chip("빅4"));
   main.append(firm, title, chips);
 
   const due = document.createElement("div");

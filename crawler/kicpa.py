@@ -251,6 +251,47 @@ def fetch_list(
     return parse_list(res.text, board), parse_total_count(res.text)
 
 
+def fetch_complete_list(
+    session: requests.Session,
+    *,
+    board: str = BOARD_TRAINEE,
+    list_cnt: int = 100,
+    max_pages: int = 100,
+    delay: float = REQUEST_DELAY_SEC,
+) -> tuple[list[Posting], int]:
+    """전체 건수와 고유 ID 수가 일치한 목록만 반환한다.
+
+    부분 목록으로 mark_removed 를 실행하면 다음 페이지의 공고까지 내려간
+    것으로 처리된다. 페이지 반복, 파싱 실패, 조회 도중 건수 변화가 있으면
+    저장·발송 전에 실패시켜 다음 크롤 회차에 다시 전체를 확인한다.
+    """
+    if list_cnt < 1 or max_pages < 1:
+        raise ValueError("list_cnt 와 max_pages 는 양수여야 합니다")
+    postings: list[Posting] = []
+    seen: set[str] = set()
+    expected: int | None = None
+    for page in range(1, max_pages + 1):
+        items, total = fetch_list(session, board=board, page=page, list_cnt=list_cnt)
+        if total is None or total < 0:
+            raise RuntimeError("게시판 전체 건수를 확인할 수 없습니다 — 수집을 중단합니다")
+        if expected is None:
+            expected = total
+        elif total != expected:
+            raise RuntimeError("페이지 조회 도중 전체 건수가 바뀌었습니다 — 다음 회차에 재시도합니다")
+        for posting in items:
+            if not posting.ij_id or posting.ij_id in seen:
+                raise RuntimeError("목록 ID 누락 또는 페이지 중복 — 전체 목록을 확인하지 못했습니다")
+            seen.add(posting.ij_id)
+            postings.append(posting)
+        if len(postings) == expected:
+            return postings, expected
+        if not items or len(postings) > expected:
+            raise RuntimeError(f"목록 수집 불일치: 전체 {expected}건, 수집 {len(postings)}건")
+        if page < max_pages:
+            time.sleep(delay)
+    raise RuntimeError(f"최대 {max_pages}페이지 초과: 전체 {expected}건, 수집 {len(postings)}건")
+
+
 # --------------------------------------------------------------------------
 # 상세
 # --------------------------------------------------------------------------

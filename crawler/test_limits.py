@@ -111,7 +111,7 @@ class FakeNotify:
         self.sent: list[int] = []
         self.alerts: list[str] = []
 
-    def send_to_subscriber(self, subscriber, rows) -> None:
+    def send_to_subscriber(self, subscriber, rows, *, career=False) -> None:
         self.sent.append(subscriber["id"])
 
     def send_alert(self, subject, message) -> None:

@@ -1,0 +1,33 @@
+name: 코드 검증
+
+on:
+  pull_request:
+  push:
+    paths:
+      - "crawler/**"
+      - "web/**"
+      - ".github/workflows/checks.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: crawler/requirements.txt
+      - run: pip install -r crawler/requirements.txt
+      - run: python -m unittest discover -s crawler -p 'test_*.py'
+      # 기존 독립 실행 테스트는 unittest discover 에 잡히지 않는다.
+      - run: python crawler/test_limits.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test web/test-posting-page.mjs
+      - run: node --check web/build.mjs

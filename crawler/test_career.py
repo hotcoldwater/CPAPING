@@ -74,11 +74,11 @@ class TargetRuleTest(unittest.TestCase):
         L = C.classify(posting("출산/육아휴직 대체 근로자 채용(1년 근무)"))
         self.assertFalse(L["is_target"]); self.assertTrue(L["needs_review"]); self.assertEqual(L["audience"], "unknown")
 
-    def test_수습_규칙은_그대로(self):
+    def test_수습은_로컬과_빅4_모두_대상(self):
         L = C.classify(posting("수습회계사 모집", board="trainee"))
         self.assertTrue(L["is_target"]); self.assertEqual(L["audience"], "cpa")
         L = C.classify(posting("수습회계사 모집", board="trainee", company="삼일회계법인"))
-        self.assertFalse(L["is_target"])   # 수습은 빅4 제외 유지
+        self.assertTrue(L["is_target"])
 
 
 if __name__ == "__main__":
