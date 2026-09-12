@@ -1,7 +1,7 @@
 import {identity,reply,fail,body,textValue,uuid,owned,patch,insert,enqueue,enc,now,supabase,seal,unseal,provider,callback,random,base64,validateProfile,validateFilters} from '../../_career.js';
 
 async function oauthCallback(request,env) {
-  const returnTo=env.CAREER_MAIL_ONLY==='true'?'/mail-connect/':'/apply/';
+  const returnTo=env.CAREER_MAIL_ONLY==='true'?'/mail-connect/':env.CAREER_HISTORY_ENABLED==='true'?'/applications/':'/apply/';
   const finish=result=>new Response(null,{status:303,headers:{Location:returnTo+'?mail='+result,'Set-Cookie':'career_oauth=; Max-Age=0; Path=/api/career; Secure; HttpOnly; SameSite=Lax','Cache-Control':'no-store','Referrer-Policy':'no-referrer'}});
   const u=new URL(request.url),state=u.searchParams.get('state');
   const cookie=(request.headers.get('Cookie')||'').match(/(?:^|;\s*)career_oauth=([^;]+)/)?.[1];
@@ -34,6 +34,14 @@ export async function onRequest({request,env,params}) {
     if(path==='mail-callback'&&request.method==='GET') { if(env.CAREER_ENABLED!=='true') throw fail('메일 연결 준비 중입니다.',503); return await oauthCallback(request,env); }
     if(env.CAREER_MAIL_ONLY==='true'&&!['GET state','POST mail-connect','DELETE mail'].includes(request.method+' '+path)) throw fail('현재는 개인 메일 연결·해제만 테스트할 수 있습니다.',503);
     const user=await identity(request,env),uid=enc(user.id),method=request.method;
+    if(path==='jobs'&&env.CAREER_JOBS_ENABLED==='false') throw fail('AI 작성과 문서 생성은 준비 중입니다. 작성 자료는 저장할 수 있습니다.',503);
+    if(env.CAREER_APPLICATIONS_ENABLED==='false'&&(path==='rules'||path.startsWith('applications')||path.startsWith('templates'))) throw fail('자동지원 설정과 지원서 준비는 검증 후 열립니다.',503);
+    if(path==='deliveries'&&method==='GET') {
+      const raw=new URL(request.url).searchParams.get('offset')||'0';
+      if(!/^\d{1,7}$/.test(raw))throw fail('목록 위치를 확인해 주세요.');
+      const rows=await supabase(env,`career_mail_deliveries?user_id=eq.${uid}&select=id,company,recipient,subject,body,mode,status,first_open_at,created_at,sent_at,document_id,reason&order=created_at.desc,id.desc&limit=25&offset=${Number(raw)}`);
+      return reply({items:rows,has_more:rows.length===25});
+    }
     if(path==='state'&&method==='GET') {
       if(env.CAREER_MAIL_ONLY==='true') {
         const mail=await supabase(env,`career_mail_accounts?user_id=eq.${uid}&select=provider,email,connected_at`);
@@ -45,7 +53,7 @@ export async function onRequest({request,env,params}) {
         supabase(env,`career_jobs?user_id=eq.${uid}&select=id,kind,status,result,error,created_at&order=created_at.desc&limit=30`),
         supabase(env,`career_applications?user_id=eq.${uid}&order=created_at.desc&limit=100`),
         supabase(env,`career_files?user_id=eq.${uid}&kind=eq.template&select=id,name,created_at,mapping,verified_at,verified_company&order=created_at.desc&limit=20`)]);
-      return reply({ai_provider:env.CAREER_AI_PROVIDER==='openai'?'OpenAI':'Kimi',profile:profiles[0]||{data:{},version:0},rule:rules[0]||null,mail:mail[0]||null,jobs,applications:apps,templates:files,
+      return reply({jobs_enabled:env.CAREER_JOBS_ENABLED!=='false',applications_enabled:env.CAREER_APPLICATIONS_ENABLED!=='false',ai_provider:env.CAREER_AI_PROVIDER==='openai'?'OpenAI':'Kimi',profile:profiles[0]||{data:{},version:0},rule:rules[0]||null,mail:mail[0]||null,jobs,applications:apps,templates:files,
         providers:{google:!!(env.GOOGLE_MAIL_CLIENT_ID&&env.GOOGLE_MAIL_CLIENT_SECRET&&env.MAIL_TOKEN_KEY),microsoft:!!(env.MICROSOFT_MAIL_CLIENT_ID&&env.MICROSOFT_MAIL_CLIENT_SECRET&&env.MAIL_TOKEN_KEY)}});
     }
     if(path==='profile'&&method==='PUT') {
@@ -180,9 +188,15 @@ export async function onRequest({request,env,params}) {
     }
     if(path==='workspace'&&method==='DELETE') {
       const sending=await supabase(env,`career_applications?user_id=eq.${uid}&status=eq.sending&select=id`);
+      if(env.CAREER_HISTORY_ENABLED==='true') {
+        const mailSending=await supabase(env,`career_mail_deliveries?user_id=eq.${uid}&status=eq.sending&select=id`);
+        if(mailSending.length)throw fail('메일 접수 확인 중입니다. 결과를 확인한 뒤 삭제해 주세요.',409);
+      }
       if(sending.length)throw fail('메일 전송 중입니다. 결과를 확인한 뒤 삭제해 주세요.',409);
       // 계정은 유지하고 개인 작성 자료·토큰·지원 이력·문서를 삭제한다.
-      for(const table of ['career_rules','career_mail_accounts','career_oauth_states','career_jobs','career_applications','career_files','career_profiles']) await supabase(env,`${table}?user_id=eq.${uid}`,{method:'DELETE'});
+      const tables=['career_rules','career_mail_accounts','career_oauth_states','career_jobs','career_applications','career_files','career_profiles'];
+      if(env.CAREER_HISTORY_ENABLED==='true')tables.unshift('career_mail_deliveries');
+      for(const table of tables) await supabase(env,`${table}?user_id=eq.${uid}`,{method:'DELETE'});
       return reply({ok:true});
     }
     return reply({error:'지원하지 않는 요청입니다.'},404);

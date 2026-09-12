@@ -10,7 +10,8 @@
  *   node web/build.mjs
  */
 
-import { mkdirSync, readFileSync, writeFileSync, existsSync, copyFileSync, rmSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, existsSync, copyFileSync, rmSync, readdirSync } from "node:fs";
+import { navigation } from "./navigation.mjs";
 import { renderFirmPage } from "./firm-page.mjs";
 import { renderFirmsPage } from "./firms-page.mjs";
 import { renderPostingPage } from "./posting-page.mjs";
@@ -187,10 +188,10 @@ const inject = (text) => {
 writeFileSync(join(out, "auth.js"), inject(readFileSync(join(HERE, "auth.js"), "utf8")), "utf8");
 writeFileSync(join(out, "comments.js"), inject(readFileSync(join(HERE, "comments.js"), "utf8")), "utf8");
 copyFileSync(join(HERE, "auth.css"), join(out, "auth.css"));
-for (const file of ["mail-connect.js", "career.css"]) copyFileSync(join(HERE, file), join(out, file));
+for (const file of ["mail-connect.js", "career.css", "career.js", "career-template.json", "applications.js", "applications.css", "navigation.js", "navigation.css"]) copyFileSync(join(HERE, file), join(out, file));
 copyFileSync(join(HERE, "comments.css"), join(out, "comments.css"));
 const AUTH_PAGES = { "login.html": "login", "auth-callback.html": "auth/callback",
-                     "onboarding.html": "onboarding", "account.html": "account", "mail-connect.html": "mail-connect" };
+                     "onboarding.html": "onboarding", "account.html": "account", "mail-connect.html": "mail-connect", "essay.html": "essay", "applications.html": "applications" };
 for (const [file, dir] of Object.entries(AUTH_PAGES)) {
   const target = join(out, dir); mkdirSync(target, { recursive: true });
   writeFileSync(join(target, "index.html"), inject(readFileSync(join(HERE, file), "utf8")), "utf8");
@@ -393,3 +394,10 @@ console.log(`  게시판 화면 ${Object.keys(BOARD_PAGES).length}개 생성 (/b
 writeFileSync(join(out, "sitemap.xml"), sitemap(pages), "utf8");
 
 console.log(`빌드 완료 → ${out} (index.html + 자산 ${ASSETS.length}개 + sitemap ${pages.length}건)`);
+
+// 공통 탐색은 모든 생성 HTML에 동일하게 반영한다. 개인 화면에는 분석 스니펫을 추가하지 않는다.
+function normalizeNavigation(dir){for(const entry of readdirSync(dir,{withFileTypes:true})){
+ const file=join(dir,entry.name);if(entry.isDirectory())normalizeNavigation(file);
+ else if(entry.name.endsWith('.html')){const rel=file.slice(out.length).replace(/\\/g,'/').replace(/index\.html$/,'');writeFileSync(file,navigation(readFileSync(file,'utf8'),rel),'utf8');}
+}}
+normalizeNavigation(out);
