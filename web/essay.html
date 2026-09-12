@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+<title>자소서 — CPAPING</title><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/auth.css"><link rel="stylesheet" href="/career.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" crossorigin="anonymous" defer></script>
+<script src="/auth.js" defer></script><script src="/career.js" defer></script>
+</head><body data-screen="essay"><div class="shell"><header class="topbar"><a class="wordmark" href="/">CPAPING</a>
+<nav aria-label="주요 화면"><a href="/">공고</a><a href="/firms/">법인</a><a href="/board/">게시판</a><a href="/essay/">자소서</a><a href="/apply/">자동지원</a></nav><a class="me" href="/account/">마이페이지</a></header>
+<main data-clarity-mask="true"><div class="career-head"><div><h1>자소서</h1><p>내 경험을 정리하고, 지원할 법인과 직무에 맞게 작성하세요.</p></div><span class="pill">나만 볼 수 있는 작업공간</span></div>
+<nav class="career-tabs" aria-label="지원 작업공간"><a href="/essay/" aria-current="page">작성 자료와 자소서</a><a href="/applications/">내 지원현황</a></nav>
+<div id="message" class="status-message" role="status" aria-live="polite">작업공간을 불러오는 중…</div>
+<div id="workspace" hidden>
+<section class="card"><h2>기본 정보</h2><p class="tip">지원서에 실제로 들어갈 정보입니다. 학력·경력·수치는 확인된 사실만 적어 주세요.</p><div id="identity" class="grid"></div></section>
+<section class="card"><h2>내 경험과 생각</h2><p class="tip">면접컨설팅 0회차 준비시트의 네 시트와 문항을 그대로 사용합니다. 처음부터 완성된 문장을 쓸 필요는 없습니다.</p><div id="sheets"></div></section>
+<section class="card"><h2>AI 작성 도움</h2><label class="check"><input type="checkbox" id="ai-consent"><span>작성한 경험·학력·경력·문항과 자소서를 AI 공급자(<span id="ai-provider">Kimi</span>)에 보내 작성 도움을 받는 데 동의합니다. 입력 내용에 다른 사람의 개인정보를 적지 마세요. <a href="/privacy#career">처리 범위 확인</a></span></label>
+<div class="grid"><div class="field"><label for="ai-section">도움을 받을 항목</label><select id="ai-section"><option value="전체">전체 자료</option><option value="01">경험 카드</option><option value="02">페르소나</option><option value="03">차별화 포인트</option><option value="04">핵심 질문 24</option></select></div></div>
+<label for="prompt">문항·분량·고치고 싶은 점</label><textarea id="prompt" maxlength="4000" placeholder="예: 지원동기를 공백 포함 700자 이내로. 경험 카드의 팀 프로젝트를 활용해 주세요."></textarea>
+<div class="actions"><button class="btn" id="assist">재료 구체화 도움</button><button class="btn primary" id="generate">자소서 초안 만들기</button></div>
+<p class="tip">AI 결과는 제안입니다. 자동으로 최종 자소서에 저장하거나 지원하지 않습니다. 작업은 순서대로 처리되며 몇 분 걸릴 수 있습니다.</p><div id="ai-results"></div></section>
+<section class="card"><h2>최종 자소서</h2><textarea id="essay" rows="16" maxlength="20000" placeholder="초안을 검토하고 실제 제출할 내용으로 수정해 주세요."></textarea><div class="count" id="essay-count"></div>
+<label class="check"><input type="checkbox" id="facts-confirmed"><span>기본 정보와 최종 자소서의 사실 여부를 확인했습니다.</span></label>
+<div class="actions"><button class="btn primary" id="save">작성 자료 저장</button><button class="btn" id="export-docx">Word 다운로드 준비</button><button class="btn" id="export-pdf">PDF 다운로드 준비</button></div><p class="tip" id="save-state">저장 버튼을 눌러 서버에 보관합니다. 수정 사항이 있으면 자동지원이 중지되어 다시 동의해야 합니다.</p><div id="exports"></div></section>
+<details class="card"><summary>작성 자료와 지원 이력 삭제</summary><p>이 작업공간의 작성 자료·AI 결과·파일·지원 이력·메일 연결을 삭제합니다. 이미 발송한 메일은 회수되지 않습니다.</p><button class="btn danger-button" id="delete-workspace">작업공간 자료 삭제</button></details>
+</div></main><footer>CPAPING · <a href="/privacy">개인정보처리방침</a> · <a href="/terms">이용약관</a></footer></div></body></html>
