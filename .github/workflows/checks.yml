@@ -6,6 +6,9 @@ on:
     paths:
       - "crawler/**"
       - "web/**"
+      - "functions/**"
+      - "tests/**"
+      - "db/**"
       - ".github/workflows/checks.yml"
 
 permissions:
@@ -30,6 +33,6 @@ jobs:
       - run: python crawler/test_limits.py
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
-      - run: node --test web/test-posting-page.mjs
+          node-version: "24"
+      - run: node --test web/test-posting-page.mjs tests/test-mail-connection.mjs
       - run: node --check web/build.mjs

@@ -204,12 +204,17 @@ footer .sep { margin: 0 7px; opacity: .5; }
     <p>회원은 언제든지 서비스 안(<code>마이페이지</code>)에서 탈퇴할 수 있습니다. 탈퇴하면 위 항목은 즉시 삭제되며, 이용약관 제10조에 따라 회원이 남긴 게시물은 삭제되지 않고 작성자가 “탈퇴한 사용자”로 표시됩니다. 게시물은 더 이상 특정 개인과 연결되지 않습니다.</p>
     <p>계정 정보는 Supabase, Inc.의 인증 서비스(Supabase Auth)에 저장됩니다(제6조·제7조 참조). Google·Kakao 로그인 시 각 제공자는 자신의 개인정보처리방침에 따라 로그인 사실을 처리합니다.</p>
 
+    <h2>5-2. 개인 Gmail 연결 테스트</h2>
+    <p>이용자가 별도의 Google 권한 화면에서 동의한 경우, 개인 Gmail 연결·해제 테스트를 위해 회원 식별자, 연결한 이메일 주소, 연결 시각 및 암호화된 OAuth 갱신 토큰을 저장합니다. 현재 테스트에서는 지원 메일 발송과 AI 처리를 실행하지 않습니다.</p>
+    <p>연결 정보는 서버에서 처리하고 Supabase 데이터베이스에 저장하며, 연결 해제 또는 회원 탈퇴 시 삭제합니다. 연결 과정의 일회용 확인 정보는 10분간만 유효하며, 연결 완료·취소·재시도·해제 시 삭제합니다. 이 테스트 화면에는 분석 도구를 삽입하지 않습니다.</p>
+    <p>Google 계정 확인 및 발송 권한만 요청합니다. Google API에서 받은 정보는 이용자가 요청한 메일 연결·발송 기능에만 사용하며, 광고나 AI 학습에 사용하지 않습니다. 해당 정보의 이용과 다른 앱으로의 이전은 <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a>의 Limited Use 요구사항을 따릅니다. Google 계정의 연결된 앱 관리에서도 권한을 철회할 수 있습니다.</p>
+
     <h2>6. 개인정보 처리업무의 위탁</h2>
     <p>CPAPING은 서비스 제공을 위해 다음 사업자에게 개인정보 처리업무의 일부를 위탁합니다.</p>
     <div class="scroll"><table>
       <thead><tr><th>수탁자</th><th>위탁 업무</th></tr></thead>
       <tbody>
-        <tr><td>Supabase, Inc.</td><td>구독자 정보 및 구독 상태 데이터베이스 저장·관리 · 회원 계정(이메일·비밀번호 해시·로그인 제공자 식별자·닉네임) 저장 및 인증 처리</td></tr>
+        <tr><td>Supabase, Inc.</td><td>개인 Gmail 연결 정보와 암호화된 인증 정보 보관 · 구독자 정보 및 구독 상태 데이터베이스 저장·관리 · 회원 계정(이메일·비밀번호 해시·로그인 제공자 식별자·닉네임) 저장 및 인증 처리</td></tr>
         <tr><td>Cloudflare, Inc.</td><td>웹사이트 호스팅, 구독 신청·확인·해지 요청 처리, 방문 통계 집계</td></tr>
         <tr><td>Plus Five Five, Inc. (Resend)</td><td>구독 확인 및 채용공고 알림 이메일 발송</td></tr>
         <tr><td>GitHub, Inc.</td><td>채용공고 수집 프로그램 실행 및 알림 발송 작업 수행</td></tr>
@@ -229,7 +234,7 @@ footer .sep { margin: 0 7px; opacity: .5; }
     <div class="entity">
       <h3>Supabase, Inc.</h3>
       <ul>
-        <li><strong>처리 항목</strong> 이메일 주소 및 제1조에 기재된 구독 정보, 제5-1조의 회원 계정 정보</li>
+        <li><strong>처리 항목</strong> 이메일 주소 및 제1조에 기재된 구독 정보, 제5-1조의 회원 계정 정보 및 제5-2조의 개인 Gmail 연결 정보</li>
         <li><strong>목적</strong> 데이터베이스 운영 및 구독 정보 관리</li>
         <li><strong>주 저장 위치</strong> 대한민국 서울</li>
         <li><strong>국외 처리</strong> 서비스 운영·기술지원 과정에서 해외에서 접근 또는 처리될 수 있음</li>
@@ -372,6 +377,7 @@ footer .sep { margin: 0 7px; opacity: .5; }
 
     <h3>변경 이력</h3>
     <ul>
+      <li><strong>2026년 9월 13일</strong> — 개인 Gmail 연결·해제 테스트의 처리 항목, 보유·삭제 방법과 Google API 정보 사용 목적을 제5-2조에 추가했습니다.</li>
       <li><strong>2026년 9월 9일 (제7판)</strong> — 로그인·회원 기능을 도입하며 <strong>제5-1조(회원 계정)</strong>를
         신설했습니다. 이메일·비밀번호(해시)·로그인 제공자 식별자·닉네임·동의 기록을 처리하고, 모든 회원은
         인증된 이메일을 가지며, 탈퇴 시 즉시 삭제하되 게시물은 “탈퇴한 사용자”로 남는다는 원칙을 적었습니다.

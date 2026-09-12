@@ -187,9 +187,10 @@ const inject = (text) => {
 writeFileSync(join(out, "auth.js"), inject(readFileSync(join(HERE, "auth.js"), "utf8")), "utf8");
 writeFileSync(join(out, "comments.js"), inject(readFileSync(join(HERE, "comments.js"), "utf8")), "utf8");
 copyFileSync(join(HERE, "auth.css"), join(out, "auth.css"));
+for (const file of ["mail-connect.js", "career.css"]) copyFileSync(join(HERE, file), join(out, file));
 copyFileSync(join(HERE, "comments.css"), join(out, "comments.css"));
 const AUTH_PAGES = { "login.html": "login", "auth-callback.html": "auth/callback",
-                     "onboarding.html": "onboarding", "account.html": "account" };
+                     "onboarding.html": "onboarding", "account.html": "account", "mail-connect.html": "mail-connect" };
 for (const [file, dir] of Object.entries(AUTH_PAGES)) {
   const target = join(out, dir); mkdirSync(target, { recursive: true });
   writeFileSync(join(target, "index.html"), inject(readFileSync(join(HERE, file), "utf8")), "utf8");
