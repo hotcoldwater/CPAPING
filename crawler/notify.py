@@ -142,6 +142,11 @@ def send_mail_smtp(subject: str, text_body: str, to: str | None = None) -> None:
 # 죽은 사람 스위치
 # ----------------------------------------------------------------------
 
+def healthcheck_uses_grace() -> bool:
+    """외부 감시가 설정됐다면 짧은 실패는 마지막 성공 이후의 유예로 판단한다."""
+    return bool(os.environ.get("HEALTHCHECK_PING_URL", "").strip()) and os.environ.get("HEALTHCHECK_FAIL_FAST", "").lower() not in {"1", "true"}
+
+
 def ping_healthcheck(ok: bool = True) -> None:
     """크롤이 끝날 때마다 밖으로 신호를 보낸다.
 
@@ -155,6 +160,11 @@ def ping_healthcheck(ok: bool = True) -> None:
     """
     url = os.environ.get("HEALTHCHECK_PING_URL", "").strip()
     if not url:
+        return
+    # /fail 은 Healthchecks 의 grace 를 기다리지 않고 바로 Down 으로 바꾼다.
+    # 기본값은 실패 시 성공 신호를 멈춰 외부의 기간+유예로 지속 장애를 판정.
+    if not ok and healthcheck_uses_grace():
+        log.warning("헬스체크 실패 즉시 통보 생략 — 성공 신호 중단으로 유예 후 감지")
         return
     target = url if ok else f"{url.rstrip('/')}/fail"
     try:

@@ -466,20 +466,23 @@ def main() -> int:
         for board in boards:
             code = crawl(dry_run=args.dry_run, send_mail=not args.no_mail, board=board) or code
         if not args.dry_run:
-            notify.ping_healthcheck(ok=True)
+            notify.ping_healthcheck(ok=code == 0)
         return code
     except Exception as exc:
         log.error("크롤 실패: %s", exc)
         traceback.print_exc()
         # 실패를 조용히 넘기지 않고 관리자에게 알린다
         if not args.dry_run:
-            # 핑을 먼저 보낸다. 메일 경로가 통째로 죽어 있어도 밖에서는
-            # 실패했다는 사실이 남는다.
+            # 일시 실패는 Healthchecks의 기간+유예를 적용한다.
+            # 외부 감시가 없거나 즉시 실패 모드면 기존 관리자 알림을 유지한다.
             notify.ping_healthcheck(ok=False)
-            try:
-                notify.send_alert("크롤러 실패", f"{type(exc).__name__}: {exc}\n\n{traceback.format_exc()}")
-            except Exception as mail_exc:
-                log.error("장애 알림 발송도 실패: %s", mail_exc)
+            if notify.healthcheck_uses_grace():
+                log.warning("관리자 즉시 메일 생략 — Healthchecks 유예 이후 지속 장애 알림")
+            else:
+                try:
+                    notify.send_alert("크롤러 실패", f"{type(exc).__name__}: {exc}\n\n{traceback.format_exc()}")
+                except Exception as mail_exc:
+                    log.error("장애 알림 발송도 실패: %s", mail_exc)
         return 1
 
 
