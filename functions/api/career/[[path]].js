@@ -2,26 +2,30 @@ import {identity,reply,fail,body,textValue,uuid,owned,patch,insert,enqueue,enc,n
 
 async function oauthCallback(request,env) {
   const returnTo=env.CAREER_MAIL_ONLY==='true'?'/mail-connect/':'/apply/';
+  const finish=result=>new Response(null,{status:303,headers:{Location:returnTo+'?mail='+result,'Set-Cookie':'career_oauth=; Max-Age=0; Path=/api/career; Secure; HttpOnly; SameSite=Lax','Cache-Control':'no-store','Referrer-Policy':'no-referrer'}});
   const u=new URL(request.url),state=u.searchParams.get('state');
   const cookie=(request.headers.get('Cookie')||'').match(/(?:^|;\s*)career_oauth=([^;]+)/)?.[1];
   if(!state||state!==cookie||!/^[\w-]{43}$/.test(state)) throw fail('메일 연결 확인 시간이 지났습니다. 다시 연결해 주세요.');
   // DELETE RETURNING으로 동시에 온 callback도 한 번만 소비.
   const states=await supabase(env,`career_oauth_states?id=eq.${enc(state)}&expires_at=gt.${enc(now())}`,{method:'DELETE',headers:{Prefer:'return=representation'}});
   const saved=states?.[0]; if(!saved) throw fail('메일 연결을 다시 시작해 주세요.');
-  if(u.searchParams.has('error')) return new Response(null,{status:303,headers:{Location:returnTo+'?mail=cancelled','Set-Cookie':'career_oauth=; Max-Age=0; Path=/api/career; Secure; HttpOnly; SameSite=Lax','Cache-Control':'no-store'}});
+  if(u.searchParams.has('error')) return finish('cancelled');
   const p=provider(env,saved.provider),verifier=await unseal(env,saved.user_id,saved.verifier_encrypted);
   const res=await fetch(p.token,{method:'POST',body:new URLSearchParams({client_id:p.client,client_secret:p.secret,code:u.searchParams.get('code')||'',redirect_uri:callback(env),grant_type:'authorization_code',code_verifier:verifier})});
   if(!res.ok) throw fail('메일 서비스가 연결을 승인하지 않았습니다. 다시 연결해 주세요.',502);
   const tokens=await res.json();
-  const scopes=String(tokens.scope||'').toLowerCase();
-  if(!tokens.refresh_token||!(p.id==='google'?scopes.includes('gmail.send'):scopes.includes('mail.send'))) throw fail('지속적인 메일 발송 권한이 필요합니다. 연결 화면에서 권한을 허용해 주세요.');
+  const scopes=new Set(String(tokens.scope||'').split(/\s+/));
+  const canSend=p.id==='google'?scopes.has('https://www.googleapis.com/auth/gmail.send'):[...scopes].some(s=>['mail.send','https://graph.microsoft.com/mail.send'].includes(s.toLowerCase()));
+  // 동의 여부와 갱신 토큰 발급을 구분한다. 불완전한 토큰은 저장하지 않는다.
+  if(!canSend) return finish('missing_send_permission');
+  if(typeof tokens.refresh_token!=='string'||!tokens.refresh_token.trim()) return finish('missing_refresh_token');
   const profileResponse=await fetch(p.profile,{headers:{Authorization:`Bearer ${tokens.access_token}`}});
   if(!profileResponse.ok) throw fail('발신 계정을 확인하지 못했습니다.',502);
   const info=await profileResponse.json();
   const email=p.id==='google'?(info.email_verified?info.email:null):(info.mail||info.userPrincipalName);
   if(!email||! /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw fail('발신 이메일을 확인하지 못했습니다.');
   await supabase(env,'career_mail_accounts?on_conflict=user_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates'},body:JSON.stringify({user_id:saved.user_id,provider:p.id,email,token_encrypted:await seal(env,saved.user_id,tokens.refresh_token),connected_at:now()})});
-  return new Response(null,{status:303,headers:{Location:returnTo+'?mail=connected','Set-Cookie':'career_oauth=; Max-Age=0; Path=/api/career; Secure; HttpOnly; SameSite=Lax','Cache-Control':'no-store','Referrer-Policy':'no-referrer'}});
+  return finish('connected');
 }
 
 export async function onRequest({request,env,params}) {

@@ -60,6 +60,32 @@ test('callback with mismatched browser state never exchanges authorization code'
  const input=request('mail-callback?state='+'a'.repeat(43));input.params.path=['mail-callback'];input.request.headers.set('Cookie','career_oauth='+'b'.repeat(43));
  assert.equal((await onRequest(input)).status,400);
 });
+test('partial consent and missing refresh token return distinct retry outcomes without storing credentials',async(t)=>{
+ const state='a'.repeat(43),verifier=await seal(env,uid,'test-verifier');
+ const cases=[
+  [{scope:'openid email',refresh_token:'private-refresh'},'missing_send_permission'],
+  [{scope:'openid email'},'missing_send_permission'],
+  [{scope:'https://example.com/gmail.send',refresh_token:'private-refresh'},'missing_send_permission'],
+  [{scope:'https://www.googleapis.com/auth/gmail.send'},'missing_refresh_token'],
+  [{scope:'https://www.googleapis.com/auth/gmail.send',refresh_token:'  '},'missing_refresh_token']
+ ];
+ for(const [tokens,outcome] of cases){
+  await t.test(outcome+' '+JSON.stringify(Object.keys(tokens)),async(t)=>{
+   const calls=[];
+   t.mock.method(globalThis,'fetch',async(url,options)=>{
+    url=String(url);calls.push([url,options.method]);
+    if(url.includes('career_oauth_states'))return json([{user_id:uid,provider:'google',verifier_encrypted:verifier}]);
+    if(url==='https://oauth2.googleapis.com/token')return json({...tokens,access_token:'private-access'});
+    throw new Error('incomplete consent must not read profile, save account or send mail');
+   });
+   const input=request('mail-callback?state='+state+'&code=private-code');input.params.path=['mail-callback'];input.request.headers.set('Cookie','career_oauth='+state);
+   const r=await onRequest(input);assert.equal(r.status,303);assert.equal(r.headers.get('Location'),'/mail-connect/?mail='+outcome);
+   assert.match(r.headers.get('Set-Cookie'),/Max-Age=0/);assert.equal(r.headers.get('Referrer-Policy'),'no-referrer');assert.equal(r.headers.get('Cache-Control'),'no-store');
+   assert.equal(await r.text(),'');assert.equal(calls.length,2);assert.equal(calls[0][1],'DELETE');
+   assert.ok(!JSON.stringify([...r.headers]).includes('private-'));
+  });
+ }
+});
 test('disconnect deletes tokens and pending state even when Google revocation is unavailable',async(t)=>{
  const encrypted=await seal(env,uid,'refresh'),calls=[];
  t.mock.method(globalThis,'fetch',async(url,options)=>{
