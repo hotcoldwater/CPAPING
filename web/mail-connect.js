@@ -28,7 +28,12 @@
     const auth=await A.ensure('complete');if(auth.state!=='complete')return;
     const state=await refresh();
     const result=new URLSearchParams(location.search).get('mail');
-    message(result==='cancelled'?'Google 계정 연결을 취소했습니다.':state.mail?'Gmail 연결을 확인했습니다. 메일은 발송되지 않았습니다.':'Gmail 연결 버튼을 눌러 시작하세요.');
+    const errors={
+      missing_send_permission:'Google에서 메일 발송 권한을 받지 못했습니다. Gmail 연결을 다시 누르고, Google 동의 화면에서 이메일 전송 권한을 허용해 주세요. 해당 항목에 체크박스가 있으면 선택한 뒤 계속을 누르세요.',
+      missing_refresh_token:'메일 발송 권한은 확인했지만 연결을 유지할 인증 정보를 Google에서 받지 못했습니다. Gmail 연결을 다시 시도해 주세요. 반복되면 아래 Google 연결된 앱에서 메일 발송용 CPAPING 연결을 삭제한 뒤 다시 연결해 주세요.'
+    };
+    if(errors[result])message(errors[result],true);
+    else message(result==='cancelled'?'Google 계정 연결을 취소했습니다.':state.mail?'Gmail 연결을 확인했습니다. 메일은 발송되지 않았습니다.':'Gmail 연결 버튼을 눌러 시작하세요.');
     if(result)history.replaceState(null,'',location.pathname);
     action('connect-google',async()=>{const r=await api('mail-connect','POST',{provider:'google'});const u=new URL(r.url);if(u.origin!=='https://accounts.google.com')throw new Error('Google 연결 주소를 확인하지 못했습니다.');location.assign(u.href);});
     action('disconnect',async()=>{await api('mail','DELETE');await refresh();message('Gmail 연결을 해제했습니다.');});
