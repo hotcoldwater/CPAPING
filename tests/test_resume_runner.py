@@ -24,7 +24,7 @@ class ResumeTests(unittest.TestCase):
   content=mail.mime_message(self.app,self.account,self.file);m=BytesParser(policy=policy.default).parsebytes(content)
   attachments=list(m.iter_attachments());self.assertEqual(attachments[0].get_payload(decode=True),self.raw);self.assertEqual(attachments[0].get_filename(),'resume.pdf')
  def test_extra_documents_and_subject_rules_require_review(self):
-  for text in ['\n자기소개서 제출','\n메일 제목: 이름_직무','\n지정 양식 첨부파일','\n참조: other@example.com','\n경력기술서 제출','\n온라인 접수']:
+  for text in ['\n자기소개서 제출','\n메일 제목: 이름_직무','\n지정 양식 첨부파일','\n참조: other@example.com','\n경력기술서 제출','\n온라인 접수','\n온라인으로만 지원','\n제목은 성명으로 작성','\n메일 본문에 희망급여 기재','\n주민등록등본 제출']:
    with self.subTest(text=text):self.assertTrue(r.requirements(self.source+text,self.file)[1])
  def test_no_free_format_or_multiple_addresses_never_auto_send(self):
   self.assertTrue(r.requirements(self.source.replace('(자유양식)',''),self.file)[1]);self.assertEqual(len(r.requirements(self.source+' 문의: second@example.com',self.file)[0]),2)
