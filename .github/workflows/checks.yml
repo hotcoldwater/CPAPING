@@ -37,5 +37,5 @@ jobs:
         with:
           node-version: "24"
       - run: npm install --prefix /tmp/cpaping-career-qa @electric-sql/pglite@0.5.8 jsdom@30.0.1
-      - run: node --test web/test-posting-page.mjs tests/test-mail-connection.mjs tests/test-delivery-history.mjs
+      - run: node --test web/test-posting-page.mjs tests/test-mail-connection.mjs tests/test-delivery-history.mjs tests/test-resume-upload.mjs
       - run: node --check web/build.mjs
