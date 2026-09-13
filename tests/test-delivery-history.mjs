@@ -27,8 +27,8 @@ test('delivery DB denies public reads, records first signal only and prevents du
  }finally{await db.close();}
 });
 test('navigation has requested order, logged-in menu choices and keyboard close',()=>{
- const html=navigation('<html><head></head><body><header class="topbar"><a>old</a></header></body></html>','/essay/');const dom=new JSDOM(html,{url:'https://cpaping.com/essay/',runScripts:'outside-only'});const d=dom.window.document;
- assert.deepEqual([...d.querySelectorAll('nav a')].map(a=>a.textContent),['공고','법인','자소서','게시판']);assert.equal(d.querySelector('[aria-current]').getAttribute('href'),'/essay/');
+ const html=navigation('<html><head></head><body><header class="topbar"><a>old</a></header></body></html>','/board/');const dom=new JSDOM(html,{url:'https://cpaping.com/essay/',runScripts:'outside-only'});const d=dom.window.document;
+ assert.deepEqual([...d.querySelectorAll('nav a')].map(a=>a.textContent),['공고','법인','게시판']);assert.equal(d.querySelector('[aria-current]').getAttribute('href'),'/board/');
  dom.window.localStorage.setItem('sb-test-auth-token',JSON.stringify({access_token:'fake'}));dom.window.eval(readFileSync('web/navigation.js','utf8'));const menu=d.getElementById('account-menu');assert.equal(menu.hidden,false);assert.deepEqual([...menu.querySelectorAll('a')].map(a=>a.textContent),['내 지원현황','내 정보']);menu.open=true;d.dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Escape'}));assert.equal(menu.open,false);dom.window.close();
 });
 test('history renders email as text, exposes no tracking image and shows uncertainty',async()=>{

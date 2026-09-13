@@ -1,0 +1,33 @@
+name: 업로드 이력서 지원 처리
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 * * * *'
+permissions:
+  contents: read
+concurrency:
+  group: resume-delivery
+  cancel-in-progress: false
+jobs:
+  process:
+    if: vars.CAREER_RESUME_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: career/requirements.txt
+      - run: pip install -r career/requirements.txt
+      - name: 이력서 준비 및 발송
+        env:
+          CAREER_RESUME_ENABLED: 'true'
+          CAREER_SEND_ENABLED: ${{ vars.CAREER_SEND_ENABLED }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          MAIL_TOKEN_KEY: ${{ secrets.MAIL_TOKEN_KEY }}
+          GOOGLE_MAIL_CLIENT_ID: ${{ secrets.GOOGLE_MAIL_CLIENT_ID }}
+          GOOGLE_MAIL_CLIENT_SECRET: ${{ secrets.GOOGLE_MAIL_CLIENT_SECRET }}
+        run: python -m career.resume_runner

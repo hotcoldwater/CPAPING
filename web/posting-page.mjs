@@ -253,6 +253,7 @@ footer a{color:var(--ink-2)}
     </div>
     <div class="status">
       <div class="cta">
+        ${!p.is_expired && !p.removed_at && p.id ? `<a class="btn" href="/applications/?posting=${encodeURIComponent(p.id)}">내 이력서로 지원 준비</a>` : ""}
         <a class="btn${st.key === "removed" ? "" : " primary"}" href="${esc(p.detail_url)}" target="_blank" rel="noopener">한공회 원문 보기 ↗</a>
         ${firmUrl ? `<a class="btn" href="${firmUrl}">법인 정보</a>` : ""}
       </div>
