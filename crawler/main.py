@@ -113,6 +113,17 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
         db.upsert_postings([store.to_row(p) for p in postings if p.ij_id in fresh_ids])
         db.upsert_postings([store.to_light_row(p) for p in postings if p.ij_id not in fresh_ids])
 
+        # Refresh at most one existing public document per board/run, without re-notifying.
+        try:
+            present = {p.ij_id for p in postings}
+            for row in db.content_refresh_candidates(source):
+                if row['ij_id'] in present and row['ij_id'] not in fresh_ids:
+                    refreshed = kicpa.Posting(board=board, ij_id=row['ij_id'])
+                    kicpa.fetch_detail(session, refreshed)
+                    db.update_content(refreshed)
+        except Exception as exc:
+            log.warning('기존 공고 본문 갱신 보류: %s', type(exc).__name__)
+
         # 4-0. 한공회 조회수 이력 — 부가 기능이라 실패해도 크롤을 멈추지 않는다
         try:
             db.snapshot_views(store.view_snapshot_rows(postings, store.kst_today()))

@@ -15,7 +15,7 @@ import { navigation } from "./navigation.mjs";
 import { renderFirmPage } from "./firm-page.mjs";
 import { renderFirmsPage } from "./firms-page.mjs";
 import { renderPostingPage } from "./posting-page.mjs";
-import { POSTING_FIELDS, POSTING_SCOPE } from "./posting-data.mjs";
+import { POSTING_FIELDS, POSTING_CONTENT_FIELDS, POSTING_SCOPE } from "./posting-data.mjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -345,7 +345,7 @@ if (!missing.length) try {
   const url = read("NEXT_PUBLIC_SUPABASE_URL");
   const key = read("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
   const full = await fetchAll(url, key,
-    `job_postings?select=${POSTING_FIELDS}&or=${POSTING_SCOPE}&order=posted_at.desc`);
+    `job_postings?select=${POSTING_FIELDS},${POSTING_CONTENT_FIELDS}&or=${POSTING_SCOPE}&order=posted_at.desc`);
   const firmsAll = await fetchAll(url, key, "firms?select=id,name,aliases,slug,region");
   const finAll = await fetchAll(url, key, "firm_financials?select=firm_id,fiscal_year,revenue,cpa_count,trainee_count");
   const byName = new Map();
@@ -383,6 +383,7 @@ for (const [file, dir] of Object.entries(BOARD_PAGES)) {
   writeFileSync(join(target, "index.html"), inject(withAnalytics(readFileSync(join(HERE, file), "utf8"))), "utf8");
 }
 copyFileSync(join(HERE, "board.css"), join(out, "board.css"));
+copyFileSync(join(HERE, "posting-content.css"), join(out, "posting-content.css"));
 pages.push({ loc: "/board/", freq: "hourly" });
 console.log(`  게시판 화면 ${Object.keys(BOARD_PAGES).length}개 생성 (/board/ /board/write/ /board/post/)`);
 

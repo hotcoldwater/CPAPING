@@ -1,15 +1,15 @@
 /**
  * 공고 상세 페이지. 접속 시 최신 정보를 렌더링하고 빌드에서는 장애 대비 사본을 만든다.
  *
- * 한공회 원문을 전재하지 않는다(README 원칙). 제목·법인·지역·고용형태·마감·
- * 모집인원·경력·급여·학력처럼 목록에서 뽑은 값을 정리해 보여주고, 본문과
- * 담당자 연락처는 "한공회 원문 보기" 버튼 너머에 둔다. 지원·문의는 원문에서.
+ * 요약 아래에 수집한 한공회 채용 본문·이미지·지원 연락처와 첨부 안내를 표시한다.
+ * 외부 HTML을 실행하지 않으며 원문 링크와 내용 확인 시각을 함께 제공한다.
  *
  * 목록에서 공고를 누르면 한공회로 바로 나가지 않고 이 페이지로 온다.
  * 공고마다 URL 이 생겨 검색에 잡히고, 나중에 댓글이 붙을 자리이기도 하다.
  */
 
 const SITE = "https://cpaping.com";
+import { renderPostingContent } from './posting-content.mjs';
 
 const esc = (s) =>
   String(s ?? "").replace(/[&<>"]/g, (c) =>
@@ -164,6 +164,7 @@ export function renderPostingPage({ posting: p, firm, latestFin, others }) {
 <meta name="theme-color" content="#123A8A">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="/comments.css">
+<link rel="stylesheet" href="/posting-content.css">
 ${st.key === "open" || st.key === "today" ? jobPostingLd(p, firm, summary) : ""}
 <style>
 :root{--ink:#101317;--ink-2:#5B6472;--ink-3:#868D99;--line:#E4E6EA;--line-2:#EDEFF2;--bg:#fff;--bg-subtle:#FBFBFC;
@@ -267,9 +268,9 @@ footer a{color:var(--ink-2)}
       <div class="sec-head"><h2>공고 요약</h2><span class="unit">한공회 게시판 기준</span></div>
       <dl class="facts">${rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}${
         p.view_count != null ? `<div><dt>한공회 조회수</dt><dd id="views" data-ij="${esc(p.ij_id)}" data-live="${st.key === "open" ? "1" : "0"}">${Number(p.view_count).toLocaleString("ko-KR")}회<span class="delta" id="views-delta"></span></dd></div>` : ""}</dl>
-      <p class="note">공고 본문과 담당자 연락처는 원문에서 확인하세요. CPAPING은 원문을 전재하지 않고
-        게시판에 적힌 항목만 정리합니다.${st.key === "removed" ? " 이 공고는 게시판에서 내려갔습니다 — 한공회는 등록 1개월이 지난 공고를 자동으로 지우며, 원문 링크가 열리지 않을 수 있습니다." : ""}</p>
+      ${st.key === "removed" ? '<p class="note">이 공고는 한공회 게시판에서 내려갔습니다. 아래는 마지막으로 수집한 내용이며 원문 링크가 열리지 않을 수 있습니다.</p>' : ''}
     </section>
+    ${renderPostingContent(p)}
     ${finCard}
     ${otherRows ? `<section>
       <div class="sec-head"><h2>${esc(p.company_name)}의 다른 공고</h2><span class="unit">${others.length}건</span></div>

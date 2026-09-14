@@ -1,6 +1,6 @@
 import { renderPostingPage } from '../../web/posting-page.mjs';
 import { navigation } from '../../web/navigation.mjs';
-import { POSTING_FIELDS, POSTING_SCOPE } from '../../web/posting-data.mjs';
+import { POSTING_FIELDS, POSTING_CONTENT_FIELDS, POSTING_SCOPE } from '../../web/posting-data.mjs';
 import { page } from '../_shared.js';
 
 function message(status, title, lead) {
@@ -42,7 +42,7 @@ async function serve({ request, env, params }) {
   try {
     if (!config.url || !config.key) throw new Error('Public posting configuration missing');
     [posting] = await readRows(config, 'job_postings', {
-      select: POSTING_FIELDS, ij_id: `eq.${id}`, or: POSTING_SCOPE, limit: '1',
+      select: `${POSTING_FIELDS},${POSTING_CONTENT_FIELDS}`, ij_id: `eq.${id}`, or: POSTING_SCOPE, limit: '1',
     });
   } catch {
     // A database outage is not a missing job. Older build snapshots remain useful.
