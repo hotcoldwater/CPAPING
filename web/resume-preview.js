@@ -1,11 +1,22 @@
 (()=>{
  const $=id=>document.getElementById(id),zone=$('resume-drop');if(!zone)return;
- function pick(files){if(files.length!==1){$('resume-chosen').textContent='파일을 한 개만 선택해 주세요.';window.cpResumeFile=null;return;}const f=files[0];if(f.size>3000000||! /\.(pdf|docx)$/i.test(f.name)){$('resume-chosen').textContent='3MB 이하 PDF 또는 Word(.docx)를 선택해 주세요.';window.cpResumeFile=null;$('resume-upload').value='';return;}window.cpResumeFile=f;$('resume-chosen').textContent=f.name+' · '+(f.size/1000000).toFixed(2)+' MB';}
- $('resume-upload').addEventListener('change',e=>pick(e.target.files));
- for(const event of ['dragenter','dragover'])zone.addEventListener(event,e=>{e.preventDefault();zone.classList.add('dragging');});
- zone.addEventListener('dragleave',()=>zone.classList.remove('dragging'));zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('dragging');$('resume-upload').value='';pick(e.dataTransfer.files);});
+ let files=[],savedFile=null,savedEnabled=false,mail=null,lastEditor=$('resume-body');
+ const text=(id,value)=>{if($(id))$(id).textContent=value;};
+ function pick(list){window.cpResumeFile=null;$('upload-resume').disabled=true;let error='';if(list.length!==1)error='파일을 한 개만 선택해 주세요.';else if(list[0].size>3000000||! /\.(pdf|docx)$/i.test(list[0].name))error='3MB 이하 PDF 또는 Word(.docx)를 선택해 주세요.';if(error){text('resume-chosen',error);$('resume-chosen').dataset.error='true';$('resume-upload').value='';return;}const f=list[0];window.cpResumeFile=f;text('resume-chosen',f.name+' · '+(f.size/1000000).toFixed(2)+' MB · 업로드 전');$('resume-chosen').dataset.error='false';$('upload-resume').disabled=false;}
+ $('resume-upload').addEventListener('change',e=>{if(e.target.files.length)pick(e.target.files);});
+ $('replace-resume')?.addEventListener('click',()=>$('resume-upload').click());
+ for(const event of ['dragenter','dragover'])zone.addEventListener(event,e=>{e.preventDefault();if(!$('resume-editor')?.disabled)zone.classList.add('dragging');});
+ zone.addEventListener('dragleave',()=>zone.classList.remove('dragging'));zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('dragging');if($('resume-editor')?.disabled)return;$('resume-upload').value='';pick(e.dataTransfer.files);});
  addEventListener('dragover',e=>{if(e.dataTransfer?.types?.includes('Files'))e.preventDefault();});addEventListener('drop',e=>{if(e.dataTransfer?.types?.includes('Files'))e.preventDefault();});
- addEventListener('cpaping:resume-uploaded',()=>{$('resume-chosen').textContent='선택한 파일 없음';});
- function preview(){const values={'[회계법인]':'예시회계법인','{법인}':'예시회계법인','{이름}':$('applicant-name').value||'지원자 이름','{공고}':'신입 회계사 채용'};const fill=v=>v.replace(/\[회계법인\]|\{(?:법인|이름|공고)\}/g,k=>values[k]);$('preview-subject').textContent=fill($('resume-subject').value);$('preview-body').textContent=fill($('resume-body').value);}
- $('resume-form').addEventListener('input',preview);addEventListener('cpaping:resume-loaded',preview);preview();
+ addEventListener('cpaping:resume-uploaded',()=>{text('resume-chosen','선택한 파일 없음');$('resume-chosen').dataset.error='false';$('upload-resume').disabled=true;preview();});
+ function selectedFile(){const f=files.find(f=>f.id===$('resume-selected').value);text('current-file-name',f?.name||'아직 이력서를 선택하지 않았습니다');text('current-file-type',f?(/\.pdf$/i.test(f.name)?'PDF':'DOCX'):'FILE');const d=f?.created_at?new Date(f.created_at):null;text('current-file-meta',d&&!Number.isNaN(d.getTime())?new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',dateStyle:'medium'}).format(d)+' 업로드':f?'업로드한 원본 파일':'새 이력서를 올리거나 업로드 목록에서 선택해 주세요.');text('file-selection-badge',!f?'파일 선택 필요':f.id===savedFile?'저장된 파일':'저장 전 선택');text('preview-file',f?.name||'이력서를 선택해 주세요');if($('download-current'))$('download-current').disabled=!f;}
+ function preview(){const values={'[회계법인]':'예시회계법인','{법인}':'예시회계법인','{이름}':$('applicant-name').value||'지원자 이름','{공고}':'신입 회계사 채용'};const fill=v=>v.replace(/\[회계법인\]|\{(?:법인|이름|공고)\}/g,k=>values[k]);text('preview-subject',fill($('resume-subject').value));text('preview-body',fill($('resume-body').value));text('preview-sender',mail?($('applicant-name').value?$('applicant-name').value+' · ':'')+mail.email:'Gmail을 연결해 주세요');selectedFile();
+ const mode=$('resume-mode').value;for(const input of document.querySelectorAll('[name=send-mode]'))input.checked=input.value===mode;if($('auto-consent-panel'))$('auto-consent-panel').hidden=mode!=='auto';text('activation-label',($('resume-enabled').checked?'켜짐':'꺼짐')+($('resume-enabled').checked!==savedEnabled?' · 저장 후 적용':''));if($('employment-error')&&($('resume-full').checked||$('resume-part').checked))$('employment-error').hidden=true;
+ }
+ $('resume-form').addEventListener('input',e=>{if(e.target.name==='send-mode'){$('resume-mode').value=e.target.value;$('resume-consent').checked=false;}if(e.target.id==='resume-selected'){$('resume-confirmed').checked=false;$('resume-consent').checked=false;}preview();});
+ $('resume-selected').addEventListener('change',()=>{$('resume-confirmed').checked=false;$('resume-consent').checked=false;preview();});
+ for(const el of [$('resume-subject'),$('resume-body')])el.addEventListener('focus',()=>{lastEditor=el;});
+ for(const button of document.querySelectorAll('[data-token]'))button.addEventListener('click',()=>{const el=lastEditor,token=button.dataset.token,start=el.selectionStart??el.value.length,end=el.selectionEnd??start;if(el.value.length-(end-start)+token.length>el.maxLength){text('resume-message','입력 가능한 글자 수를 초과했습니다.');return;}el.setRangeText(token,start,end,'end');el.focus();el.dispatchEvent(new Event('input',{bubbles:true}));});
+ addEventListener('cpaping:resume-loaded',e=>{if(e.detail){files=e.detail.files||[];savedFile=e.detail.rule?.resume_file_id;savedEnabled=e.detail.rule?.enabled===true;}preview();});
+ addEventListener('cpaping:mail-loaded',e=>{mail=e.detail;preview();});preview();
 })();
