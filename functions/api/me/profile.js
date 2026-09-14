@@ -9,7 +9,7 @@ export function validateMember(b) {
  if(birth_date&&(!/^\d{4}-\d{2}-\d{2}$/.test(birth_date)||!Number.isFinite(Date.parse(birth_date))||new Date(birth_date).toISOString().slice(0,10)!==birth_date||birth_date<'1900-01-01'||birth_date>today))throw fail('생년월일을 확인해 주세요.');
  const pass_year=b.pass_year==null||b.pass_year===''?null:b.pass_year;
  if(pass_year!==null&&(!Number.isInteger(pass_year)||pass_year<1950||pass_year>Number(today.slice(0,4))))throw fail('합격년도를 확인해 주세요.');
- if(typeof b.research_consent!=='boolean')throw fail('연구 참여 선택을 확인해 주세요.');
+ if(b.research_consent!==true)throw fail('정보를 저장하려면 채용 인사이트 연구 참여에 동의해 주세요.');
  return {nickname,full_name,birth_date,phone,school,pass_year,research_consent:b.research_consent};
 }
 export async function onRequest({request,env}) {
@@ -19,6 +19,7 @@ export async function onRequest({request,env}) {
    const [profiles,details]=await Promise.all([supabase(env,`profiles?user_id=eq.${user.id}&select=nickname`),supabase(env,`member_details?user_id=eq.${user.id}&select=full_name,birth_date,phone,school,pass_year,research_consent,updated_at`)]);
    return reply({nickname:profiles[0]?.nickname||null,...(details[0]||{research_consent:false})});
   }
+  if(request.method==='DELETE'){await supabase(env,`member_details?user_id=eq.${user.id}`,{method:'DELETE'});return reply({ok:true});}
   if(request.method!=='PUT')return reply({error:'지원하지 않는 요청입니다.'},405);
   const values=validateMember(await body(request,4000));
   await supabase(env,'rpc/save_member_details',{method:'POST',body:JSON.stringify({p_user:user.id,...Object.fromEntries(Object.entries(values).map(([k,v])=>['p_'+k,v]))})});

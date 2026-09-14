@@ -4,10 +4,10 @@ const require=createRequire('/tmp/cpaping-career-qa/package.json'),{JSDOM}=requi
 const uid='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222';
 const env={CAREER_ENABLED:'true',CAREER_RESUME_ONLY:'true',CAREER_RESUME_ENABLED:'true',SUPABASE_URL:'https://example.supabase.co',SUPABASE_SECRET_KEY:'fake'};
 const json=x=>new Response(JSON.stringify(x),{headers:{'Content-Type':'application/json'}}),pause=()=>new Promise(r=>setTimeout(r,50));
-const valid={nickname:null,full_name:'테스트 이름',birth_date:'1999-02-28',phone:'010-1234-5678',school:'예시대학교',pass_year:2020,research_consent:false};
+const valid={nickname:null,full_name:'테스트 이름',birth_date:'1999-02-28',phone:'010-1234-5678',school:'예시대학교',pass_year:2020,research_consent:true};
 test('optional profile accepts blanks but rejects impossible dates, years, invalid types and reserved names',()=>{
- assert.equal(validateMember({research_consent:false}).nickname,null);assert.deepEqual(validateMember(valid),valid);
- for(const change of [{birth_date:'2001-02-29'},{birth_date:'2999-01-01'},{phone:'<script>'},{pass_year:'2020'},{pass_year:2999},{research_consent:'true'},{nickname:'공식운영자'},{nickname:'a'},{school:'x'.repeat(121)}])assert.throws(()=>validateMember({...valid,...change}));
+ assert.equal(validateMember({research_consent:true}).nickname,null);assert.deepEqual(validateMember(valid),valid);
+ for(const change of [{birth_date:'2001-02-29'},{birth_date:'2999-01-01'},{phone:'<script>'},{pass_year:'2020'},{pass_year:2999},{research_consent:'true'},{research_consent:false},{nickname:'공식운영자'},{nickname:'a'},{school:'x'.repeat(121)}])assert.throws(()=>validateMember({...valid,...change}));
 });
 test('profile authenticates before reads and uses server owner for atomic save, with no public cache',async t=>{
  const calls=[];t.mock.method(globalThis,'fetch',async(url,opt)=>{calls.push({url:String(url),opt});return String(url).includes('/auth/')?json({id:uid,email_confirmed_at:'yes'}):json(null);});
@@ -46,8 +46,17 @@ test('approval deep link opens only its matching review card and cannot send unt
  }finally{dom.window.close();}
 });
 test('posting time uses observed timestamp in Korea and never changes source publication date',()=>{const html=renderPostingPage({posting:{id:1,ij_id:'123',source:'kicpa:trainee',company_name:'예시',title:'채용',posted_at:'2026-09-13',first_seen_at:'2026-09-13T16:05:00Z'}});assert.match(html,/최초 확인 시간/);assert.match(html,/2026\. 9\. 14\. 01:05/);assert.match(html,/원문 등록 시각과 다를 수 있음/);});
-test('account accepts a member without nickname, saves optional fields and updates the menu event',async()=>{
- const dom=new JSDOM(readFileSync('web/account.html','utf8'),{url:'https://cpaping.com/account/',runScripts:'outside-only'}),w=dom.window;try{auth(w);let saved,updated=false;w.addEventListener('cpaping:profile-updated',()=>updated=true);w.fetch=async(url,opt)=>({ok:true,json:async()=>opt.method==='PUT'?(saved=JSON.parse(opt.body),{ok:true,...saved}):{...valid,nickname:null}});const script=[...w.document.scripts].find(s=>!s.src);w.eval(script.textContent);await pause();const d=w.document;assert.equal(d.getElementById('profile-fields').disabled,false);assert.equal(d.getElementById('research-consent').checked,false);d.getElementById('nickname').value='테스트회원';d.getElementById('phone').value='';d.getElementById('profile-form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await pause();assert.equal(saved.nickname,'테스트회원');assert.equal(saved.phone,null);assert.equal(saved.research_consent,false);assert.equal(updated,true);assert.equal(d.getElementById('nick').textContent,'테스트회원');
+test('profile starts read-only, requires consent to save, cancels drafts and returns to read-only after saving',async()=>{
+ const dom=new JSDOM(readFileSync('web/account.html','utf8'),{url:'https://cpaping.com/account/',runScripts:'outside-only'}),w=dom.window;
+ try{auth(w);let saved,updated=false;w.addEventListener('cpaping:profile-updated',()=>updated=true);
+ w.fetch=async(url,opt)=>({ok:true,json:async()=>opt.method==='PUT'?(saved=JSON.parse(opt.body),{ok:true,...saved}):{...valid,nickname:'기존회원',research_consent:false}});
+ w.eval([...w.document.scripts].find(s=>!s.src).textContent);await pause();const d=w.document;
+ assert.equal(d.getElementById('profile-form').hidden,true);assert.equal(d.getElementById('profile-fields').disabled,true);assert.match(d.getElementById('profile-summary').textContent,/기존회원/);
+ d.getElementById('edit-profile').click();assert.equal(d.getElementById('profile-form').hidden,false);assert.equal(d.getElementById('profile-fields').disabled,false);
+ d.getElementById('nickname').value='취소할이름';d.getElementById('cancel-profile').click();d.getElementById('edit-profile').click();assert.equal(d.getElementById('nickname').value,'기존회원');
+ d.getElementById('nickname').value='테스트회원';d.getElementById('phone').value='';d.getElementById('profile-form').dispatchEvent(new w.Event('submit',{cancelable:true}));await pause();assert.equal(saved,undefined);assert.equal(d.getElementById('profile-form').hidden,false);
+ d.getElementById('research-consent').checked=true;d.getElementById('profile-form').dispatchEvent(new w.Event('submit',{cancelable:true}));await pause();
+ assert.equal(saved.nickname,'테스트회원');assert.equal(saved.phone,null);assert.equal(saved.research_consent,true);assert.equal(updated,true);assert.equal(d.getElementById('profile-form').hidden,true);assert.equal(d.getElementById('profile-fields').disabled,true);assert.match(d.getElementById('profile-summary').textContent,/테스트회원/);
  }finally{dom.window.close();}
 });
 test('notification filters load separately and save without changing resume automation',async()=>{
@@ -55,5 +64,5 @@ test('notification filters load separately and save without changing resume auto
  }finally{dom.window.close();}
 });
 test('nickname hydration uses safe text and clears the label on logout',async()=>{
- const {navigation}=await import('../web/navigation.mjs');const dom=new JSDOM(navigation('<head></head><header class="topbar"></header>'),{url:'https://cpaping.com/',runScripts:'outside-only'}),w=dom.window;try{w.localStorage.setItem('sb-test-auth-token',JSON.stringify({access_token:'fake'}));w.fetch=async()=>({ok:true,json:async()=>({nickname:'<img src=x>'})});w.eval(readFileSync('web/navigation.js','utf8'));await pause();assert.equal(w.document.getElementById('account-nickname').textContent,'<img src=x>');assert.equal(w.document.querySelectorAll('#account-menu img').length,0);w.localStorage.clear();w.dispatchEvent(new w.StorageEvent('storage'));assert.equal(w.document.getElementById('account-menu').hidden,true);assert.equal(w.document.getElementById('account-nickname').textContent,'내 계정');}finally{dom.window.close();}
+ const {navigation}=await import('../web/navigation.mjs');const dom=new JSDOM(navigation('<head></head><header class="topbar"></header>'),{url:'https://cpaping.com/',runScripts:'outside-only'}),w=dom.window;try{w.localStorage.setItem('sb-test-auth-token',JSON.stringify({access_token:'fake'}));w.fetch=async()=>({ok:true,json:async()=>({nickname:'<img src=x>'})});w.eval(readFileSync('web/navigation.js','utf8'));await pause();assert.equal(w.document.getElementById('account-nickname').textContent,'<img src=x>');assert.equal(w.document.querySelectorAll('#account-menu img').length,0);w.localStorage.clear();w.dispatchEvent(new w.StorageEvent('storage'));assert.equal(w.document.getElementById('account-menu').hidden,true);assert.equal(w.document.getElementById('account-nickname').textContent,'닉네임 설정');}finally{dom.window.close();}
 });
