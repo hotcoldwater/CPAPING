@@ -102,7 +102,7 @@ test('navigation retains only header status; posting actions occur once', () => 
   const header=html.match(/<header[\s\S]*?<\/header>/)[0];
   assert.ok(!header.includes('한공회 원문 보기'));
   assert.equal((html.match(/한공회 원문 보기 ↗/g)||[]).length,1);
-  assert.ok(header.includes('내 지원현황'));assert.ok(!header.includes('/essay/'));
+  assert.ok(header.includes('지원현황'));assert.ok(!header.includes('/essay/'));
   const home=navigation('<head></head><header class="topbar"><div class="status">1분마다 확인 중</div></header>');
   assert.ok(home.includes('1분마다 확인 중'));
 });

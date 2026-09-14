@@ -41,11 +41,11 @@
     </section>
 
     <section id="step-nick" hidden>
-      <h1>닉네임을 정해 주세요</h1>
-      <p class="lead">댓글에 이 이름으로 표시됩니다. 2~12자, 다른 회원과 같을 수 없고, 운영자·공식 같은 문구는 쓸 수 없습니다.</p>
+      <h1>가입 마무리</h1>
+      <p class="lead">닉네임은 선택사항입니다. 글·댓글을 작성할 때에는 2~12자 닉네임이 필요합니다. 지금은 비워 두어도 됩니다.</p>
       <form id="nick-form" novalidate>
         <label for="nickname">닉네임</label>
-        <input id="nickname" type="text" minlength="2" maxlength="12" autocomplete="nickname" required>
+        <input id="nickname" type="text" minlength="2" maxlength="12" autocomplete="nickname">
         <label class="check"><input type="checkbox" id="agree" required>
           <span>만 14세 이상이며 <a href="/terms" target="_blank" rel="noopener">이용약관</a>과 <a href="/privacy" target="_blank" rel="noopener">개인정보처리방침</a>에 동의합니다.</span></label>
         <button class="btn primary" type="submit" style="margin-top:16px">시작하기</button>
@@ -84,7 +84,7 @@
     if (s.state === "anon") return location.replace("/login/");
     if (s.state === "complete") return location.replace(A.takeReturnTo());
     $("step-email").hidden = s.state !== "needs_email";
-    $("step-nick").hidden = s.state !== "needs_profile";
+    $("step-nick").hidden = !["needs_profile","needs_terms"].includes(s.state);
     if (s.state === "needs_email") {
       // 이미 주소를 넣고 인증만 남았으면(new_email) 대기 화면
       const pending = s.user.new_email || (s.user.email && !s.user.email_confirmed_at ? s.user.email : null);
@@ -117,16 +117,18 @@
   $("nick-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const nickname = $("nickname").value.trim();
-    if (nickname.length < 2 || nickname.length > 12) return msg("닉네임은 2~12자여야 합니다.", "err");
+    if (nickname && (nickname.length < 2 || nickname.length > 12)) return msg("닉네임은 2~12자여야 합니다.", "err");
     if (/(운영자|관리자|cpaping|공식|admin|official)/i.test(nickname)) return msg("운영자·공식·관리자 같은 문구는 쓸 수 없습니다.", "err");
     if (!$("agree").checked) return msg("약관과 개인정보처리방침에 동의해 주세요.", "err");
     const s = await A.getState();
     if (!s.user) return location.replace("/login/");
     // 동의 기록은 계정 메타데이터에 남긴다 (컬럼을 늘리지 않는다)
-    await A.client.auth.updateUser({ data: { agreed_terms_at: new Date().toISOString(), over14: true } });
-    const { error } = await A.client.from("profiles").update({ nickname }).eq("user_id", s.user.id);
+    const consent=await A.client.auth.updateUser({ data: { agreed_terms_at: new Date().toISOString(), over14: true } });
+    if(consent.error)return msg("동의를 저장하지 못했습니다. 다시 시도해 주세요.","err");
+    const { error } = await A.client.from("profiles").update({ nickname: nickname || null }).eq("user_id", s.user.id);
     if (error) return msg(A.humanize(error), "err");
     $("msg").hidden = true;
+    if(!nickname) A.rememberReturnTo("/account/");
     await showAlertStep();
   });
 

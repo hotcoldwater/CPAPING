@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>내 정보 — CPAPING</title>
+<title>마이페이지 — CPAPING</title>
 <style>select{width:100%;font:inherit;font-size:14px;padding:10px 12px;border:1px solid #CFD3DA;border-radius:4px;background:#fff;color:#101317}</style>
 <meta name="robots" content="noindex">
 <link rel="icon" href="/favicon.ico" sizes="48x48">
@@ -13,16 +13,16 @@
 <link rel="stylesheet" href="/auth.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" crossorigin="anonymous"></script>
 <script src="/auth.js"></script>
-</head>
+<link rel="stylesheet" href="/member.css"></head>
 <body>
-<div class="shell">
+<div class="shell member-shell">
   <header class="topbar">
     <a class="wordmark" href="/">CPAPING</a>
     <nav aria-label="주요 화면"><a href="/">공고</a><a href="/firms/">법인</a><a href="/board/">게시판</a></nav>
   </header>
-  <main>
+  <main data-clarity-mask="true">
 
-    <h1>내 정보</h1>
+    <p class="eyebrow">MY WORKSPACE</p><h1>마이페이지</h1><p class="lead">내 정보를 차근차근. 모든 항목은 선택사항입니다.</p>
     <div class="who"><span id="nick"></span><span class="chip" id="providers"></span></div>
 
     <section id="recovery" hidden>
@@ -39,26 +39,16 @@
       <div><dt>가입</dt><dd id="joined"></dd></div>
     </dl>
 
-    <section class="alerts" style="margin:0 0 22px;padding:14px 16px;border:1px solid var(--line);border-radius:4px">
-      <label class="check" style="margin:0"><input type="checkbox" id="alert-on">
-        <span><b>새 공고 알림 받기</b> <span class="muted small" id="alert-state"></span></span></label>
-      <div id="alert-opts" hidden style="margin-top:8px">
-        <label for="region">지역</label>
-        <select id="region"><option value="all">전국</option><option value="capital">수도권 (서울·경기·인천)</option><option value="local">지방</option></select>
-        <div class="kinds" role="group" aria-label="받을 공고" style="margin-top:10px">
-          <label class="check"><input type="checkbox" id="kind-full" checked> <span>신입 정규직</span></label>
-          <label class="check"><input type="checkbox" id="kind-part" checked> <span>신입 파트타임</span></label>
-          <label class="check"><input type="checkbox" id="kind-career"> <span>경력 <span class="muted small">회계사 경력 채용 · 빅4·일반기업 포함, 기장·사무 직원 공고 제외</span></span></label>
-        </div>
-        <button class="btn" type="button" id="alert-save" style="margin-top:10px">알림 조건 저장</button>
-      </div>
-    </section>
-
-    <form id="nick-form" novalidate>
-      <label for="nickname">닉네임 바꾸기</label>
-      <input id="nickname" type="text" minlength="2" maxlength="12" required>
-      <button class="btn" type="submit" style="margin-top:10px">저장</button>
-    </form>
+    <form id="profile-form" class="profile-card"><fieldset id="profile-fields" disabled><legend>기본 정보 <span class="optional">선택</span></legend><div class="member-grid">
+<label for="nickname">닉네임<input id="nickname" type="text" minlength="2" maxlength="12" autocomplete="nickname" placeholder="2~12자"></label>
+<label for="full-name">이름<input id="full-name" type="text" maxlength="80" autocomplete="name"></label>
+<label for="birth-date">생년월일<input id="birth-date" type="date" min="1900-01-01" autocomplete="bday"></label>
+<label for="phone">전화번호<input id="phone" type="tel" maxlength="30" autocomplete="tel" placeholder="010-0000-0000"></label>
+<label for="school">출신학교<input id="school" type="text" maxlength="120" autocomplete="organization-title" placeholder="대학교명"></label>
+<label for="pass-year">CPA 합격년도<input id="pass-year" type="number" min="1950" step="1" placeholder="예: 2026"></label></div>
+<p class="tip">닉네임은 게시판·댓글에 표시됩니다. 나머지 정보는 다른 사용자에게 공개되지 않습니다. 닉네임을 비워 두면 메뉴에는 ‘내 계정’이 표시되며, 글·댓글 작성 시에는 닉네임 설정이 필요합니다.</p>
+<div class="research-note"><h2>함께 만드는 채용 인사이트</h2><p>출신학교·연령대·합격년도와 지원 결과를 통해 로컬회계법인별·전체 채용 경향을 연구하고, 향후 집계 결과를 사용자에게 제공할 예정입니다. 합격을 보장하거나 개인별 유불리를 단정하는 자료는 아닙니다.</p><label class="check"><input id="research-consent" type="checkbox"><span><b>채용 연구 참여에 동의합니다. (선택)</b><br>동의한 경우 출신학교·생년월일에서 계산한 연령대·합격년도·지원 이력 및 직접 기록한 결과를 연구에 사용합니다. 이름·전화번호·이력서 본문은 연구에 사용하지 않습니다. 자료는 탈퇴 또는 삭제 시까지 보관하며, 동의를 해제하면 이후 연구에서 제외합니다. 개인을 식별할 수 없는 집계 결과만 공개합니다. 참여하지 않아도 서비스 이용에 영향이 없습니다.</span></label><a href="/privacy">개인정보 처리 안내</a></div>
+<button class="btn primary" id="save-profile" type="submit">내 정보 저장</button></fieldset></form>
 
     <div class="msg" id="msg" hidden role="status" aria-live="polite"></div>
 
@@ -72,7 +62,7 @@
   const msg = (text, kind) => { const m = $("msg"); m.textContent = text; m.className = "msg" + (kind ? " " + kind : ""); m.hidden = false; };
   const params = new URLSearchParams(location.search);
 
-  const s = await A.ensure(params.get("recovery") ? "needs_email" : "complete");
+  const s = await A.ensure(params.get("recovery") ? "needs_email" : "needs_profile");
   if (!s.user) return;
   if (params.get("recovery")) $("recovery").hidden = false;
 
@@ -93,50 +83,12 @@
     history.replaceState(null, "", "/account/");
   });
 
-  $("nick-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const nickname = $("nickname").value.trim();
-    if (nickname.length < 2 || nickname.length > 12) return msg("닉네임은 2~12자여야 합니다.", "err");
-    const { error } = await A.client.from("profiles").update({ nickname }).eq("user_id", s.user.id);
-    if (error) return msg(A.humanize(error), "err");
-    $("nick").textContent = nickname; msg("저장했습니다.", "ok");
-  });
-
-  // 알림 구독 — 서버가 사용자 토큰을 확인하고 subscribers 를 대신 만진다
-  const authHeader = async () => { const { data: { session } } = await A.client.auth.getSession(); return { Authorization: "Bearer " + session.access_token }; };
-  async function loadAlert() {
-    const res = await fetch("/api/me/subscription", { headers: await authHeader() }).catch(() => null);
-    const sub = res && res.ok ? await res.json() : { active: false };
-    $("alert-on").checked = !!sub.active;
-    $("alert-opts").hidden = !sub.active;
-    if (sub.active) {
-      $("region").value = sub.region_filter || "all";
-      $("kind-full").checked = sub.want_trainee_full !== false;
-      $("kind-part").checked = sub.want_trainee_part !== false;
-      $("kind-career").checked = sub.want_career === true;
-    }
-    $("alert-state").textContent = sub.active ? "— 받는 중" : "— 꺼짐";
-  }
-  await loadAlert();
-  const conditions = () => ({ region_filter: $("region").value, want_trainee_full: $("kind-full").checked,
-                              want_trainee_part: $("kind-part").checked, want_career: $("kind-career").checked });
-  const nothing = (c) => !c.want_trainee_full && !c.want_trainee_part && !c.want_career;
-  $("alert-on").addEventListener("change", async () => {
-    const on = $("alert-on").checked;
-    const res = await fetch("/api/me/subscription", { method: on ? "PUT" : "DELETE",
-      headers: { ...(await authHeader()), "Content-Type": "application/json" },
-      body: on ? JSON.stringify(conditions()) : undefined });
-    if (!res.ok) { msg("알림 설정을 바꾸지 못했습니다. 잠시 뒤 다시 시도해 주세요.", "err"); return loadAlert(); }
-    msg(on ? "새 공고 알림을 받습니다." : "알림을 껐습니다.", "ok"); await loadAlert();
-  });
-  $("alert-save").onclick = async () => {
-    const c = conditions();
-    if (nothing(c)) return msg("받을 공고를 하나 이상 골라 주세요. 알림을 그만 받으려면 위의 체크를 끄세요.", "err");
-    const res = await fetch("/api/me/subscription", { method: "PUT",
-      headers: { ...(await authHeader()), "Content-Type": "application/json" },
-      body: JSON.stringify(c) });
-    msg(res.ok ? "알림 조건을 저장했습니다. 다음 공고부터 적용됩니다." : "저장하지 못했습니다.", res.ok ? "ok" : "err");
-  };
+  const authHeader = async () => { const {data:{session}}=await A.client.auth.getSession();if(!session)throw new Error('다시 로그인해 주세요.');return {Authorization:'Bearer '+session.access_token}; };
+  const fields={nickname:'nickname',full_name:'full-name',birth_date:'birth-date',phone:'phone',school:'school',pass_year:'pass-year'};
+  const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Seoul'});$('birth-date').max=today;$('pass-year').max=today.slice(0,4);
+  try{const r=await fetch('/api/me/profile',{headers:await authHeader()});if(!r.ok)throw new Error('정보를 불러오지 못했습니다. 새로고침해 주세요.');const p=await r.json();for(const [key,id] of Object.entries(fields))$(id).value=p[key]??'';$('research-consent').checked=p.research_consent===true;$('profile-fields').disabled=false;}catch(e){msg(e.message,'err');}
+  $('profile-form').onsubmit=async e=>{e.preventDefault();$('save-profile').disabled=true;try{const values=Object.fromEntries(Object.entries(fields).map(([key,id])=>[key,$(id).value.trim()||null]));if(values.pass_year)values.pass_year=Number(values.pass_year);values.research_consent=$('research-consent').checked;
+    const r=await fetch('/api/me/profile',{method:'PUT',headers:{...(await authHeader()),'Content-Type':'application/json'},body:JSON.stringify(values)});const p=await r.json();if(!r.ok)throw new Error(p.error||'저장하지 못했습니다.');$('nick').textContent=p.nickname||'(닉네임 없음)';dispatchEvent(new Event('cpaping:profile-updated'));msg('내 정보를 저장했습니다.','ok');}catch(e){msg(e.message,'err');}finally{$('save-profile').disabled=false;}};
 
   $("logout").onclick = async () => { await A.signOut(); location.replace("/"); };
 

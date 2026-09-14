@@ -353,7 +353,7 @@ function postingsSection(postings, firmName) {
     return `<a class="row${closed ? " closed" : left <= 7 ? " soon" : ""}"
       href="${esc(href)}"${p.ij_id ? "" : ' target="_blank" rel="noopener"'}>
       <div>
-        <div class="firm">${esc(shortDate(p.posted_at))} 등록</div>
+        <div class="firm">${esc(shortDate(p.posted_at))} 등록${p.first_seen_at && Number.isFinite(Date.parse(p.first_seen_at)) ? ` · 최초 확인 ${esc(new Date(p.first_seen_at).toLocaleString("ko-KR",{timeZone:"Asia/Seoul",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit",hour12:false}))}` : ""}</div>
         <div class="title">${esc(trimTitle(p.title, firmName))}</div>
         <div class="chips">
           ${p.region ? `<span class="chip">${esc(p.region)}</span>` : ""}

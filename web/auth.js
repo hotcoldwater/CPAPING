@@ -7,7 +7,8 @@
  * 온보딩 상태는 저장하지 않고 세 가지 사실로 계산한다.
  *   anon           세션 없음
  *   needs_email    이메일이 없거나 확인되지 않음 (카카오, 이메일 가입 직후)
- *   needs_profile  이메일은 됐는데 닉네임이 없음
+ *   needs_terms    이메일 인증 후 기본 약관 동의 필요
+ *   needs_profile  약관은 동의했으나 공개 활동용 닉네임이 없음
  *   complete       둘 다 있음
  * 상태를 캐시하면 트리거로 맞춰야 하고, 어긋나면 사용자가 온보딩에 갇힌다.
  *
@@ -55,6 +56,8 @@
     const emailOk = Boolean(user.email) && Boolean(user.email_confirmed_at);
     if (!emailOk) return { state: "needs_email", user, session };
 
+    if (!user.user_metadata?.agreed_terms_at) return { state: "needs_terms", user, session };
+
     const { data: profile } = await client
       .from("profiles").select("nickname").eq("user_id", user.id).maybeSingle();
     if (!profile || !profile.nickname) return { state: "needs_profile", user, session, profile };
@@ -63,11 +66,11 @@
 
   /** 상태에 맞는 화면으로 보낸다. 이미 그 화면이면 아무것도 하지 않는다(무한 이동 방지). */
   function routeFor(state) {
-    return { anon: "/login/", needs_email: "/onboarding/", needs_profile: "/onboarding/" }[state] || null;
+    return { anon: "/login/", needs_email: "/onboarding/", needs_terms: "/onboarding/", needs_profile: "/onboarding/" }[state] || null;
   }
   async function ensure(required) {
     const s = await getState();
-    const order = ["anon", "needs_email", "needs_profile", "complete"];
+    const order = ["anon", "needs_email", "needs_terms", "needs_profile", "complete"];
     if (order.indexOf(s.state) >= order.indexOf(required)) return s;
     const to = routeFor(s.state);
     if (to && !location.pathname.startsWith(to)) {
