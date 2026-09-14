@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>알림설정 — CPAPING</title>
+<style>select{width:100%;font:inherit;font-size:14px;padding:10px 12px;border:1px solid #CFD3DA;border-radius:4px;background:#fff;color:#101317}</style>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#123A8A">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/auth.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" crossorigin="anonymous"></script>
+<script src="/auth.js"></script>
+<link rel="stylesheet" href="/member.css"></head>
+<body><div class="shell member-shell"><header class="topbar"><a class="wordmark" href="/">CPAPING</a></header><main><p class="eyebrow">MY WORKSPACE</p><h1>알림설정</h1><p class="lead">원하는 채용 소식만, 가입한 이메일로 받아보세요.</p>    <section class="alerts">
+      <label class="check" style="margin:0"><input type="checkbox" id="alert-on" disabled>
+        <span><b>새 공고 알림 받기</b> <span class="muted small" id="alert-state"></span></span></label>
+      <div id="alert-opts" hidden style="margin-top:8px">
+        <label for="region">지역</label>
+        <select id="region"><option value="all">전국</option><option value="capital">수도권 (서울·경기·인천)</option><option value="local">지방</option></select>
+        <div class="kinds" role="group" aria-label="받을 공고" style="margin-top:10px">
+          <label class="check"><input type="checkbox" id="kind-full" checked> <span>신입 정규직</span></label>
+          <label class="check"><input type="checkbox" id="kind-part" checked> <span>신입 파트타임</span></label>
+          <label class="check"><input type="checkbox" id="kind-career"> <span>경력 <span class="muted small">회계사 경력 채용 · 빅4·일반기업 포함, 기장·사무 직원 공고 제외</span></span></label>
+        </div>
+        <button class="btn" type="button" id="alert-save" style="margin-top:10px">알림 조건 저장</button>
+      </div>
+    </section>
+
+<p class="tip">지원할 법인·매출 등 자동지원 조건은 <a href="/resume/">이력서</a>에서 설정합니다. 이 화면은 새 공고 알림에만 적용됩니다.</p><div id="msg" class="msg" hidden role="status" aria-live="polite"></div><script>
+(async()=>{const A=window.cpAuth,$=id=>document.getElementById(id);const s=await A.ensure('needs_profile');if(!['complete','needs_profile'].includes(s.state))return;
+const msg=(text,kind)=>{$('msg').textContent=text;$('msg').className='msg '+(kind||'');$('msg').hidden=false;};
+try{  // 알림 구독 — 서버가 사용자 토큰을 확인하고 subscribers 를 대신 만진다
+  const authHeader = async () => { const { data: { session } } = await A.client.auth.getSession(); return { Authorization: "Bearer " + session.access_token }; };
+  async function loadAlert() {
+    const res = await fetch("/api/me/subscription", { headers: await authHeader() }).catch(() => null);
+    if (!res?.ok) throw new Error("알림 설정을 불러오지 못했습니다.");
+    const sub = await res.json();
+    $("alert-on").disabled = false;
+    $("alert-on").checked = !!sub.active;
+    $("alert-opts").hidden = !sub.active;
+    if (sub.active) {
+      $("region").value = sub.region_filter || "all";
+      $("kind-full").checked = sub.want_trainee_full !== false;
+      $("kind-part").checked = sub.want_trainee_part !== false;
+      $("kind-career").checked = sub.want_career === true;
+    }
+    $("alert-state").textContent = sub.active ? "— 받는 중" : "— 꺼짐";
+  }
+  await loadAlert();
+  const conditions = () => ({ region_filter: $("region").value, want_trainee_full: $("kind-full").checked,
+                              want_trainee_part: $("kind-part").checked, want_career: $("kind-career").checked });
+  const nothing = (c) => !c.want_trainee_full && !c.want_trainee_part && !c.want_career;
+  $("alert-on").addEventListener("change", async () => {
+    const on = $("alert-on").checked;$("alert-on").disabled=true;
+    try{
+    const res = await fetch("/api/me/subscription", { method: on ? "PUT" : "DELETE",
+      headers: { ...(await authHeader()), "Content-Type": "application/json" },
+      body: on ? JSON.stringify(conditions()) : undefined });
+    if (!res.ok) { msg("알림 설정을 바꾸지 못했습니다. 잠시 뒤 다시 시도해 주세요.", "err"); return await loadAlert(); }
+    msg(on ? "새 공고 알림을 받습니다." : "알림을 껐습니다.", "ok"); await loadAlert();
+    }catch{msg("알림 설정을 바꾸지 못했습니다. 다시 시도해 주세요.","err");$("alert-on").checked=!on;}finally{$("alert-on").disabled=false;}
+  });
+  $("alert-save").onclick = async () => {
+    try{
+    const c = conditions();
+    if (nothing(c)) return msg("받을 공고를 하나 이상 골라 주세요. 알림을 그만 받으려면 위의 체크를 끄세요.", "err");
+    const res = await fetch("/api/me/subscription", { method: "PUT",
+      headers: { ...(await authHeader()), "Content-Type": "application/json" },
+      body: JSON.stringify(c) });
+    msg(res.ok ? "알림 조건을 저장했습니다. 다음 공고부터 적용됩니다." : "저장하지 못했습니다.", res.ok ? "ok" : "err");
+    }catch{msg("저장하지 못했습니다. 다시 시도해 주세요.","err");}
+  };
+
+}catch{msg('알림 설정을 불러오지 못했습니다. 새로고침해 주세요.','err');}})();</script></main><footer><a href="/privacy">개인정보처리방침</a></footer></div></body></html>

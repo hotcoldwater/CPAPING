@@ -6,9 +6,10 @@ async function api(path,method='GET',body){const {data:{session}}=await A.client
 async function download(id,name){const blob=await api('files/'+id),url=URL.createObjectURL(blob),a=node('a');a.href=url;a.download=name||'이력서';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function button(text,fn){const b=node('button',text);b.className='btn';b.type='button';b.onclick=async()=>{b.disabled=true;try{await fn();}catch(e){message(e.message,true);}finally{b.disabled=false;}};return b;}
 function option(value,text){const o=node('option',text);o.value=value;return o;}
-function queue(){const list=$('resume-applications');list.replaceChildren();
- for(const a of state.applications){const card=node('details');card.className='resume-application';const status={preparing:'준비 중',review:'검수 필요',queued:'발송 대기',sending:'발송 중',blocked:'보류',failed:'실패',delivery_unknown:'결과 불명'}[a.status]||a.status;
+function queue(){const list=$('resume-applications');if(!list)return;list.replaceChildren();
+ for(const a of state.applications){const card=node('details');card.className='resume-application';card.id='application-'+a.id;if(new URLSearchParams(location.search).get('review')===a.id)card.open=true;const status={preparing:'준비 중',review:'검수 필요',queued:'발송 대기',sending:'발송 중',blocked:'보류',failed:'실패',delivery_unknown:'결과 불명'}[a.status]||a.status;
  card.append(node('summary',(a.snapshot.company||'선택한 공고')+' · '+status));if(a.snapshot.title)card.append(node('p',a.snapshot.title));if(a.reason)card.append(node('p',a.reason));
+ if(a.origin==='rule'&&a.status==='review'){const notice=Array.isArray(a.career_review_notices)?a.career_review_notices[0]:a.career_review_notices;card.append(node('p','검수 안내 메일: '+({sent:'가입한 이메일로 발송했습니다.',pending:'발송 대기 중입니다.',sending:'발송 접수 확인 중입니다.',failed:'발송하지 못했습니다. 이 화면에서 직접 검수할 수 있습니다.',unknown:'발송 결과를 확인하지 못했습니다. 이 화면에서 직접 검수할 수 있습니다.',cancelled:'안내 발송이 중지되었습니다.'}[notice?.status]||'다음 작업에서 안내를 준비합니다.')));}
  if(a.snapshot.detail_url){try{const u=new URL(a.snapshot.detail_url);if(u.protocol==='https:'&&['www.kicpa.or.kr','kicpa.or.kr'].includes(u.hostname)){const link=node('a','공고 원문 확인 ↗');link.href=u.href;link.target='_blank';link.rel='noopener noreferrer';card.append(link);}}catch{}}
  if(a.document_id){const f=state.files.find(f=>f.id===a.document_id);card.append(button('첨부 이력서 확인',()=>download(a.document_id,f?.name)));}
  const update=async payload=>{await api('resume-applications/'+a.id,'PUT',{version:a.version,...payload});await load();message('지원 상태를 변경했습니다.');};
@@ -26,7 +27,7 @@ function queue(){const list=$('resume-applications');list.replaceChildren();
  if(!state.applications.length)list.append(node('p','준비 중이거나 검수할 지원이 없습니다.'));
  if(state.applications.length>=state.limit)list.append(node('p','최근 '+state.limit+'건을 표시하고 있습니다. 완료·취소한 항목은 이 목록에서 제외됩니다.'));
 }
-function form(){const selected=$('resume-selected');selected.replaceChildren(option('','이력서를 선택하세요'));$('resume-files').replaceChildren();
+function form(){if(!$('resume-form'))return;const selected=$('resume-selected');selected.replaceChildren(option('','이력서를 선택하세요'));$('resume-files').replaceChildren();
  for(const f of state.files){selected.append(option(f.id,f.name));const row=node('p',f.name);row.append(button('다운로드',()=>download(f.id,f.name)),button('삭제',async()=>{await api('resumes/'+f.id,'DELETE');await load();message('파일을 삭제했습니다.');}));$('resume-files').append(row);}
  const r=state.rule,f=r?.filters||{};$('resume-workspace').open=!r?.resume_file_id;selected.value=r?.resume_file_id||state.files[0]?.id||'';$('applicant-name').value=r?.applicant_name||'';
  if(r?.mail_subject_template)$('resume-subject').value=r.mail_subject_template;if(r?.mail_body_template)$('resume-body').value=r.mail_body_template;
@@ -35,23 +36,28 @@ function form(){const selected=$('resume-selected');selected.replaceChildren(opt
  for(const [id,key] of [['resume-years','experience_years'],['resume-revenue-min','revenue_min'],['resume-revenue-max','revenue_max']])$(id).value=f[key]??'';
  for(const [id,key] of [['resume-keywords','keywords'],['resume-exclude','exclude']])$(id).value=(f[key]||[]).join(', ');
  $('resume-mode').value=r?.mode||'review';$('resume-limit').value=r?.daily_limit||5;$('resume-enabled').checked=r?.enabled===true;$('resume-consent').checked=false;$('resume-confirmed').checked=false;
- $('resume-rule-state').textContent=r?.enabled?'새 공고 지원 준비 켜짐 · '+(r.mode==='auto'?'조건에 맞으면 자동 발송':'발송 전 검수'):'새 공고 지원 준비 꺼짐';dirty=false;
+ $('resume-rule-state').textContent=r?.enabled?'새 공고 지원 준비 켜짐 · '+(r.mode==='auto'?'조건에 맞으면 자동 발송':'발송 전 검수'):'새 공고 지원 준비 꺼짐';dirty=false;dispatchEvent(new Event('cpaping:resume-loaded'));
 }
 async function load(reset=true){if(loading)return;loading=true;try{state=await api('resume-state');if(reset)form();queue();}finally{loading=false;}}
 try{
- const auth=await A.ensure('complete');if(auth.state!=='complete')return;
+ const auth=await A.ensure('needs_profile');if(!['complete','needs_profile'].includes(auth.state))return;
+ if($('resume-form')){
  const {data:firms,error}=await A.client.from('firms').select('id,name').order('name').limit(1000);if(error)throw new Error('법인 목록을 불러오지 못했습니다. 새로고침해 주세요.');
  for(const f of firms)$('resume-firms').append(option(String(f.id),f.name));await load();message('완성한 이력서를 올리고 지원 조건을 저장하세요.');
+ async function mailState(){const r=await api('state');$('mail-state').textContent=r.mail?'연결된 계정: '+r.mail.email:'아직 연결한 개인 메일이 없습니다.';$('connect').hidden=!!r.mail;$('disconnect').hidden=!r.mail;}
+ await mailState();$('connect').onclick=async()=>{try{const r=await api('mail-connect','POST',{provider:'google'}),u=new URL(r.url);if(u.origin!=='https://accounts.google.com')throw new Error('연결 주소를 확인해 주세요.');location.assign(u.href);}catch(e){message(e.message,true);}};$('disconnect').onclick=async()=>{try{await api('mail','DELETE');await mailState();await load();message('메일 연결을 해제했습니다.');}catch(e){message(e.message,true);}};
+ const result=new URLSearchParams(location.search).get('mail');if(result){message(result==='connected'?'개인 메일을 연결했습니다.':'연결을 완료하지 못했습니다. 다시 연결하고 이메일 전송 권한을 허용해 주세요.',result!=='connected');history.replaceState(null,'',location.pathname);}
  $('resume-form').addEventListener('input',()=>{dirty=true;});
  $('resume-all-firms').onchange=()=>{if($('resume-all-firms').checked)for(const o of $('resume-firms').options)o.selected=false;};$('resume-firms').onchange=()=>{if($('resume-firms').selectedOptions.length)$('resume-all-firms').checked=false;};
- $('upload-resume').onclick=async()=>{const b=$('upload-resume');b.disabled=true;try{const f=$('resume-upload').files[0];if(!f||f.size>3000000||! /\.(pdf|docx)$/i.test(f.name))throw new Error('3MB 이하 PDF 또는 Word(.docx)를 선택해 주세요.');const data=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]);r.onerror=()=>reject(new Error('파일을 읽지 못했습니다.'));r.readAsDataURL(f);});const saved=await api('resumes','POST',{name:f.name,data_base64:data});await load();$('resume-selected').value=saved.id;$('resume-workspace').open=true;dirty=true;$('resume-upload').value='';message('이력서를 업로드했습니다. 내용 확인 후 사용할 파일과 조건을 저장하세요.');}catch(e){message(e.message,true);}finally{b.disabled=false;}};
+ $('upload-resume').onclick=async()=>{const b=$('upload-resume');b.disabled=true;try{const f=window.cpResumeFile||$('resume-upload').files[0];if(!f||f.size>3000000||! /\.(pdf|docx)$/i.test(f.name))throw new Error('3MB 이하 PDF 또는 Word(.docx)를 선택해 주세요.');const data=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]);r.onerror=()=>reject(new Error('파일을 읽지 못했습니다.'));r.readAsDataURL(f);});const saved=await api('resumes','POST',{name:f.name,data_base64:data});await load();$('resume-selected').value=saved.id;$('resume-workspace').open=true;dirty=true;$('resume-upload').value='';window.cpResumeFile=null;dispatchEvent(new Event('cpaping:resume-uploaded'));message('이력서를 업로드했습니다. 내용 확인 후 사용할 파일과 조건을 저장하세요.');}catch(e){message(e.message,true);}finally{b.disabled=false;}};
  $('resume-form').onsubmit=async e=>{e.preventDefault();const b=$('save-resume-rule');b.disabled=true;try{const filters={firms:[...$('resume-firms').selectedOptions].map(o=>o.value),all_firms:$('resume-all-firms').checked};
  for(const [id,key] of [['resume-region','regions'],['resume-type','types'],['resume-employment','employment']])filters[key]=$(id).value?[$(id).value]:[];
  for(const [id,key] of [['resume-years','experience_years'],['resume-revenue-min','revenue_min'],['resume-revenue-max','revenue_max']])filters[key]=$(id).value===''?null:Number($(id).value);
  for(const [id,key] of [['resume-keywords','keywords'],['resume-exclude','exclude']])filters[key]=$(id).value.split(',').map(s=>s.trim()).filter(Boolean);
  await api('resume-rule','PUT',{resume_file_id:$('resume-selected').value,applicant_name:$('applicant-name').value,subject:$('resume-subject').value,body:$('resume-body').value,filters,mode:$('resume-mode').value,enabled:$('resume-enabled').checked,daily_limit:Number($('resume-limit').value),updated_at:state.rule?.updated_at||null,file_confirmed:$('resume-confirmed').checked,auto_consent:$('resume-consent').checked});await load();message('이력서와 지원 조건을 저장했습니다. 켜 둔 경우 지금 이후의 새 공고부터 적용합니다.');}catch(e){message(e.message,true);}finally{b.disabled=false;}};
  $('stop-resume').onclick=async()=>{try{await api('resume-stop','POST',{});await load();message('새 공고 지원을 중지했습니다. 발송 대기는 검수 상태로 변경했습니다.');}catch(e){message(e.message,true);}};
- $('refresh-resume').onclick=()=>load().catch(e=>message(e.message,true));$('refresh').addEventListener('click',()=>load().catch(e=>message(e.message,true)));$('disconnect').addEventListener('click',()=>{setTimeout(()=>load().catch(()=>{}),1500);});
+ }else{await load();message('준비된 지원서를 확인하고 발송을 승인하세요.');}
+ if($('refresh-resume'))$('refresh-resume').onclick=()=>load().catch(e=>message(e.message,true));$('refresh')?.addEventListener('click',()=>load().catch(e=>message(e.message,true)));
  const pid=new URLSearchParams(location.search).get('posting');if(pid&&/^\d{1,15}$/.test(pid)){const {data:p}=await A.client.from('job_postings').select('id,title,company_name').eq('id',pid).maybeSingle();if(p){$('selected-posting').hidden=false;$('selected-posting-title').textContent=p.company_name+' · '+p.title;$('prepare-selected').onclick=async()=>{const b=$('prepare-selected');b.disabled=true;try{await api('resume-applications','POST',{posting_id:p.id});await load();message('지원 준비를 요청했습니다. 다음 작업 실행 후 검수할 수 있습니다.');}catch(e){message(e.message,true);}finally{b.disabled=false;}};}}
  setInterval(()=>{if(!document.hidden&&!dirty&&!document.querySelector('.resume-application[open]'))load(false).catch(()=>{});},15000);
 }catch(e){message(e.message,true);}

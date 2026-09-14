@@ -12,7 +12,7 @@ export function resumeUpload(b){
 }
 export function mailTemplate(v,max,subject=false){
  const text=textValue(v,max);
- if(!text||/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text)||(subject&&/[\r\n]/.test(text))||/[{}]/.test(text.replace(/\{(?:이름|법인|공고)\}/g,'')))throw fail('메일 문구와 치환 항목을 확인해 주세요. {이름}, {법인}, {공고}만 사용할 수 있습니다.');
+ if(!text||/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text)||(subject&&/[\r\n]/.test(text))||/[{}]/.test(text.replace(/\{(?:이름|법인|공고)\}/g,'')))throw fail('메일 문구와 치환 항목을 확인해 주세요. [회계법인], {이름}, {공고}를 사용할 수 있습니다. 기존 {법인}도 지원합니다.');
  return text;
 }
 export async function resumeRequest(request,env,user,path){
@@ -23,7 +23,7 @@ export async function resumeRequest(request,env,user,path){
   const [files,rules,apps]=await Promise.all([
    supabase(env,`career_files?user_id=eq.${uid}&kind=eq.resume&select=id,name,mime,created_at&order=created_at.desc`),
    supabase(env,`career_rules?user_id=eq.${uid}&select=resume_file_id,applicant_name,mail_subject_template,mail_body_template,enabled,mode,filters,daily_limit,updated_at,enabled_since`),
-   supabase(env,`career_applications?user_id=eq.${uid}&snapshot->>flow=eq.${FLOW}&status=not.in.(sent,cancelled)&order=created_at.desc&limit=100`)]);
+   supabase(env,`career_applications?select=*,career_review_notices(status,sent_at)&user_id=eq.${uid}&snapshot->>flow=eq.${FLOW}&status=not.in.(sent,cancelled)&order=created_at.desc&limit=100`)]);
   return reply({files,rule:rules[0]||null,applications:apps,limit:100});
  }
  if(path==='resumes'&&method==='POST'){

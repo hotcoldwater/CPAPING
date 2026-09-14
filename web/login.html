@@ -59,7 +59,7 @@
 
   // 이미 로그인돼 있으면 상태에 맞는 곳으로
   const s = await A.getState();
-  if (s.state === "complete") return location.replace(A.takeReturnTo());
+  if (["complete", "needs_profile"].includes(s.state)) return location.replace(A.takeReturnTo());
   if (s.state !== "anon") return location.replace("/onboarding/");
 
   let mode = "login";
@@ -104,7 +104,7 @@
           throw error;
         }
         const st = await A.getState();
-        location.replace(st.state === "complete" ? A.takeReturnTo() : "/onboarding/");
+        location.replace(["complete","needs_profile"].includes(st.state) ? A.takeReturnTo() : "/onboarding/");
         return;
       }
     } catch (err) { msg(A.humanize(err), "err"); }

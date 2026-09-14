@@ -103,7 +103,7 @@ let html = readFileSync(join(HERE, "index.html"), "utf8");
  */
 async function fetchPostings(url, key) {
   const query =
-    "/rest/v1/job_postings?select=company_name,title,region,region_group,deadline,posted_at," +
+    "/rest/v1/job_postings?select=company_name,title,region,region_group,deadline,posted_at,first_seen_at," +
     "employment_type,detail_url,removed_at,original_posted_at,repost_count,ij_id,view_count," +
     "source,is_big4,career_min_years,career_max_years" +
     "&is_target=is.true&order=posted_at.desc";
@@ -189,10 +189,10 @@ const inject = (text) => {
 writeFileSync(join(out, "auth.js"), inject(readFileSync(join(HERE, "auth.js"), "utf8")), "utf8");
 writeFileSync(join(out, "comments.js"), inject(readFileSync(join(HERE, "comments.js"), "utf8")), "utf8");
 copyFileSync(join(HERE, "auth.css"), join(out, "auth.css"));
-for (const file of ["mail-connect.js", "career.css", "career.js", "career-template.json", "applications.js", "resume.js", "applications.css", "navigation.js", "navigation.css"]) copyFileSync(join(HERE, file), join(out, file));
+for (const file of ["mail-connect.js", "career.css", "career.js", "career-template.json", "applications.js", "resume.js", "applications.css", "navigation.js", "navigation.css", "member.css", "resume-preview.js"]) copyFileSync(join(HERE, file), join(out, file));
 copyFileSync(join(HERE, "comments.css"), join(out, "comments.css"));
 const AUTH_PAGES = { "login.html": "login", "auth-callback.html": "auth/callback",
-                     "onboarding.html": "onboarding", "account.html": "account", "mail-connect.html": "mail-connect", "essay.html": "essay", "applications.html": "applications" };
+                     "onboarding.html": "onboarding", "account.html": "account", "mail-connect.html": "mail-connect", "essay.html": "essay", "applications.html": "applications", "resume.html": "resume", "notifications.html": "notifications" };
 for (const [file, dir] of Object.entries(AUTH_PAGES)) {
   const target = join(out, dir); mkdirSync(target, { recursive: true });
   writeFileSync(join(target, "index.html"), inject(readFileSync(join(HERE, file), "utf8")), "utf8");
@@ -280,7 +280,7 @@ if (!missing.length) {
       fetchAll(url, key, "firms?select=*&order=name.asc"),
       fetchAll(url, key, "firm_financials?select=*"),
       fetchAll(url, key,
-        "job_postings?select=company_name,title,region,region_group,deadline,posted_at," +
+        "job_postings?select=company_name,title,region,region_group,deadline,posted_at,first_seen_at," +
         "employment_type,detail_url,removed_at,is_big4,ij_id,source,career_min_years,career_max_years&order=posted_at.desc"),
     ]);
 

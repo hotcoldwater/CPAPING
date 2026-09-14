@@ -59,7 +59,7 @@
   // 비밀번호 재설정 링크로 들어온 경우
   if (params.get("next") === "recovery") return location.replace("/account/?recovery=1");
 
-  if (state.state === "complete") return location.replace(A.takeReturnTo());
+  if (["complete","needs_profile"].includes(state.state)) return location.replace(A.takeReturnTo());
   location.replace("/onboarding/");   // needs_email · needs_profile
 })();
 </script>

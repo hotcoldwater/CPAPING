@@ -73,7 +73,7 @@ def requirements(original,file):
 
 def message(template,rule,post):
     values={'이름':rule['applicant_name'],'법인':post.get('company_name') or '', '공고':post.get('title') or ''}
-    return re.sub(r'\{(이름|법인|공고)\}',lambda m:values[m[1]],template)
+    return re.sub(r'\[회계법인\]|\{(이름|법인|공고)\}',lambda m:values[m[1] or '법인'],template)
 
 
 def prepare(db,app):
@@ -159,6 +159,9 @@ def main():
         except Exception as e:
             reason=str(e)[:800] if isinstance(e,ValueError) else '지원 준비 중 오류가 발생했습니다. 다시 준비해 주세요.'
             db.update('career_applications',{'status':'blocked','reason':reason,'updated_at':now()},id='eq.'+app['id'],status='eq.preparing',version=f'eq.{app["version"]}')
+    from . import review_notices
+    try:review_notices.process(db)
+    except Exception:log.warning('검수 안내 작업을 완료하지 못했습니다.')
     if os.getenv('CAREER_SEND_ENABLED')=='true':
         for _ in range(10):
             apps=db.rpc('career_claim_resume_send')
