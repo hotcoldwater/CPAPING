@@ -5,3 +5,59 @@
 @media(max-width:900px){.resume-page main{padding:26px 20px 28px}.resume-overview{gap:16px;padding:18px}.overview-item{gap:9px}.overview-item+.overview-item{padding-left:16px}.overview-icon{display:none}.mail-grid{grid-template-columns:1fr 1fr;gap:16px}.surface{padding:20px}.email-preview{padding:0}.mode-tag{display:none}.file-grid{gap:16px}.choice-card{padding:18px}.save-bar{gap:12px;padding:16px}.save-actions{flex-direction:column-reverse;gap:4px}.resume-page .stop-button{min-height:30px;padding:5px 10px}.operation-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:680px){.resume-page main{padding:22px 16px 22px}.resume-page .site-topbar{padding:12px 16px!important;gap:8px!important;flex-wrap:wrap}.resume-page .site-topbar .wordmark{font-size:20px}.resume-page .site-tabs{order:3;width:100%;flex-basis:100%;gap:8px;justify-content:space-between}.resume-page .site-tabs a{flex:1;text-align:center;padding:7px 10px}.resume-page .account-menu summary{padding:7px 10px;max-width:170px}.resume-page h1{font-size:24px}.resume-page h2{font-size:18px}.title-row{align-items:flex-start;flex-direction:column;gap:12px}.breadcrumb{margin-bottom:18px!important}.page-lead{font-size:13px;max-width:340px}.history-link{font-size:12px}.resume-overview{grid-template-columns:1fr;gap:12px;margin-top:20px;padding:17px}.overview-item+.overview-item{border-left:0;padding:10px 0 0;border-top:1px solid #edf0f6}.overview-item>div{display:grid;grid-template-columns:100px minmax(0,1fr);align-items:center;gap:4px 10px;width:100%}.overview-item .meta-label{margin:0;font-size:11px}.overview-item strong{font-size:12px}.overview-item .small-copy{grid-column:2;font-size:11px}.setup-section{margin-top:28px}.section-heading{margin-bottom:12px;gap:9px}.section-note{display:none}.surface{padding:18px}.sender-card{gap:14px}.sender-copy{gap:12px;flex-basis:100%}.sender-actions{margin-left:60px;gap:4px}#mail-state{font-size:13px}.sender-note{font-size:11px;padding-top:12px}.file-grid,.mail-grid,.employment-choices,.mode-grid,.operation-grid{grid-template-columns:1fr;gap:14px}.file-display{margin:16px 0;padding:16px 12px;gap:12px}.file-display strong{font-size:14px}.surface-topline{gap:8px}.surface-topline .state-badge{font-size:10px}.file-actions .btn{font-size:12px;padding:8px 10px}.drop-zone{min-height:178px}.drop-zone strong{font-size:14px}.inline-note{font-size:11px;padding:12px 14px}.resume-file-row{align-items:flex-start;flex-direction:column;gap:8px}.resume-file-actions{align-self:flex-end}.email-preview{padding:0;position:static}.preview-heading{padding:13px 16px}.preview-meta{padding:15px 16px}.preview-meta>div{grid-template-columns:62px minmax(0,1fr);gap:7px}#preview-body{padding:22px 18px;font-size:13px;min-height:170px}.preview-attachment{margin:0 16px 16px}.preview-footnote{padding:14px 16px}.choice-card{padding:18px;gap:12px}.choice-card strong{font-size:16px}.mode-tag{display:inline}.mode-footnote{font-size:11px}.resume-page .file-confirm{font-size:12px;padding:20px 0}.save-bar{bottom:0;margin:0 -16px -22px;padding:14px 16px max(14px,env(safe-area-inset-bottom));border-radius:14px 14px 0 0;flex-direction:column;align-items:stretch;gap:12px}.save-information{display:grid;grid-template-columns:1fr;gap:0}.activation-toggle{justify-content:space-between;flex-direction:row-reverse}.activation-toggle>span:last-child{margin-right:auto}#save-feedback{font-size:11px;margin-top:6px}#saved-at{font-size:10px}.save-actions{flex-direction:row;gap:8px}.resume-page .save-button{flex:1;min-width:0;min-height:46px;padding:12px 16px}.resume-page .stop-button{padding:10px;font-size:11px;max-width:95px}.resume-page footer{padding:22px 16px;flex-wrap:wrap;gap:6px 12px}.resume-page footer div{width:100%;margin:6px 0 0}.resume-page .field input,.resume-page textarea,.resume-page select{font-size:16px}.token-guide p{font-size:11px}.operation-rules{padding:12px 18px}.resume-page .status-message{font-size:12px}.file-display p{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.switch-track:after{transition:none}}
+
+/* Screen-by-screen editor. Only the active step scrolls; navigation stays visible. */
+body.resume-page[data-page="resume"]{height:100dvh;overflow:hidden;min-height:0;padding-bottom:0}
+body.resume-page[data-page="resume"] .resume-shell{height:100%;min-height:0;display:flex;flex-direction:column}
+body.resume-page[data-page="resume"] main{flex:1;min-height:0;width:100%;padding:18px 24px 12px;display:flex;flex-direction:column}
+body.resume-page[data-page="resume"] footer{display:none}
+.step-form{flex:1;min-height:0;display:flex;flex-direction:column}
+.step-form .breadcrumb,.step-form .eyebrow,.step-form .page-lead{display:none}
+.step-form .title-row{flex-direction:row;align-items:center;gap:12px}
+body[data-page="resume"] .step-form h1{font-size:24px}
+.resume-progress{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;padding:18px 0;flex-shrink:0}
+.resume-progress button{display:flex;align-items:center;justify-content:center;gap:9px;border:0;background:#eff4ff;color:#69768a;font:inherit;font-size:12px;border-radius:10px;padding:10px 5px;cursor:pointer;min-width:0}
+.resume-progress button[aria-current]{background:#004ac6;color:white;font-weight:600}
+.progress-number{display:grid;place-items:center;border-radius:50%;background:#ffffff80;width:23px;height:23px;flex-shrink:0;color:#536176}
+.resume-progress [aria-current] .progress-number{color:#004ac6;background:white}
+.resume-progress [data-complete="true"]{color:#004ac6;background:#e5eeff}
+#resume-step-viewport{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:0 6px 20px 0}
+.step-form .setup-section{margin:16px 0 0;animation:step-appear .2s ease-out}
+.step-form .section-heading{margin-bottom:18px}
+.step-form .status-message{margin:0 0 12px!important;padding:9px 13px;font-size:12px}
+.step-form .operation-grid{grid-template-columns:1fr;gap:12px}
+.step-form .email-preview{position:static}
+.resume-step-navigation{display:flex;align-items:center;gap:16px;padding:14px 0 0;border-top:1px solid #dce4ef;flex-shrink:0;background:#f8f9ff}
+#resume-step-count{color:#647186;font-size:12px;margin-right:auto}
+body[data-page="resume"] .step-form .resume-step-navigation .btn{min-height:46px;min-width:112px;margin:0}
+body[data-page="resume"] .step-form .save-bar{position:static;inset:auto;margin:0;padding:20px;display:flex;flex-direction:row;align-items:center;border-radius:12px;box-shadow:none}
+.step-form .activation-toggle{flex-direction:row;justify-content:flex-start}
+.step-form .save-information{flex:1}
+.draft-review dl{margin:12px 0 20px;display:grid;grid-template-columns:1fr 1fr;gap:14px 28px}
+.draft-review dl>div{min-width:0}
+.draft-review dt{color:#647186;font-size:12px;margin-bottom:3px}
+.draft-review dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+.saved-settings{margin-top:20px;color:#647186;font-size:12px}.saved-settings summary{cursor:pointer;padding:10px 0}.saved-settings .resume-overview{margin-top:8px}
+@keyframes step-appear{from{opacity:.5;transform:translateY(5px)}to{opacity:1;transform:none}}
+@media(max-width:680px){
+ body.resume-page[data-page="resume"] .resume-shell{padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}
+ body.resume-page[data-page="resume"] main{padding:14px 16px 10px}
+ body[data-page="resume"] .step-form h1{font-size:20px}
+ .step-form .history-link{font-size:11px}.step-form .history-link span{margin-left:2px}
+ .resume-progress{gap:5px;padding:14px 0}
+ .resume-progress button{font-size:10px;gap:5px;padding:8px 0;flex-direction:column;border-radius:8px}
+ .progress-number{width:20px;height:20px;font-size:11px}
+ #resume-step-viewport{padding-right:3px;padding-bottom:14px}
+ .step-form .setup-section{margin-top:10px}.step-form .section-heading{margin-bottom:12px}
+ .resume-step-navigation{gap:10px;padding-top:10px}
+ body[data-page="resume"] .step-form .resume-step-navigation .btn{min-width:82px;padding:10px 12px;font-size:12px}
+ body[data-page="resume"] .step-form .save-bar{padding:16px;flex-direction:column;align-items:stretch;gap:10px}
+ .step-form .save-actions{align-self:flex-start}.step-form .save-actions:empty{display:none}
+ .draft-review dl{grid-template-columns:1fr;gap:12px}.draft-review dl>div{display:grid;grid-template-columns:90px minmax(0,1fr);gap:10px}
+}
+@media(prefers-reduced-motion:reduce){.step-form .setup-section{animation:none}}
+
+@media(min-width:681px) and (max-width:760px){body.resume-page[data-page="resume"] .resume-shell{padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}}
+/* Keep visually hidden legends inside the step scroll container. */
+#resume-step-viewport{position:relative}
+.resume-progress button>span:last-child{white-space:nowrap}
