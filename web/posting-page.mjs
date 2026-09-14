@@ -1,5 +1,5 @@
 /**
- * 공고 상세 페이지. 빌드할 때 공고마다 /posting/<ij_id>/ 로 찍어낸다.
+ * 공고 상세 페이지. 접속 시 최신 정보를 렌더링하고 빌드에서는 장애 대비 사본을 만든다.
  *
  * 한공회 원문을 전재하지 않는다(README 원칙). 제목·법인·지역·고용형태·마감·
  * 모집인원·경력·급여·학력처럼 목록에서 뽑은 값을 정리해 보여주고, 본문과
@@ -24,10 +24,9 @@ const longDate = (iso) => {
 
 function daysLeft(iso) {
   if (!iso) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const [y, m, d] = iso.split("-").map(Number);
-  return Math.round((new Date(y, m - 1, d) - today) / 86400000);
+  // Edge servers run in UTC; deadlines are Korean calendar dates.
+  const today = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+  return Math.round((Date.parse(iso + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000);
 }
 
 /** "[동성회계법인] 수습 회계사 채용" → "수습 회계사 채용" (firm-page 와 같은 규칙) */
@@ -47,7 +46,7 @@ const JOB = { audit: "감사", tax: "세무", deal: "딜", etc: "기타" };
 function status(p) {
   const left = daysLeft(p.deadline);
   if (p.removed_at) return { key: "removed", label: "공고 내림", left };
-  if (left !== null && left < 0) return { key: "expired", label: "마감", left };
+  if (p.is_expired || (left !== null && left < 0)) return { key: "expired", label: "마감", left };
   if (left === 0) return { key: "today", label: "오늘 마감", left };
   return { key: "open", label: left === null ? "모집 중" : `D-${left}`, left };
 }

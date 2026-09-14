@@ -15,6 +15,7 @@ import { navigation } from "./navigation.mjs";
 import { renderFirmPage } from "./firm-page.mjs";
 import { renderFirmsPage } from "./firms-page.mjs";
 import { renderPostingPage } from "./posting-page.mjs";
+import { POSTING_FIELDS, POSTING_SCOPE } from "./posting-data.mjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -344,13 +345,7 @@ if (!missing.length) try {
   const url = read("NEXT_PUBLIC_SUPABASE_URL");
   const key = read("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
   const full = await fetchAll(url, key,
-    "job_postings?select=ij_id,title,company_name,region,work_region,employment_type," +
-    "hiring_status,headcount,career,salary,education,posted_at,deadline,detail_url," +
-    "job_category,original_posted_at,repost_count,removed_at,is_expired,view_count,source,audience,is_big4,career_min_years,career_max_years" +
-    // 수습·경력 모두 빅4 포함. 마감된 공고도 남긴다.
-    // 마감됐다고 페이지를 지우면 목록·메일에서 이어진 링크가 죽는다.
-    "&or=(and(source.eq.kicpa:trainee,or(is_target.is.true,is_expired.is.true))," +
-    "and(source.eq.kicpa:cpa,audience.eq.cpa,or(is_target.is.true,is_expired.is.true)))&order=posted_at.desc");
+    `job_postings?select=${POSTING_FIELDS}&or=${POSTING_SCOPE}&order=posted_at.desc`);
   const firmsAll = await fetchAll(url, key, "firms?select=id,name,aliases,slug,region");
   const finAll = await fetchAll(url, key, "firm_financials?select=firm_id,fiscal_year,revenue,cpa_count,trainee_count");
   const byName = new Map();
