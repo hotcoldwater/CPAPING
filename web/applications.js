@@ -16,9 +16,10 @@
  async function load(reset=true){if(busy)return;busy=true;try{const result=await api('deliveries?offset='+(reset?0:offset));items=reset?result.items:[...items,...result.items];offset=items.length;hasMore=result.has_more;render();}finally{busy=false;}}
  async function mail(){const s=await api('state');$('mail-state').textContent=s.mail?'연결된 계정: '+s.mail.email:'아직 연결한 개인 메일이 없습니다.';$('connect').hidden=!!s.mail;$('disconnect').hidden=!s.mail;}
  function action(id,fn){$(id).onclick=async()=>{$(id).disabled=true;try{await fn();}catch(e){message(e.message,true);}finally{$(id).disabled=false;}};}
- try{const auth=await A.ensure('needs_profile');if(!['complete','needs_profile'].includes(auth.state))return;await Promise.all([mail(),load()]);message('발송 이력과 열람 신호를 불러왔습니다.');
+ try{const auth=await A.ensure('needs_profile');if(!['complete','needs_profile'].includes(auth.state))return;
   const result=new URLSearchParams(location.search).get('mail');if(result){const messages={connected:'개인 메일을 연결했습니다.',cancelled:'메일 연결을 취소했습니다.',missing_send_permission:'메일 발송 권한을 받지 못했습니다. 다시 연결할 때 이메일 전송 권한을 허용해 주세요.',missing_refresh_token:'연결을 유지할 인증 정보를 받지 못했습니다. Gmail 연결을 다시 시도해 주세요.'};if(messages[result])message(messages[result],result.startsWith('missing_'));history.replaceState(null,'',location.pathname);}
   action('connect',async()=>{const r=await api('mail-connect','POST',{provider:'google'}),u=new URL(r.url);if(u.origin!=='https://accounts.google.com')throw new Error('연결 주소를 확인해 주세요.');location.assign(u.href);});action('disconnect',async()=>{await api('mail','DELETE');await mail();message('메일 연결을 해제했습니다.');});action('refresh',async()=>{await Promise.all([mail(),load()]);message('최신 상태를 불러왔습니다.');});action('more',()=>load(false));$('mode').onchange=render;
+  const results=await Promise.allSettled([mail(),load()]);if(results.some(r=>r.status==='rejected'))message('일부 정보를 불러오지 못했습니다. 새로고침하거나 Gmail을 다시 연결해 주세요.',true);else message('발송 이력과 열람 신호를 불러왔습니다.');
   setInterval(()=>{if(!document.hidden&&offset<=25&&!document.querySelector('.delivery[open]'))load().catch(()=>{});},15000);
  }catch(e){message(e.message,true);}
 })();
