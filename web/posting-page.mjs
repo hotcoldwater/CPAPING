@@ -238,7 +238,7 @@ footer a{color:var(--ink-2)}
 <script>(function(){try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(/^sb-.*-auth-token$/.test(k)&&localStorage.getItem(k)){var a=document.getElementById("auth-link");a.textContent="마이페이지";a.href="/account/";break;}}}catch(e){}})();</script>
   </header>
 
-  <div class="head">
+  <div class="head"><p class="eyebrow">CAREER OPPORTUNITY</p>
     <div class="crumb">
       ${firmUrl ? `<a href="${firmUrl}">${esc(p.company_name)}</a>` : `<span>${esc(p.company_name)}</span>`}
       <span class="muted">· ${esc(shortDate(p.posted_at))} 등록</span>

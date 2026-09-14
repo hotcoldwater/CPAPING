@@ -11,10 +11,11 @@ export default {
   "/comments.js": "/assets/comments.0f75e18502e19650.js",
   "/mail-connect.js": "/assets/mail-connect.715dc3d51942973e.js",
   "/member.css": "/assets/member.81040375b69cb5e1.css",
-  "/navigation.css": "/assets/navigation.d61586adde355fb0.css",
+  "/navigation.css": "/assets/navigation.ebd01b073cc4a26d.css",
   "/navigation.js": "/assets/navigation.e7fc958ad51e8bd8.js",
   "/posting-content.css": "/assets/posting-content.c8d71d4324adde66.css",
   "/resume-design.css": "/assets/resume-design.c7e236ac72adce26.css",
   "/resume-preview.js": "/assets/resume-preview.30fe38775db88281.js",
-  "/resume.js": "/assets/resume.d175eeba9a334e71.js"
+  "/resume.js": "/assets/resume.d175eeba9a334e71.js",
+  "/site-design.css": "/assets/site-design.1f4021411c99e52b.css"
 };

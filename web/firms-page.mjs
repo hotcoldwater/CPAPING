@@ -295,8 +295,9 @@ ${JSON.stringify({
 <script>(function(){try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(/^sb-.*-auth-token$/.test(k)&&localStorage.getItem(k)){var a=document.getElementById("auth-link");a.textContent="마이페이지";a.href="/account/";break;}}}catch(e){}})();</script>
   </header>
 
-  <div class="wrap">
-    <h1 class="ft">회계법인 ${rows.length}곳</h1>
+  <main class="wrap">
+    <p class="eyebrow">ACCOUNTING FIRMS DIRECTORY</p>
+    <h1 class="ft">회계법인 탐색 · 비교</h1>
     <p class="ftsub">금융감독원에 제출된 회계법인 사업보고서에서 뽑았습니다.
       수습회계사를 몇 명 뽑았는지, 매출과 인원이 어떻게 움직였는지를 나란히 놓고 볼 수 있습니다.</p>
 
@@ -357,7 +358,7 @@ ${JSON.stringify({
       수치는 각 법인이 금융감독원에 낸 사업보고서 기준입니다. 잘못된 내용이 있으면
       <a href="mailto:contact@cpaping.com">contact@cpaping.com</a> 으로 알려주세요.
     </p>
-  </div>
+  </main>
 </div>
 
 <script id="firm-data" type="application/json">${data}</script>
