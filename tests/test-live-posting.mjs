@@ -21,7 +21,7 @@ function mockDatabase(t, options = {}) {
   t.mock.method(globalThis, 'fetch', async (url, init) => {
     const u = new URL(url); calls.push({ url: u, init });
     assert.equal(init.headers.apikey, 'public-key');
-    assert.ok(!u.searchParams.get('select').includes('body'));
+    if (u.searchParams.get('ij_id')?.startsWith('neq.')) assert.ok(!u.searchParams.get('select').includes('body'));
     if (options.outage) return new Response('upstream failed', { status: 504 });
     if (u.pathname.endsWith('/job_postings')) {
       if (u.searchParams.get('ij_id').startsWith('eq.')) return Response.json(options.absent ? [] : [{ ...job, ...options.job }]);

@@ -80,9 +80,8 @@ class Posting:
     view_count: int | None = None
 
     # --- 상세에서 ---
-    # 공고에 적힌 담당자 이름·전화번호·이메일은 수집하지 않는다.
-    # 개인 휴대폰과 개인 메일 주소가 섞여 있는데, 우리가 이를 따로 보관하고
-    # 알림 메일로 재배포할 이유가 없다. 지원자는 원문 링크에서 확인하면 된다.
+    # 채용 공고에 공개된 본문·이미지·지원 연락처는 source_content에 보관한다.
+    # 구독자 알림은 기존 요약과 링크를 유지한다.
     detail_fetched: bool = False
     co_sep: str = ""                    # 회사구분
     homepage: str = ""                  # 법인 홈페이지 (개인정보 아님)
@@ -94,6 +93,7 @@ class Posting:
     education: str = ""
     deadline: date | None = None
     body: str = ""
+    source_content: dict | None = None
 
     # --- 분류 결과 (classify.py 가 채움) ---
     labels: dict = field(default_factory=dict)
@@ -297,7 +297,7 @@ def fetch_complete_list(
 # --------------------------------------------------------------------------
 
 # 상세 페이지 th 라벨 → Posting 속성명
-# '담당자' / '전화번호' / '이메일' 은 일부러 뺐다. Posting 주석 참고.
+# 지원 연락처는 본문 구조와 함께 source_content에 보관한다.
 _DETAIL_FIELDS = {
     "회사구분": "co_sep",
     "회사명": "company_name",
@@ -314,6 +314,7 @@ _DETAIL_FIELDS = {
 def parse_detail(html: str, posting: Posting) -> Posting:
     """상세 페이지 HTML 로 Posting 을 보강한다."""
     soup = BeautifulSoup(html, "lxml")
+    from posting_content import extract_content, body_cell
 
     for tr in soup.select("table.table_st02 tr"):
         cells = tr.find_all(["th", "td"])
@@ -331,13 +332,10 @@ def parse_detail(html: str, posting: Posting) -> Posting:
                 if value and value != "-":
                     setattr(posting, _DETAIL_FIELDS[label], value)
 
-    # 본문: th 가 없는 테이블의 첫 td
-    for tbl in soup.select("table.table_st02"):
-        if tbl.find("th") is None:
-            td = tbl.find("td")
-            if td:
-                posting.body = td.get_text("\n", strip=True)
-                break
+    td = body_cell(soup)
+    if td is not None:
+        posting.body = td.get_text("\n", strip=True)
+        posting.source_content = extract_content(soup, posting.detail_url)
 
     posting.detail_fetched = True
     return posting

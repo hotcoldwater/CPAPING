@@ -95,6 +95,21 @@ class Store:
             json=rows,
         )
 
+    def content_refresh_candidates(self, source, limit=1):
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        return self._request('GET', 'job_postings', params={
+            'select':'ij_id', 'source':f'eq.{source}', 'removed_at':'is.null',
+            'or':f'(content_fetched_at.is.null,content_fetched_at.lt.{cutoff})',
+            'order':'content_fetched_at.asc.nullsfirst,posted_at.desc', 'limit':str(limit),
+        })
+
+    def update_content(self, posting):
+        if posting.source_content is None:
+            raise ValueError('본문 수집에 실패해 기존 내용을 유지합니다')
+        return self._request('PATCH', 'job_postings', params={
+            'source':f'eq.{posting.source}', 'ij_id':f'eq.{posting.ij_id}',
+        }, json=content_row(posting))
+
     def snapshot_views(self, rows: list[dict]) -> None:
         """공고별 하루 1행으로 한공회 조회수를 남긴다. 같은 날은 마지막 값으로 덮어쓴다.
 
@@ -572,7 +587,7 @@ def to_row(posting) -> dict:
         "posted_at": _iso(posting.posted_at),
         "deadline": _iso(posting.deadline),
         "view_count": posting.view_count,
-        "body": posting.body or None,
+        **content_row(posting),
         "homepage": posting.homepage or None,
         "is_big4": bool(labels.get("is_big4")),
         "big4_name": labels.get("big4"),
@@ -591,3 +606,8 @@ def to_row(posting) -> dict:
         **(getattr(posting, "repost", None) or
            {"original_id": None, "original_posted_at": None, "repost_count": 0}),
     }
+
+
+def content_row(posting):
+    return {'body':posting.body or None, 'source_content':posting.source_content,
+            'content_fetched_at':_now_iso() if posting.source_content is not None else None}
