@@ -43,10 +43,10 @@ export async function resumeRequest(request,env,user,path){
  }
  if(path==='resume-rule'&&method==='PUT'){
   const b=await body(request),name=textValue(b.applicant_name,80),filters=resumeFilters(b.filters);
-  if(!name||/[\r\n\x00-\x1f]/.test(name)||!['auto','review'].includes(b.mode)||typeof b.enabled!=='boolean'||!Number.isInteger(b.daily_limit)||b.daily_limit<1||b.daily_limit>20||b.file_confirmed!==true)throw fail('이름·발송 방식·하루 한도와 이력서 내용 확인 항목을 확인해 주세요.');
+  if(!name||/[\r\n\x00-\x1f]/.test(name)||!['auto','review'].includes(b.mode)||typeof b.enabled!=='boolean'||b.file_confirmed!==true)throw fail('이름·발송 방식과 이력서 내용 확인 항목을 확인해 주세요.');
   const subject=mailTemplate(b.subject,200,true),mailBody=mailTemplate(b.body,10000);
   if(b.mode==='auto'&&b.enabled&&b.auto_consent!==true)throw fail('조건에 맞는 공고에 개인 메일로 자동 발송하는 것에 동의해 주세요.');
-  const rows=await rpc(env,'career_save_resume_rule',{p_user:user.id,p_file:uuid(b.resume_file_id),p_name:name,p_subject:subject,p_body:mailBody,p_filters:filters,p_mode:b.mode,p_enabled:b.enabled,p_limit:b.daily_limit,p_consent:b.auto_consent===true?'resume-auto-v1':null,p_expected:b.updated_at||null});return reply(rows[0]);
+  const rows=await rpc(env,'career_save_resume_rule',{p_user:user.id,p_file:uuid(b.resume_file_id),p_name:name,p_subject:subject,p_body:mailBody,p_filters:filters,p_mode:b.mode,p_enabled:b.enabled,p_limit:null,p_consent:b.auto_consent===true?'resume-auto-v1':null,p_expected:b.updated_at||null});return reply(rows[0]);
  }
  if(path==='resume-applications'&&method==='POST'){
   const b=await body(request),id=String(b.posting_id||'');if(!/^\d{1,15}$/.test(id))throw fail('지원할 공고를 선택해 주세요.');

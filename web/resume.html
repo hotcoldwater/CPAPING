@@ -7,25 +7,27 @@
 <title>이력서 및 지원 설정 — CPAPING</title>
 <link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/auth.css"><link rel="stylesheet" href="/resume-design.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" crossorigin="anonymous" defer></script>
-<script src="/auth.js" defer></script><script src="/resume-preview.js" defer></script><script src="/resume.js" defer></script>
+<script src="/auth.js" defer></script><script src="/resume-preview.js" defer></script><script src="/resume-steps.js" defer></script><script src="/resume.js" defer></script>
 </head>
 <body class="resume-page">
 <div class="shell resume-shell">
 <header class="topbar"><a href="/">CPAPING</a></header>
 <main data-clarity-mask="true">
-<form id="resume-form">
+<form id="resume-form" novalidate>
 <div class="resume-heading">
  <p class="breadcrumb"><a href="/account/">마이페이지</a><span aria-hidden="true">/</span>이력서</p>
- <div class="title-row"><div><p class="eyebrow">YOUR NEXT CHAPTER</p><h1>이력서 및 지원 설정</h1><p class="page-lead">내 이력서와 메일을 한 번 준비하고, 새로운 기회에 지원하세요.</p></div><a class="history-link" href="/applications/">지원현황 보기 <span aria-hidden="true">↗</span></a></div>
+ <div class="title-row"><div><p class="eyebrow">YOUR NEXT CHAPTER</p><h1>이력서 및 지원 설정</h1><p class="page-lead">한 단계씩 준비하면, 새로운 기회에 지원할 수 있어요.</p></div><a class="history-link" href="/applications/">지원현황 보기 <span aria-hidden="true">↗</span></a></div>
  <div class="resume-overview" aria-label="저장된 지원 설정">
   <div class="overview-item"><span class="overview-icon" aria-hidden="true">↗</span><div><span class="meta-label">현재 지원 상태</span><strong id="resume-rule-state">설정을 불러오는 중…</strong><span id="summary-mode" class="small-copy">저장된 설정을 확인합니다.</span></div></div>
   <div class="overview-item"><span class="overview-icon" aria-hidden="true">@</span><div><span class="meta-label">발신 계정</span><strong id="summary-mail">확인 중…</strong></div></div>
   <div class="overview-item"><span class="overview-icon" aria-hidden="true">≡</span><div><span class="meta-label">저장된 이력서</span><strong id="summary-file">확인 중…</strong></div></div>
  </div>
 </div>
+<nav class="resume-progress" aria-label="이력서 작성 단계"></nav>
+<div id="resume-step-viewport">
 <p id="resume-message" class="status-message" role="status" aria-live="polite">이력서 설정을 불러오는 중…</p>
 <button class="btn subtle" id="retry-resume" type="button" hidden>설정 다시 불러오기</button>
-<section class="setup-section" aria-labelledby="sender-heading">
+<section data-resume-step class="setup-section" aria-labelledby="sender-heading">
  <div class="section-heading"><span class="step" aria-hidden="true">A</span><h2 id="sender-heading">발신 Gmail 연결</h2><span class="section-note">내 계정으로 직접 발송</span></div>
  <div class="surface sender-card">
   <div class="sender-copy"><span class="mail-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M3 6h18v13H3z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m3 6 9 7 9-7" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span><div><div class="sender-title"><strong>개인 Gmail</strong><span class="state-badge" id="mail-badge">확인 중</span></div><p id="mail-state">연결 상태를 불러오는 중…</p></div></div>
@@ -35,7 +37,7 @@
 </section>
 <fieldset id="resume-editor" disabled>
 <legend class="sr-only">이력서와 지원 설정</legend>
-<section class="setup-section" id="resume-workspace" aria-labelledby="file-heading">
+<section data-resume-step class="setup-section" id="resume-workspace" aria-labelledby="file-heading">
  <div class="section-heading"><span class="step" aria-hidden="true">B</span><h2 id="file-heading">이력서 파일 준비</h2><span class="section-note">PDF · Word(.docx)</span></div>
  <div class="file-grid">
   <div class="surface current-file">
@@ -55,7 +57,7 @@
  <p class="inline-note">새 파일을 올리면 새 공고 지원이 일시 중지됩니다. 사용할 파일을 확인하고 설정을 다시 저장해 주세요.</p>
  <details class="file-history"><summary>업로드한 이력서 <span id="file-count">0</span><span aria-hidden="true">⌄</span></summary><div id="resume-files"></div><p class="small-copy">현재 설정이나 지원 이력에서 사용하는 파일은 삭제할 수 없습니다.</p></details>
 </section>
-<section class="setup-section" aria-labelledby="message-heading">
+<section data-resume-step class="setup-section" aria-labelledby="message-heading">
  <div class="section-heading"><span class="step" aria-hidden="true">C</span><h2 id="message-heading">지원 메일 작성</h2><span class="section-note">법인명 자동 입력</span></div>
  <div class="mail-grid">
   <div class="surface mail-editor">
@@ -78,7 +80,7 @@
   </div>
  </div>
 </section>
-<section class="setup-section" aria-labelledby="employment-heading">
+<section data-resume-step class="setup-section" aria-labelledby="employment-heading">
  <div class="section-heading"><span class="step" aria-hidden="true">D</span><h2 id="employment-heading">지원할 공고 선택</h2><span class="section-note">하나 또는 둘 다 선택</span></div>
  <fieldset class="employment-options" aria-describedby="employment-help employment-error"><legend class="sr-only">지원 대상 고용 형태</legend><div class="employment-choices">
   <label class="choice-card"><input type="checkbox" id="resume-full" value="Full Time" checked><span><strong>풀타임 <small>Full-time</small></strong><span>풀타임으로 등록된 신입·수습 공고</span></span></label>
@@ -87,7 +89,7 @@
  <p class="field-error" id="employment-error" hidden>풀타임 또는 파트타임을 하나 이상 선택해 주세요.</p>
  <p id="employment-help" class="inline-note">신입·수습 회계사 공고만 대상으로 합니다. 경력직 공고는 자동지원 대상에서 제외됩니다.</p>
 </section>
-<section class="setup-section" aria-labelledby="mode-heading">
+<section data-resume-step class="setup-section" aria-labelledby="mode-heading">
  <div class="section-heading"><span class="step" aria-hidden="true">E</span><h2 id="mode-heading">발송 방식 선택</h2><span class="section-note">직접 검수 또는 자동 발송</span></div>
  <input type="hidden" id="resume-mode" value="review">
  <fieldset class="mode-options"><legend class="sr-only">발송 방식</legend><div class="mode-grid">
@@ -95,8 +97,7 @@
   <label class="choice-card mode-card"><input type="radio" name="send-mode" value="auto"><span><span class="mode-title"><strong>자동발송</strong><span class="mode-tag">추가 승인 없이 발송</span></span><span>제출 요건 확인을 통과한 새 공고에는 연결한 개인 Gmail에서 지원 메일을 자동으로 보내요.</span><span class="mode-footnote">지정 양식·추가 서류·제목 규칙이 있으면 검수가 필요합니다.</span></span></label>
  </div></fieldset>
  <div id="auto-consent-panel" class="consent-panel" hidden><label class="check"><input type="checkbox" id="resume-consent"><span>선택한 조건에 맞는 공고에 이력서와 메일 문구를 사용해 <strong>내 Gmail에서 별도 승인 없이 발송</strong>하는 데 동의합니다.</span></label></div>
- <div class="operation-grid">
-  <div class="surface daily-limit"><div><label for="resume-limit">하루 발송 한도</label><p class="small-copy">하루에 보낼 지원 메일 수를 정해 주세요.</p></div><div class="limit-input"><input id="resume-limit" type="number" min="1" max="20" value="5" required inputmode="numeric" aria-describedby="limit-help"><span>건</span></div><p class="small-copy" id="limit-help">1~20건 · 기본 5건</p></div>
+ <div class="operation-grid"><p class="inline-note">CPAPING의 일일 메일 발송 건수 제한 없이 지원합니다.</p>
   <details class="operation-rules surface"><summary>언제부터, 어떻게 적용되나요?<span aria-hidden="true">⌄</span></summary><ul><li>켜고 저장한 시점 이후의 새 공고부터 적용됩니다. 기존 공고와 끌올 공고에 소급 자동지원하지 않습니다.</li><li>작업은 5분 주기로 실행되며 대기시간이 추가될 수 있습니다.</li><li>중지하면 발송 대기는 검수 상태로 돌아갑니다. 이미 메일 서비스에 전송 중인 메일은 취소할 수 없습니다.</li></ul></details>
  </div>
  <label class="check file-confirm"><input type="checkbox" id="resume-confirmed" required><span>선택한 이력서의 내용과 파일명을 확인했습니다.</span></label>
@@ -106,6 +107,8 @@
  <div class="save-information"><label class="activation-toggle" for="resume-enabled"><span class="switch"><input type="checkbox" id="resume-enabled" disabled><span class="switch-track" aria-hidden="true"></span></span><span>새 공고 지원 <strong id="activation-label">꺼짐</strong></span></label><p id="save-feedback" role="status" aria-live="polite">저장된 설정을 확인하고 있습니다.</p><p id="saved-at"></p></div>
  <div class="save-actions"><button class="btn stop-button" type="button" id="stop-resume" hidden>현재 지원 중지</button><button class="btn save-button" id="save-resume-rule" type="submit" disabled>설정 저장하기 <span aria-hidden="true">→</span></button></div>
 </div>
+</div>
+<div class="resume-step-navigation"><button class="btn subtle" id="resume-previous" type="button">← 이전</button><span id="resume-step-count" aria-live="polite"></span><button class="btn primary" id="resume-next" type="button">다음 단계 →</button></div>
 </form>
 </main>
 <footer><strong>CPAPING</strong><span>회계사를 위한 새로운 기회</span><div><a href="/privacy">개인정보처리방침</a><a href="/terms">이용약관</a></div></footer>

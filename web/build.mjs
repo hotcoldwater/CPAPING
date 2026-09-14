@@ -190,7 +190,7 @@ const inject = (text) => {
 writeFileSync(join(out, "auth.js"), inject(readFileSync(join(HERE, "auth.js"), "utf8")), "utf8");
 writeFileSync(join(out, "comments.js"), inject(readFileSync(join(HERE, "comments.js"), "utf8")), "utf8");
 copyFileSync(join(HERE, "auth.css"), join(out, "auth.css"));
-for (const file of ["mail-connect.js", "career.css", "career.js", "career-template.json", "applications.js", "resume.js", "applications.css", "navigation.js", "navigation.css", "member.css", "resume-preview.js", "resume-design.css", "site-design.css"]) copyFileSync(join(HERE, file), join(out, file));
+for (const file of ["mail-connect.js", "career.css", "career.js", "career-template.json", "applications.js", "resume.js", "applications.css", "navigation.js", "navigation.css", "member.css", "resume-preview.js", "resume-steps.js", "resume-design.css", "site-design.css"]) copyFileSync(join(HERE, file), join(out, file));
 copyFileSync(join(HERE, "comments.css"), join(out, "comments.css"));
 const AUTH_PAGES = { "login.html": "login", "auth-callback.html": "auth/callback",
                      "onboarding.html": "onboarding", "account.html": "account", "mail-connect.html": "mail-connect", "essay.html": "essay", "applications.html": "applications", "resume.html": "resume", "notifications.html": "notifications" };
