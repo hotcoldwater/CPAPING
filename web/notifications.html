@@ -14,18 +14,19 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" crossorigin="anonymous"></script>
 <script src="/auth.js"></script>
 <link rel="stylesheet" href="/member.css"></head>
-<body><div class="shell member-shell"><header class="topbar"><a class="wordmark" href="/">CPAPING</a></header><main><p class="eyebrow">MY WORKSPACE</p><h1>알림설정</h1><p class="lead">원하는 채용 소식만, 가입한 이메일로 받아보세요.</p>    <section class="alerts">
+<body><div class="shell member-shell"><header class="topbar"><a class="wordmark" href="/">CPAPING</a></header><main><p class="eyebrow">NOTIFICATION PREFERENCES</p><h1>공고 알림 설정</h1><p class="lead">원하는 채용 소식만, 가입한 이메일로 받아보세요.</p>    <section class="alerts">
       <label class="check" style="margin:0"><input type="checkbox" id="alert-on" disabled>
         <span><b>새 공고 알림 받기</b> <span class="muted small" id="alert-state"></span></span></label>
       <div id="alert-opts" hidden style="margin-top:8px">
-        <label for="region">지역</label>
-        <select id="region"><option value="all">전국</option><option value="capital">수도권 (서울·경기·인천)</option><option value="local">지방</option></select>
+        <h2 class="numbered-heading"><span>A</span> 채용 구분 선택</h2>
+
         <div class="kinds" role="group" aria-label="받을 공고" style="margin-top:10px">
-          <label class="check"><input type="checkbox" id="kind-full" checked> <span>풀타임</span></label>
-          <label class="check"><input type="checkbox" id="kind-part" checked> <span>파트타임</span></label>
-          <label class="check"><input type="checkbox" id="kind-career"> <span>경력직 <span class="muted small">회계사 경력 채용 · 빅4·일반기업 포함, 기장·사무 직원 공고 제외</span></span></label>
+          <label class="check"><input type="checkbox" id="kind-full" checked> <span><strong>풀타임</strong><small>수습 공인회계사 풀타임 채용</small></span></label>
+          <label class="check"><input type="checkbox" id="kind-part" checked> <span><strong>파트타임</strong><small>시즌 · 프로젝트 단위 수습 채용</small></span></label>
+          <label class="check"><input type="checkbox" id="kind-career"> <span><strong>경력직</strong> <span class="muted small">회계사 경력 채용 · 빅4·일반기업 포함, 기장·사무 직원 공고 제외</span></span></label>
         </div>
-        <button class="btn" type="button" id="alert-save" style="margin-top:10px">알림 조건 저장</button>
+        <h2 class="numbered-heading"><span>B</span> 희망 근무 지역</h2><label for="region">알림을 받을 지역</label><select id="region"><option value="all">전국</option><option value="capital">수도권 (서울·경기·인천)</option><option value="local">지방</option></select><p class="tip">지역무관 공고는 모든 지역에 포함됩니다.</p><div class="notification-channel"><strong>이메일 알림</strong><span>가입한 이메일로 새 공고를 전달합니다.</span></div>
+        <button class="btn primary" type="button" id="alert-save" style="margin-top:10px">알림 조건 저장</button>
       </div>
     </section>
 

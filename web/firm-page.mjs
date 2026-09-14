@@ -639,7 +639,7 @@ ${CHART_CSS}
 <script>(function(){try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(/^sb-.*-auth-token$/.test(k)&&localStorage.getItem(k)){var a=document.getElementById("auth-link");a.textContent="마이페이지";a.href="/account/";break;}}}catch(e){}})();</script>
   </header>
 
-  <div class="head">
+  <div class="head"><p class="eyebrow">FIRM PROFILE</p><p class="crumb"><a href="/firms/">← 회계법인 탐색 · 비교</a></p>
     <div class="top-row">
       <h1>${esc(firm.name)}</h1>
       ${firm.homepage ? `<a class="site" href="${esc(firm.homepage)}" target="_blank"
