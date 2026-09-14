@@ -17,5 +17,5 @@ export default {
   "/resume-design.css": "/assets/resume-design.c7e236ac72adce26.css",
   "/resume-preview.js": "/assets/resume-preview.30fe38775db88281.js",
   "/resume.js": "/assets/resume.d175eeba9a334e71.js",
-  "/site-design.css": "/assets/site-design.1f4021411c99e52b.css"
+  "/site-design.css": "/assets/site-design.8d034d2bd6facac2.css"
 };
