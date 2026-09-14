@@ -35,6 +35,26 @@ def matches(post,rule,firm=None,financial=None):
     return True
 
 
+RESUME_SCOPE='trainee-employment-v1'
+
+
+def resume_candidate(post,filters):
+    """Uploaded-resume automation only targets classified trainee CPA postings."""
+    if filters.get('scope')!=RESUME_SCOPE:return False
+    employment=filters.get('employment')
+    if not isinstance(employment,list) or not employment or any(v not in ('Full Time','Part Time') for v in employment):return False
+    if post.get('source')!='kicpa:trainee' or post.get('posting_type')!='entry' or post.get('audience')!='cpa' or post.get('is_target') is not True:return False
+    if post.get('career_min_years') is not None and float(post['career_min_years'])>0:return False
+    return post.get('employment_type') in employment
+
+
+def matches_resume(post,rule):
+    if not rule.get('enabled') or not is_open(post):return False
+    if not rule.get('enabled_since') or not post.get('first_seen_at') or post['first_seen_at']<=rule['enabled_since']:return False
+    if post.get('original_id'):return False
+    return resume_candidate(post,rule.get('filters') or {})
+
+
 def recipient_from_source(candidate,evidence,source):
     """받는 주소는 최신 원문과 증거 양쪽에서 일치해야 한다."""
     if not isinstance(candidate,str) or not EMAIL.fullmatch(candidate) or '\n' in candidate or '\r' in candidate: return None

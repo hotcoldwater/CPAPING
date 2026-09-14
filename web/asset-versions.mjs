@@ -10,10 +10,10 @@ export default {
   "/comments.css": "/assets/comments.6d87562d884b47f4.css",
   "/comments.js": "/assets/comments.0f75e18502e19650.js",
   "/mail-connect.js": "/assets/mail-connect.715dc3d51942973e.js",
-  "/member.css": "/assets/member.28b31c9681c10675.css",
+  "/member.css": "/assets/member.81040375b69cb5e1.css",
   "/navigation.css": "/assets/navigation.d61586adde355fb0.css",
   "/navigation.js": "/assets/navigation.e7fc958ad51e8bd8.js",
   "/posting-content.css": "/assets/posting-content.c8d71d4324adde66.css",
   "/resume-preview.js": "/assets/resume-preview.290acd8f0f050566.js",
-  "/resume.js": "/assets/resume.3bd537b9ee6fd9eb.js"
+  "/resume.js": "/assets/resume.646d718e3469d9f1.js"
 };

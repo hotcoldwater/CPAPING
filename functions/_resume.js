@@ -1,7 +1,12 @@
-import {body,enc,fail,insert,now,owned,patch,reply,supabase,textValue,uuid,validateFilters} from './_career.js';
+import {body,enc,fail,insert,now,owned,patch,reply,supabase,textValue,uuid} from './_career.js';
 const FLOW='uploaded-resume-v1';
 const pdf='application/pdf',docx='application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const rpc=(env,name,data)=>supabase(env,'rpc/'+name,{method:'POST',body:JSON.stringify(data)});
+export function resumeFilters(raw){
+ if(!raw||typeof raw!=='object'||Array.isArray(raw)||Object.keys(raw).some(k=>k!=='employment'))throw fail('지원 조건이 변경되었습니다. 새로고침 후 풀타임·파트타임을 선택해 주세요.');
+ if(!Array.isArray(raw.employment)||raw.employment.length<1||raw.employment.length>2||raw.employment.some(v=>!['Full Time','Part Time'].includes(v)))throw fail('풀타임 또는 파트타임을 하나 이상 선택해 주세요.');
+ return {scope:'trainee-employment-v1',employment:['Full Time','Part Time'].filter(v=>raw.employment.includes(v))};
+}
 export function resumeUpload(b){
  const name=textValue(b.name,100),data=b.data_base64;
  if(!/\.(pdf|docx)$/i.test(name)||/[\x00-\x1f\x7f/\\]/.test(name)||typeof data!=='string'||data.length>4000000||data.length%4||! /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(data))throw fail('3MB 이하의 PDF 또는 Word(.docx) 이력서를 선택해 주세요.');
@@ -37,7 +42,7 @@ export async function resumeRequest(request,env,user,path){
   await rpc(env,'career_pause_resume',{p_user:user.id});return reply({ok:true});
  }
  if(path==='resume-rule'&&method==='PUT'){
-  const b=await body(request),name=textValue(b.applicant_name,80),filters=validateFilters(b.filters);
+  const b=await body(request),name=textValue(b.applicant_name,80),filters=resumeFilters(b.filters);
   if(!name||/[\r\n\x00-\x1f]/.test(name)||!['auto','review'].includes(b.mode)||typeof b.enabled!=='boolean'||!Number.isInteger(b.daily_limit)||b.daily_limit<1||b.daily_limit>20||b.file_confirmed!==true)throw fail('이름·발송 방식·하루 한도와 이력서 내용 확인 항목을 확인해 주세요.');
   const subject=mailTemplate(b.subject,200,true),mailBody=mailTemplate(b.body,10000);
   if(b.mode==='auto'&&b.enabled&&b.auto_consent!==true)throw fail('조건에 맞는 공고에 개인 메일로 자동 발송하는 것에 동의해 주세요.');

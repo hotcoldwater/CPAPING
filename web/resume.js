@@ -31,10 +31,7 @@ function form(){if(!$('resume-form'))return;const selected=$('resume-selected');
  for(const f of state.files){selected.append(option(f.id,f.name));const row=node('p',f.name);row.append(button('다운로드',()=>download(f.id,f.name)),button('삭제',async()=>{await api('resumes/'+f.id,'DELETE');await load();message('파일을 삭제했습니다.');}));$('resume-files').append(row);}
  const r=state.rule,f=r?.filters||{};$('resume-workspace').open=!r?.resume_file_id;selected.value=r?.resume_file_id||state.files[0]?.id||'';$('applicant-name').value=r?.applicant_name||'';
  if(r?.mail_subject_template)$('resume-subject').value=r.mail_subject_template;if(r?.mail_body_template)$('resume-body').value=r.mail_body_template;
- $('resume-all-firms').checked=f.all_firms===true;for(const o of $('resume-firms').options)o.selected=(f.firms||[]).includes(o.value);
- for(const [id,key] of [['resume-region','regions'],['resume-type','types'],['resume-employment','employment']])$(id).value=f[key]?.[0]||'';
- for(const [id,key] of [['resume-years','experience_years'],['resume-revenue-min','revenue_min'],['resume-revenue-max','revenue_max']])$(id).value=f[key]??'';
- for(const [id,key] of [['resume-keywords','keywords'],['resume-exclude','exclude']])$(id).value=(f[key]||[]).join(', ');
+ const employment=Array.isArray(f.employment)&&f.employment.length?f.employment:['Full Time','Part Time'];$('resume-full').checked=employment.includes('Full Time');$('resume-part').checked=employment.includes('Part Time');
  $('resume-mode').value=r?.mode||'review';$('resume-limit').value=r?.daily_limit||5;$('resume-enabled').checked=r?.enabled===true;$('resume-consent').checked=false;$('resume-confirmed').checked=false;
  $('resume-rule-state').textContent=r?.enabled?'새 공고 지원 준비 켜짐 · '+(r.mode==='auto'?'조건에 맞으면 자동 발송':'발송 전 검수'):'새 공고 지원 준비 꺼짐';dirty=false;dispatchEvent(new Event('cpaping:resume-loaded'));
 }
@@ -46,15 +43,11 @@ try{
  $('connect').onclick=async()=>{try{const r=await api('mail-connect','POST',{provider:'google'}),u=new URL(r.url);if(u.origin!=='https://accounts.google.com')throw new Error('연결 주소를 확인해 주세요.');location.assign(u.href);}catch(e){message(e.message,true);}};$('disconnect').onclick=async()=>{try{await api('mail','DELETE');await mailState();load().catch(()=>{});message('메일 연결을 해제했습니다.');}catch(e){message(e.message,true);}};
  const result=new URLSearchParams(location.search).get('mail');if(result){message(result==='connected'?'개인 메일을 연결했습니다.':'연결을 완료하지 못했습니다. 다시 연결하고 이메일 전송 권한을 허용해 주세요.',result!=='connected');history.replaceState(null,'',location.pathname);}
  mailState().catch(()=>{$('mail-state').textContent='연결 상태를 불러오지 못했습니다. Gmail 연결 버튼으로 다시 연결할 수 있습니다.';});
- const {data:firms,error}=await A.client.from('firms').select('id,name').order('name').limit(1000);if(error)throw new Error('법인 목록을 불러오지 못했습니다. 새로고침해 주세요.');
- for(const f of firms)$('resume-firms').append(option(String(f.id),f.name));await load();message('완성한 이력서를 올리고 지원 조건을 저장하세요.');
+ await load();message('이력서와 메일을 준비하고 풀타임·파트타임을 선택하세요.');
  $('resume-form').addEventListener('input',()=>{dirty=true;});
- $('resume-all-firms').onchange=()=>{if($('resume-all-firms').checked)for(const o of $('resume-firms').options)o.selected=false;};$('resume-firms').onchange=()=>{if($('resume-firms').selectedOptions.length)$('resume-all-firms').checked=false;};
  $('upload-resume').onclick=async()=>{const b=$('upload-resume');b.disabled=true;try{const f=window.cpResumeFile||$('resume-upload').files[0];if(!f||f.size>3000000||! /\.(pdf|docx)$/i.test(f.name))throw new Error('3MB 이하 PDF 또는 Word(.docx)를 선택해 주세요.');const data=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]);r.onerror=()=>reject(new Error('파일을 읽지 못했습니다.'));r.readAsDataURL(f);});const saved=await api('resumes','POST',{name:f.name,data_base64:data});await load();$('resume-selected').value=saved.id;$('resume-workspace').open=true;dirty=true;$('resume-upload').value='';window.cpResumeFile=null;dispatchEvent(new Event('cpaping:resume-uploaded'));message('이력서를 업로드했습니다. 내용 확인 후 사용할 파일과 조건을 저장하세요.');}catch(e){message(e.message,true);}finally{b.disabled=false;}};
- $('resume-form').onsubmit=async e=>{e.preventDefault();const b=$('save-resume-rule');b.disabled=true;try{const filters={firms:[...$('resume-firms').selectedOptions].map(o=>o.value),all_firms:$('resume-all-firms').checked};
- for(const [id,key] of [['resume-region','regions'],['resume-type','types'],['resume-employment','employment']])filters[key]=$(id).value?[$(id).value]:[];
- for(const [id,key] of [['resume-years','experience_years'],['resume-revenue-min','revenue_min'],['resume-revenue-max','revenue_max']])filters[key]=$(id).value===''?null:Number($(id).value);
- for(const [id,key] of [['resume-keywords','keywords'],['resume-exclude','exclude']])filters[key]=$(id).value.split(',').map(s=>s.trim()).filter(Boolean);
+ $('resume-form').onsubmit=async e=>{e.preventDefault();const b=$('save-resume-rule');b.disabled=true;try{const filters={employment:[$('resume-full').checked?'Full Time':null,$('resume-part').checked?'Part Time':null].filter(Boolean)};
+ if(!filters.employment.length)throw new Error('풀타임 또는 파트타임을 하나 이상 선택해 주세요.');
  await api('resume-rule','PUT',{resume_file_id:$('resume-selected').value,applicant_name:$('applicant-name').value,subject:$('resume-subject').value,body:$('resume-body').value,filters,mode:$('resume-mode').value,enabled:$('resume-enabled').checked,daily_limit:Number($('resume-limit').value),updated_at:state.rule?.updated_at||null,file_confirmed:$('resume-confirmed').checked,auto_consent:$('resume-consent').checked});await load();message('이력서와 지원 조건을 저장했습니다. 켜 둔 경우 지금 이후의 새 공고부터 적용합니다.');}catch(e){message(e.message,true);}finally{b.disabled=false;}};
  $('stop-resume').onclick=async()=>{try{await api('resume-stop','POST',{});await load();message('새 공고 지원을 중지했습니다. 발송 대기는 검수 상태로 변경했습니다.');}catch(e){message(e.message,true);}};
  }else{await load();message('준비된 지원서를 확인하고 발송을 승인하세요.');}
