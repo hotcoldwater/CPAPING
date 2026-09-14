@@ -82,6 +82,7 @@ def prepare(db,app):
     file=db.one('career_files',id='eq.'+rule['resume_file_id'],user_id='eq.'+user);check_file(file)
     post=db.one('job_postings',id=f'eq.{app["posting_id"]}')
     if not post or not matching.is_open(post):raise ValueError('마감되거나 내려간 공고입니다.')
+    if app['origin']=='rule' and not matching.resume_candidate(post,rule.get('filters') or {}):raise ValueError('자동지원은 선택한 풀타임·파트타임 신입·수습 공고만 가능합니다. 경력직은 대상이 아닙니다.')
     account=db.one('career_mail_accounts',user_id='eq.'+user)
     if not account:raise ValueError('개인 Gmail을 먼저 연결해 주세요.')
     original=source(post);deadline_check(original);recipients,reasons=requirements(original,file)
@@ -101,15 +102,9 @@ def match_new(db):
     rules=db.all('career_rules',enabled='eq.true',resume_file_id='not.is.null',order='user_id.asc')
     if not rules:return
     posts=db.all('job_postings',first_seen_at='gt.'+min(r['enabled_since'] for r in rules),is_expired='eq.false',removed_at='is.null',order='id.asc')
-    firms=db.all('firms',select='id,name,aliases',order='id.asc');byname={}
-    for f in firms:
-        for name in [f['name']]+(f.get('aliases') or []):byname[name]=f
-    latest={}
-    for f in db.all('firm_financials',select='firm_id,revenue,fiscal_year',order='fiscal_year.desc'):latest.setdefault(f['firm_id'],f)
     for rule in rules:
         for post in posts:
-            firm=byname.get(post.get('company_name'))
-            if not matching.matches(post,rule,firm,latest.get(firm['id']) if firm else None):continue
+            if not matching.matches_resume(post,rule):continue
             if db.one('career_applications',user_id='eq.'+rule['user_id'],canonical_posting_id=f'eq.{post["id"]}',select='id'):continue
             try:db.insert('career_applications',{'user_id':rule['user_id'],'posting_id':post['id'],'canonical_posting_id':post['id'],'origin':'rule','snapshot':{'flow':FLOW}})
             except Exception:log.warning('지원 준비 등록 실패 또는 중복')
@@ -125,6 +120,7 @@ def send_one(db,app):
         if not snap.get('auto') and not snap.get('requirements_reviewed'):raise ValueError('공고와 첨부파일 검수가 필요합니다.')
         post=db.one('job_postings',id=f'eq.{app["posting_id"]}')
         if not post or not matching.is_open(post):raise ValueError('마감되거나 내려간 공고입니다.')
+        if (snap.get('auto') or app.get('origin')=='rule') and not matching.resume_candidate(post,rule.get('filters') or {}):raise ValueError('현재 공고는 선택한 풀타임·파트타임 신입·수습 자동지원 대상이 아닙니다.')
         original=source(post);deadline_check(original)
         if digest(original)!=snap.get('source_hash'):raise ValueError('공고 원문이 변경되었습니다. 다시 준비해 주세요.')
         if app.get('recipient') not in snap.get('allowed_recipients',[]) or app.get('recipient') not in {x.lower() for x in matching.EMAIL.findall(original)}:raise ValueError('최신 공고에서 지원 이메일을 확인하지 못했습니다.')
