@@ -26,7 +26,7 @@ export async function resumeRequest(request,env,user,path){
  try{
  if(path==='resume-state'&&method==='GET'){
   const [rules,drafts]=await Promise.all([
-   supabase(env,`career_rules?user_id=eq.${uid}&select=resume_file_id,applicant_name,mail_subject_template,mail_body_template,enabled,mode,filters,daily_limit,updated_at,enabled_since`),
+   supabase(env,`career_rules?user_id=eq.${uid}&select=resume_file_id,applicant_name,mail_subject_template,mail_body_template,enabled,mode,filters,daily_limit,updated_at,enabled_since,consent_version`),
    supabase(env,`career_resume_drafts?user_id=eq.${uid}`)]);
   const rule=rules[0]||null,draft=drafts[0]||null,ids=[...new Set([rule?.resume_file_id,draft?.data?.resume_file_id].filter(Boolean))].map(uuid);
   const files=ids.length?await supabase(env,`career_files?user_id=eq.${uid}&kind=eq.resume&id=in.(${ids.join(',')})&select=id,name,mime,created_at`):[];
@@ -35,7 +35,7 @@ export async function resumeRequest(request,env,user,path){
  if(path==='resume-draft'&&method==='PUT'){
   const b=await body(request,16000),d=b.data;
   if(!d||typeof d!=='object'||!Number.isInteger(b.version)||b.version<0)throw fail('작성 중인 내용을 확인해 주세요.');
-  const data={resume_file_id:d.resume_file_id?uuid(d.resume_file_id):null,applicant_name:textValue(d.applicant_name||'',80),subject:textValue(d.subject||'',200),body:textValue(d.body||'',10000),employment:Array.isArray(d.employment)?d.employment.filter(x=>['Full Time','Part Time'].includes(x)):[],mode:d.mode==='auto'?'auto':'review',enabled:d.enabled===true,step:Number.isInteger(d.step)?Math.max(0,Math.min(5,d.step)):0};
+  const data={resume_file_id:d.resume_file_id?uuid(d.resume_file_id):null,applicant_name:textValue(d.applicant_name||'',80),subject:textValue(d.subject||'',200),body:textValue(d.body||'',10000),employment:Array.isArray(d.employment)?d.employment.filter(x=>['Full Time','Part Time'].includes(x)):[],mode:d.mode==='auto'?'auto':'review',enabled:d.enabled===true,flow_version:d.flow_version===2?2:1,step:Number.isInteger(d.step)?Math.max(0,Math.min(5,d.step)):0};
   return reply((await rpc(env,'career_save_resume_draft',{p_user:user.id,p_data:data,p_version:b.version,p_base:b.base_rule_updated_at||null}))[0]);
  }
  if(path==='resume-draft'&&method==='DELETE'){
@@ -52,6 +52,10 @@ export async function resumeRequest(request,env,user,path){
  }
  if(path==='resume-stop'&&method==='POST'){
   await rpc(env,'career_pause_resume',{p_user:user.id});return reply({ok:true});
+ }
+ if(path==='resume-automation'&&method==='PUT'){
+  const b=await body(request);if(typeof b.enabled!=='boolean'||!['review','auto'].includes(b.mode)||typeof b.updated_at!=='string'||!Number.isFinite(Date.parse(b.updated_at)))throw fail('자동 지원 상태와 발송 방식을 확인해 주세요.');
+  const result=await rpc(env,'career_set_resume_automation',{p_user:user.id,p_enabled:b.enabled,p_mode:b.mode,p_consent:b.auto_consent===true?'resume-auto-v1':null,p_expected:b.updated_at});return reply(result);
  }
  if(path==='resume-rule'&&method==='PUT'){
   const b=await body(request),name=textValue(b.applicant_name,80),filters=resumeFilters(b.filters);
