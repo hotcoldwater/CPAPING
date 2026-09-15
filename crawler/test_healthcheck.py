@@ -23,7 +23,7 @@ class HealthcheckGraceTests(unittest.TestCase):
         with patch.dict(os.environ,{'HEALTHCHECK_PING_URL':'https://hc-ping.com/test','HEALTHCHECK_FAIL_FAST':'false'}),patch('sys.argv',['main']),patch('main.load_dotenv'),patch('main.crawl',side_effect=RuntimeError('transient')),patch('main.traceback.print_exc'),patch('notify.send_alert') as send,patch('notify.requests.get') as get:
             self.assertEqual(main.main(),1);send.assert_not_called();get.assert_not_called()
     def test_nonzero_board_code_does_not_signal_success(self):
-        with patch('sys.argv',['main']),patch('main.load_dotenv'),patch('main.crawl',side_effect=[0,1]),patch('notify.ping_healthcheck') as ping:
+        with patch('sys.argv',['main']),patch('main.load_dotenv'),patch('main.crawl',side_effect=[0,1,0]),patch('notify.ping_healthcheck') as ping:
             self.assertEqual(main.main(),1);ping.assert_called_once_with(ok=False)
 
 if __name__=='__main__':unittest.main()

@@ -302,13 +302,24 @@ def classify(posting) -> dict:
         # 공고로 나가는 것이 놓치는 것보다 나쁘다. 운영자가 확인하면 is_target 을 켠다.
         is_target = audience == AUDIENCE_CPA and not expired
         needs_review = audience == AUDIENCE_UNKNOWN
-    else:
+    elif board == "trainee":
         # 수습: 법인 규모와 무관하게 신입·판단 불가 공고를 포함한다.
         is_target = (
             ptype in (TYPE_ENTRY, TYPE_AMBIGUOUS)
             and not expired
         )
         needs_review = ptype == TYPE_AMBIGUOUS
+
+    else:
+        is_target = False
+        needs_review = audience == AUDIENCE_UNKNOWN
+
+    # Browsing now includes additional menus/tabs. Existing notification switches
+    # must retain the old physical collection scope (general / accounting firms).
+    # Rows without source provenance keep the previous classification behavior.
+    categories = getattr(posting, "source_categories", [])
+    if board == "cpa" and categories:
+        is_target = is_target and "general" in categories and getattr(posting, "source_company_type", "") == "회계법인"
 
     labels = {
         "big4": big4,

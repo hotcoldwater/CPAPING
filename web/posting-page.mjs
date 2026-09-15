@@ -9,6 +9,8 @@
  */
 
 const SITE = "https://cpaping.com";
+import './posting-taxonomy.js';
+const TX = globalThis.cpPosting;
 import { renderPostingContent } from './posting-content.mjs';
 
 const esc = (s) =>
@@ -63,7 +65,7 @@ function jobPostingLd(p, firm, summary) {
     description: summary,
     datePosted: p.posted_at,
     ...(p.deadline ? { validThrough: `${p.deadline}T23:59:59+09:00` } : {}),
-    employmentType: p.employment_type === "Part Time" ? "PART_TIME" : "FULL_TIME",
+    ...((p.work_types||[]).length?{employmentType:p.work_types.map(k=>({full_time:'FULL_TIME',part_time:'PART_TIME',internship:'INTERN'}[k])).filter(Boolean)}:{}),
     hiringOrganization: {
       "@type": "Organization",
       name: p.company_name,
@@ -86,9 +88,9 @@ export function renderPostingPage({ posting: p, firm, latestFin, others }) {
   const region = p.work_region && p.work_region !== p.region && !/무관/.test(p.work_region)
     ? p.work_region : p.region;
   const pt = p.employment_type === "Part Time";
-  const career = (p.source || "").endsWith(":cpa");          // 구인(CPA) 게시판 = 경력
-  const kindLabel = career ? "경력" : "신입";
-  const board = career ? "구인(CPA)" : "구인(수습CPA)";
+  const career = TX.categories(p).includes('experienced_cpa');
+  const kindLabel = TX.categories(p).map(k=>TX.categoryLabels[k]).join(' · ') || '지원 자격 확인 필요';
+  const board = (p.source_categories||[]).map(k=>TX.boardLabels[k]).join(' · ') || '채용';
   const years = p.career_min_years != null && p.career_max_years != null ? `${p.career_min_years}~${p.career_max_years}년`
     : p.career_min_years != null ? `${p.career_min_years}년 이상` : p.career_max_years != null ? `${p.career_max_years}년 이하` : null;
   const job = JOB[p.job_category];
@@ -97,7 +99,7 @@ export function renderPostingPage({ posting: p, firm, latestFin, others }) {
 
   // 요약 문장 — meta description 과 JobPosting.description 이 함께 쓴다
   const bits = [
-    `${p.company_name}의 ${career ? "경력 회계사" : `${pt ? "파트타임 " : ""}신입 회계사`} 공고.`,
+    `${p.company_name}의 ${kindLabel} 공고.`,
     career && years ? `경력 ${years}.` : "",
     region ? `근무지 ${region}.` : "",
     p.headcount ? `모집인원 ${p.headcount}.` : "",
@@ -110,7 +112,10 @@ export function renderPostingPage({ posting: p, firm, latestFin, others }) {
   const rows = [
     ["종류", `${kindLabel}${p.is_big4 ? " · 빅4" : ""}`],
     ["근무지역", region],
-    ["고용형태", career ? (p.employment_type || null) : (pt ? "파트타임" : "정규직")],
+    ["근무방식", TX.work(p)],
+    ["계약형태", (p.contract_types||[]).join(" · ")],
+    ["회사·기관", p.company_type],
+    ["원문 분류", board],
     ["직무", job],
     ["모집인원", p.headcount],
     ["경력", p.career],
@@ -249,7 +254,7 @@ footer a{color:var(--ink-2)}
     <h1>${esc(title)}</h1>
     <div class="chips">
       ${region ? `<span class="chip">${esc(region)}</span>` : ""}
-      <span class="chip${career ? " career" : ""}">${kindLabel}</span>${career && years ? `<span class="chip">${esc(years)}</span>` : ""}${!career && pt ? `<span class="chip pt">파트타임</span>` : ""}${p.is_big4 ? `<span class="chip">빅4</span>` : ""}
+      ${TX.labels(p).map(label=>`<span class="chip">${esc(label)}</span>`).join("")}
       ${job ? `<span class="chip">${esc(job)}</span>` : ""}
     </div>
     <div class="status">

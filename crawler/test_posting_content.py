@@ -49,7 +49,8 @@ class ContentTests(unittest.TestCase):
         p=parse_detail(PAGE,Posting(ij_id='123'));db.update_content(p)
         args,kw=db._request.call_args
         self.assertEqual(args,('PATCH','job_postings'))
-        self.assertEqual(set(kw['json']),{'body','source_content','content_fetched_at'})
+        self.assertTrue({'body','source_content','content_fetched_at','recruitment_categories'}.issubset(kw['json']))
+        self.assertTrue({'is_target','audience','posting_type','notified_at','first_seen_at'}.isdisjoint(kw['json']))
         self.assertEqual(kw['params']['ij_id'],'eq.123')
         with self.assertRaises(ValueError):db.update_content(Posting(ij_id='123'))
 

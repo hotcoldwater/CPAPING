@@ -105,6 +105,8 @@ def find_original(posting, candidates: list[dict]) -> dict | None:
         # 여러 자리를 동시에 연 것이지 다시 올린 게 아니다.
         if posted and str(row.get("posted_at") or "") == str(posted):
             continue
+        if (getattr(posting, "employment_type", "") or "") != (row.get("employment_type") or ""):
+            continue
         other = normalize_title(row.get("title", ""), company)
         # 연도·본부·지점·지역이 다르면 글자가 아무리 닮아도 다른 자리다
         if sig != signature(other, row.get("title", ""),
