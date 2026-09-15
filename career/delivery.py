@@ -10,7 +10,7 @@ def deliver(db,app,account,file,save_refresh,mode='review',test_key=None):
     token=secrets.token_urlsafe(32)
     payload={'user_id':account['user_id'],'application_id':None if mode=='test' else app['id'],
              'application_version':None if mode=='test' else app['version'],'document_id':file['id'],
-             'test_key':test_key,'company':app['company'],'recipient':app['recipient'],'subject':app['subject'],
+             'sender_email':account['email'],'test_key':test_key,'company':app['company'],'recipient':app['recipient'],'subject':app['subject'],
              'body':app['body'],'mode':mode,'status':'sending','tracking_hash':hashlib.sha256(token.encode()).hexdigest()}
     # UNIQUE 제약이 재실행/동시 실행을 차단한다. 이력 저장 실패 시 발송하지 않는다.
     row=db.insert('career_mail_deliveries',payload)[0]

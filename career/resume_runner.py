@@ -163,6 +163,9 @@ def main():
             apps=db.rpc('career_claim_resume_send')
             if not apps:break
             send_one(db,apps[0])
+    from . import replies
+    try:replies.process(db)
+    except Exception:log.warning('답장 확인 작업을 완료하지 못했습니다.')
     log.info('이력서 지원 처리 완료')
 
 if __name__=='__main__':main()
