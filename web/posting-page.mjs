@@ -122,7 +122,6 @@ export function renderPostingPage({ posting: p, firm, latestFin, others }) {
     ["급여", p.salary],
     ["학력", p.education],
     ["등록일", longDate(p.posted_at)],
-    ["최초 확인 시간", p.first_seen_at && Number.isFinite(Date.parse(p.first_seen_at)) ? new Date(p.first_seen_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}) + ' (한국시간 · CPAPING 최초 수집, 원문 등록 시각과 다를 수 있음)' : null],
     ["마감일", p.deadline ? `${longDate(p.deadline)}${st.key === "open" ? ` (D-${st.left})` : ""}` : null],
     ["게시판 상태", p.hiring_status],
   ].filter(([, v]) => v);
@@ -131,7 +130,7 @@ export function renderPostingPage({ posting: p, firm, latestFin, others }) {
     const os = status(o);
     return `<a class="row${os.key === "removed" || os.key === "expired" ? " closed" : ""}"
         href="/posting/${encodeURIComponent(o.ij_id)}/">
-      <div><div class="meta">${esc(shortDate(o.posted_at))} 등록${o.first_seen_at && Number.isFinite(Date.parse(o.first_seen_at)) ? ` · 최초 확인 ${esc(new Date(o.first_seen_at).toLocaleString("ko-KR",{timeZone:"Asia/Seoul",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit",hour12:false}))}` : ""}</div>
+      <div><div class="meta">${esc(shortDate(o.posted_at))} 등록</div>
         <div class="t">${esc(trimTitle(o.title, o.company_name))}</div></div>
       <div class="due">${esc(os.label)}</div></a>`;
   }).join("");

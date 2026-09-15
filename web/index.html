@@ -625,11 +625,6 @@ function renderRow(p, options = {}) {
     const posted = document.createElement("span");
     posted.className = "posted";
     posted.textContent = " · " + shortDate(p.posted_at) + " 등록";
-    if (p.first_seen_at && Number.isFinite(Date.parse(p.first_seen_at))) {
-      const stamp=new Date(p.first_seen_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});
-      posted.textContent += " · 최초 확인 " + stamp;
-      posted.title = "한국시간 기준 CPAPING이 처음 확인한 시각입니다. 한공회 원문은 등록 날짜만 제공합니다.";
-    }
     firm.append(posted);
   }
   // 끌올은 "오래 안 채워진 자리" 라는 신호라 기간과 무관하게 계속 보여준다.
