@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>회계법인 채용공고 · 신입·경력 회계사 모집 모아보기 | CPAPING</title>
-<meta name="description" content="한국공인회계사회 구인(수습CPA)·구인(CPA) 게시판을 1분마다 확인해 신입·경력 회계사 공고를 메일로 보냅니다. 마감일·지역·고용형태와 회계법인 247곳의 매출·회계사 수까지 한 화면에서 봅니다.">
+<title>신입 CPA · 경력 CPA · 일반 채용 모아보기 | CPAPING</title>
+<meta name="description" content="한공회의 CPA·수습CPA·일반·자체 채용 공고를 모아봅니다. 지원 자격, 회사·기관, 지역과 근무 조건으로 원하는 채용을 찾아보세요.">
 <link rel="canonical" href="https://cpaping.com/">
 <!-- 네이버 서치어드바이저 소유확인. 구독자 이메일이 naver.com 이 압도적이라
      구글보다 이쪽 노출이 더 중요하다. 지우면 소유확인이 풀린다. -->
@@ -19,15 +19,15 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="CPAPING">
 <meta property="og:url" content="https://cpaping.com/">
-<meta property="og:title" content="회계법인 채용공고 · 신입·경력 회계사 모집 | CPAPING">
-<meta property="og:description" content="새 공고를 1분마다 확인해 메일로 보냅니다. 회계법인 247곳의 재무·인력 정보도 함께 봅니다.">
+<meta property="og:title" content="신입 CPA · 경력 CPA · 일반 채용 | CPAPING">
+<meta property="og:description" content="신입 CPA·경력 CPA·일반 채용을 지원 자격과 근무 조건으로 찾아보세요.">
 <meta property="og:image" content="https://cpaping.com/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:locale" content="ko_KR">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="회계법인 채용공고 · 신입·경력 회계사 모집 | CPAPING">
-<meta name="twitter:description" content="새 공고를 1분마다 확인해 메일로 보냅니다. 회계법인 247곳의 재무·인력 정보도 함께 봅니다.">
+<meta name="twitter:title" content="신입 CPA · 경력 CPA · 일반 채용 | CPAPING">
+<meta name="twitter:description" content="신입 CPA·경력 CPA·일반 채용을 지원 자격과 근무 조건으로 찾아보세요.">
 <meta name="twitter:image" content="https://cpaping.com/og.png">
 <meta name="theme-color" content="#123A8A">
 
@@ -339,6 +339,9 @@ footer a:hover { text-decoration: underline; }
 footer .sep { margin: 0 7px; opacity: .5; }
 footer .footer-links { margin-top: 6px; }
 footer .footer-mail { margin-top: 4px; font-size: 11px; opacity: .75; user-select: all; }
+
+.taxonomy-facets{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}.filter-description{font-size:13px;color:var(--ink-2);margin:8px 0 16px}.facet,.advanced-facets{border:1px solid var(--line);border-radius:8px;background:var(--paper,#fff);padding:10px 14px}.facet summary,.advanced-facets summary{cursor:pointer;font-size:13px;font-weight:600}.facet-options{display:grid;gap:9px;padding-top:12px;max-height:260px;overflow:auto}.facet-options label{display:flex;align-items:center;gap:7px;font-size:13px}.advanced-grid{display:flex;flex-wrap:wrap;gap:16px;margin-top:14px}.advanced-grid fieldset{border:0;padding:0;min-width:140px}.advanced-grid legend{font-size:12px;font-weight:700}.selection-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0}.selection-row button,#empty-reset{border:1px solid var(--line);background:var(--paper,#fff);border-radius:6px;padding:6px 9px;color:var(--ink);cursor:pointer}.selection-row #selected-conditions{display:flex;flex-wrap:wrap;gap:6px}.closed-option{margin-left:auto;font-size:13px}.posting-conditions{font-size:12px;color:var(--ink-2);margin-top:8px}.posting-history{font-size:12px;margin-top:10px}.posting-history summary{cursor:pointer;color:var(--accent)}.posting-history a{display:block;margin-top:8px}.filters{flex-wrap:wrap}.due>small{display:block}.controls{display:block!important}#controls[hidden]{display:none!important}
+@media(max-width:600px){.filters button{padding:8px 10px}.advanced-facets{flex-basis:100%}.advanced-grid{display:grid;grid-template-columns:1fr 1fr}.advanced-grid fieldset{min-width:0}.closed-option{margin-left:0}}
 </style>
 <script type="application/ld+json">
 {
@@ -398,36 +401,39 @@ footer .footer-mail { margin-top: 4px; font-size: 11px; opacity: .75; user-selec
   </section>
 
   <section class="listhead">
-    <h2>지원 가능한 공고</h2>
+    <h2>채용공고</h2>
     <span class="count" id="count"></span>
     <div class="right">
       <input class="search" id="search" type="search" autocomplete="off"
-             placeholder="법인명·공고 검색" aria-label="법인명 또는 공고 제목으로 검색">
+             placeholder="회사명·공고 검색" aria-label="회사명 또는 공고 제목으로 검색">
       <button type="button" class="sort" id="sort"></button>
     </div>
   </section>
 
   <div class="controls" id="controls">
-    <div class="facets">
-      <div class="filters" id="filters" role="group" aria-label="공고 종류"></div>
-      <div class="filters" id="regions" role="group" aria-label="지역"></div>
-    </div>
+    <div class="filters" id="filters" role="group" aria-label="지원 대상"></div>
+    <p id="filter-description" class="filter-description"></p>
+    <div class="taxonomy-facets">
+<details class="facet"><summary>회사·기관</summary><div id="facet-company_type" class="facet-options"></div></details>
+<details class="facet"><summary>지역</summary><div id="facet-location" class="facet-options"></div></details>
+<details class="facet"><summary>근무방식</summary><div id="facet-work_types" class="facet-options"></div></details>
+<details class="advanced-facets"><summary>상세 조건</summary><div class="advanced-grid">
+<fieldset><legend>경력</legend><div id="facet-career_filter" class="facet-options"></div></fieldset>
+<fieldset><legend>계약형태</legend><div id="facet-contract_types" class="facet-options"></div></fieldset>
+<fieldset><legend>지원 방식</legend><div id="facet-application_methods" class="facet-options"></div></fieldset>
+<fieldset><legend>지원서 양식</legend><div id="facet-form_type" class="facet-options"></div></fieldset>
+<fieldset><legend>한공회 원문 분류</legend><div id="facet-source_categories" class="facet-options"></div></fieldset>
+</div></details></div>
+    <div class="selection-row"><div id="selected-conditions"></div><button type="button" id="reset-filters">초기화</button><label class="closed-option"><input type="checkbox" id="include-closed"> 마감 공고 포함</label></div>
   </div>
 
   <div class="rows" id="rows"></div>
 
   <div class="more" id="more" hidden><button type="button"></button></div>
 
-  <section class="closed-section" id="closed-section" hidden>
-    <button type="button" class="closed-toggle" id="closed-toggle" aria-expanded="false">
-      <span id="closed-label"></span><span class="caret" id="closed-caret">▾</span>
-    </button>
-    <div class="rows closed-list" id="closed-rows" hidden></div>
-  </section>
-
   <div class="empty" id="empty" hidden>
-    <div class="lead">지금은 열린 공고가 없습니다</div>
-    <div class="sub">새 공고가 올라오면 바로 알려드릴게요</div>
+    <div class="lead">조건에 맞는 공고가 없습니다</div>
+    <div class="sub">조건을 줄이거나 마감 공고를 포함해 보세요.</div><button type="button" id="empty-reset">조건 초기화</button>
   </div>
 
   <a class="opportunity-link" href="/notifications/"><div><strong>원하는 공고 알림 받기</strong><span>풀타임·파트타임·경력직 채용 소식을 이메일로</span></div><b>설정하기 →</b></a>
@@ -444,6 +450,7 @@ footer .footer-mail { margin-top: 4px; font-size: 11px; opacity: .75; user-selec
 
 </div>
 
+<script src="/posting-taxonomy.js"></script>
 <script>
 // ── Supabase (publishable key 는 공개용이며 RLS 로 읽기만 허용된다) ──
 const SUPABASE_URL = "__SUPABASE_URL__";
@@ -471,37 +478,41 @@ const VISIBLE_AT_FIRST = 12;
 const SOON_DAYS = 7;   // 이 안에 마감하면 빨갛게
 const NEW_DAYS = 3;    // 이 안에 올라왔으면 NEW
 
-// 공고 종류. 어느 게시판에서 왔는지(source)로 가른다 — 수습은 구인(수습CPA), 경력은 구인(CPA).
-// 파트타임은 수습 안의 구분이다. 세 항목은 서로 겹치지 않아 개수가 전체와 맞아떨어진다.
-const kindOf = (p) => ((p.source || "").endsWith(":cpa") ? "career" : "trainee");
+const TX = globalThis.cpPosting;
 const FILTERS = [
-  { key: "all",     label: "전체",     match: () => true },
-  { key: "trainee", label: "풀타임",     match: (p) => kindOf(p) === "trainee" && p.employment_type !== "Part Time" },
-  { key: "part",    label: "파트타임",     match: (p) => kindOf(p) === "trainee" && p.employment_type === "Part Time" },
-  { key: "career",  label: "경력직",     match: (p) => kindOf(p) === "career" },
+ {key:'all',label:'전체',match:()=>true,description:'한공회에 올라온 모든 채용 공고'},
+ {key:'entry_cpa',label:'신입 CPA',match:p=>TX.categories(p).includes('entry_cpa'),description:'수습·신입 회계사를 위한 채용'},
+ {key:'experienced_cpa',label:'경력 CPA',match:p=>TX.categories(p).includes('experienced_cpa'),description:'경력 회계사를 위한 채용'},
+ {key:'general',label:'일반 채용',match:p=>TX.categories(p).includes('general'),description:'CPA 자격이 필수가 아닌 채용'},
 ];
-
-// 지역무관 공고는 어느 쪽에도 걸리지 않고 항상 보인다. 지역 판정이 틀려서
-// 공고를 감추면 지원자가 기회를 놓치기 때문이다. region_group 은 크롤러가
-// crawler/regions.py 규칙으로 채운다 — 여기서 다시 계산하지 않는다.
-const REGIONS = [
-  { key: "all",     label: "전국",  match: () => true },
-  { key: "capital", label: "수도권", match: (p) => p.region_group !== "local" },
-  { key: "local",   label: "지방",  match: (p) => p.region_group !== "capital" },
+const FACETS = [
+ ['company_type','회사·기관',['회계법인','회계사무소','일반기업','공공기관','헤드헌터','한국공인회계사회','확인 필요']],
+ ['location','지역',['서울','경기','인천','부산','대구','대전','광주','울산','세종','강원','충북','충남','전북','전남','경북','경남','제주','지역 무관']],
+ ['work_types','근무방식',Object.entries(TX.workLabels)],
+ ['career_filter','경력',[['any','경력 무관'],['entry','신입 가능'],['1','1년 이하'],['3','3년 이하'],['5','5년 이하'],['over5','5년 초과']]],
+ ['contract_types','계약형태',['정규직','계약직','전환형']],
+ ['application_methods','지원 방식',[['email','이메일'],['website','채용 사이트']]],
+ ['form_type','지원서 양식',[['free','자유양식'],['designated','지정양식'],['unknown','확인 필요']]],
+ ['source_categories','한공회 원문 분류',Object.entries(TX.boardLabels)],
 ];
-
+function facetMatch(p,key,value){
+ if(key==='location'){const area=p.work_region||p.region||'';return value==='지역 무관'?/무관|전국/.test(area):area.includes(value)||({'강원':'강원','충북':'충청북','충남':'충청남','전북':'전라북','전남':'전라남','경북':'경상북','경남':'경상남'}[value]&&area.includes({'충북':'충청북','충남':'충청남','전북':'전라북','전남':'전라남','경북':'경상북','경남':'경상남'}[value]));}
+ if(key==='career_filter'){if(value==='any')return /무관|불문/.test(p.career||'');if(value==='entry')return TX.categories(p).includes('entry_cpa')||/신입/.test(p.career||'');return p.career_min_years!=null&&(value==='over5'?p.career_min_years>5:p.career_min_years<=Number(value));}
+ return Array.isArray(p[key])?p[key].includes(value):p[key]===value;
+}
+function matchesConditions(p,except){return Object.entries(state.conditions).every(([key,values])=>key===except||!values.length||values.some(v=>facetMatch(p,key,v)));}
 const SORTS = {
   // 목록이 하는 일은 "지난번 이후 뭐가 바뀌었나" 를 보여주는 것이라
   // 최신순을 기본으로 둔다. 마감 임박 건은 D-day 가 빨갛게 표시된다.
   posted:   { label: "최신순",      compare: (a, b) => (b.posted_at || "").localeCompare(a.posted_at || "") || (b.first_seen_at || "").localeCompare(a.first_seen_at || "") },
-  deadline: { label: "마감 임박순", compare: (a, b) => a.deadline.localeCompare(b.deadline) },
+  deadline: { label: "마감 임박순", compare: (a, b) => (a.deadline||"9999").localeCompare(b.deadline||"9999") },
   // 한공회 게시판의 조회수. 크롤러가 매분 갱신한다 — 사람들이 많이 본 공고가 위로.
   views:    { label: "조회 많은 순", compare: (a, b) => (b.view_count || 0) - (a.view_count || 0) },
 };
 const SORT_CYCLE = ["posted", "deadline", "views"];
 const DEFAULT_SORT = "posted";
 
-const state = { postings: [], filter: "all", region: "all", query: "", sort: DEFAULT_SORT, comments: {} };
+const state = { postings: [], filter: "all", conditions: {}, includeClosed: false, query: "", sort: DEFAULT_SORT, comments: {} };
 
 const $ = (id) => document.getElementById(id);
 
@@ -518,10 +529,9 @@ const remember = {
 
 /** 오늘 자정 기준 남은 일수. 시간대에 따라 하루가 어긋나는 것을 막는다. */
 function daysLeft(isoDate) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const [y, m, d] = isoDate.split("-").map(Number);
-  return Math.round((new Date(y, m - 1, d) - today) / 86400000);
+  if(!isoDate)return Infinity;
+  const today=new Date(Date.now()+9*3600000).toISOString().slice(0,10);
+  return Math.round((Date.parse(isoDate+'T00:00:00Z')-Date.parse(today+'T00:00:00Z'))/86400000);
 }
 
 /** 며칠 전에 올라온 공고인지. 날짜가 없으면 오래된 것으로 본다. */
@@ -602,7 +612,7 @@ function renderRow(p, options = {}) {
   const firm = document.createElement("div");
   firm.className = "firm";
   const slug = firmSlug(p.company_name);
-  if (slug) {
+  if (slug && p.company_type === "회계법인") {
     const link = document.createElement("a");
     link.className = "firm-link";
     link.href = "/firm/" + encodeURIComponent(slug) + "/";
@@ -649,18 +659,10 @@ function renderRow(p, options = {}) {
 
   const chips = document.createElement("div");
   chips.className = "chips";
-  if (p.region) chips.append(chip(p.region));
-  if (kindOf(p) === "career") {
-    chips.append(chip("경력", "career"));
-    const lo = p.career_min_years, hi = p.career_max_years;
-    if (lo != null || hi != null) chips.append(chip(lo != null && hi != null ? `${lo}~${hi}년` : lo != null ? `${lo}년 이상` : `${hi}년 이하`));
-  } else {
-    chips.append(chip("신입"));
-    if (p.employment_type === "Part Time") chips.append(chip("파트타임", "pt"));
-  }
-
-  if (p.is_big4) chips.append(chip("빅4"));
-  main.append(firm, title, chips);
+  for(const label of TX.labels(p))chips.append(chip(label));
+  const conditions=document.createElement('div');conditions.className='posting-conditions';
+  conditions.textContent=[p.work_region||p.region,TX.work(p),p.career].filter(Boolean).join(' · ');
+  main.append(firm, title, chips, conditions);
 
   const due = document.createElement("div");
   due.className = "due";
@@ -669,13 +671,17 @@ function renderRow(p, options = {}) {
   const date = document.createElement("small");
   date.className = "date";
   if (options.closed) {
-    dday.textContent = "공고 내림";
-    date.textContent = shortDate(p.removed_at.slice(0, 10));
+    dday.textContent = p.removed_at?"공고 내림":"마감";
+    date.textContent = shortDate(p.removed_at?.slice(0, 10)||p.deadline);
   } else {
-    dday.textContent = left === 0 ? "오늘 마감" : "D-" + left;
+    dday.textContent = !p.deadline ? "마감일 확인" : left === 0 ? "오늘 마감" : "D-" + left;
     date.textContent = shortDate(p.deadline);
   }
   due.append(dday, date);
+  const formLabel={free:'자유양식',designated:'지정양식'}[p.form_type];
+  if(formLabel){const form=document.createElement('small');form.textContent=formLabel;due.append(form);}
+  if(p.history?.length){const history=document.createElement('details');history.className='posting-history';const summary=document.createElement('summary');summary.textContent=`이전 공고 ${p.history.length}건`;history.append(summary);for(const old of p.history){const link=document.createElement('a');link.href='/posting/'+encodeURIComponent(old.ij_id)+'/';link.textContent=(old.posted_at||'등록일 미상')+' · '+old.title;history.append(link);}main.append(history);}
+
   // 한공회 게시판 조회수. 내려간 공고는 마지막으로 본 값이다.
   if (p.view_count != null) {
     const views = document.createElement("small");
@@ -696,47 +702,7 @@ function renderRow(p, options = {}) {
   return row;
 }
 
-const CLOSED_WINDOW_DAYS = 30;   // 내려간 지 이만큼 지나면 목록에서 뺀다
-
-/** 지금 지원할 수 있는 공고. 마감된 건은 크롤러가 걸러주지만 화면에서도 한 번 더 막는다 */
-function openPostings() {
-  return state.postings.filter(
-    (p) => !p.removed_at && p.deadline && daysLeft(p.deadline) >= 0
-  );
-}
-
-/**
- * 한공회 게시판에서 내려간 공고.
- *
- * 내려간 이유는 세 가지인데 구분할 수 없다 — 채용이 됐거나, 마감일이
- * 지났거나, 한공회가 등록 1개월 뒤 자동으로 지웠거나. 그래서 "채용 완료"
- * 라고 단정하지 않고 "공고 내림" 이라고만 적는다.
- */
-function closedPostings() {
-  return state.postings
-    .filter((p) => p.removed_at)
-    .filter((p) => {
-      const days = (Date.now() - new Date(p.removed_at)) / 86400000;
-      return days <= CLOSED_WINDOW_DAYS;
-    })
-    .sort((a, b) => b.removed_at.localeCompare(a.removed_at));
-}
-
-function renderClosed() {
-  const list = closedPostings();
-  const section = $("closed-section");
-  section.hidden = list.length === 0;
-  if (!list.length) return;
-
-  $("closed-label").textContent = `최근 내려간 공고 ${list.length}건`;
-
-  const rows = $("closed-rows");
-  rows.replaceChildren();
-  for (const p of list) {
-    const row = renderRow(p, { closed: true });
-    rows.append(row);
-  }
-}
+function openPostings(){return state.postings.filter(p=>state.includeClosed||!TX.closed(p));}
 
 /** 검색어에만 걸러진 목록. 각 필터의 건수를 셀 때 기준이 된다. */
 function searched() {
@@ -769,37 +735,41 @@ function renderFacet(boxId, defs, current, onPick, otherMatch) {
 }
 
 function currentFilter() { return FILTERS.find((f) => f.key === state.filter) || FILTERS[0]; }
-function currentRegion() { return REGIONS.find((r) => r.key === state.region) || REGIONS[0]; }
-
-function renderFilters() {
-  renderFacet("filters", FILTERS, state.filter, (key) => {
-    state.filter = key;
-    remember.set("filter", key);
-    renderList();
-  }, currentRegion().match);
-
-  renderFacet("regions", REGIONS, state.region, (key) => {
-    state.region = key;
-    remember.set("region", key);
-    renderList();
-  }, currentFilter().match);
+function renderFilters(){
+ renderFacet('filters',FILTERS,state.filter,key=>{state.filter=key;remember.set('taxonomy-filter',key);renderList();},p=>matchesConditions(p));
+ $('filter-description').textContent=currentFilter().description;
+ $('selected-conditions').replaceChildren();
+ for(const [key,label,options] of FACETS){
+  const box=$('facet-'+key);box.replaceChildren();
+  for(const option of options){
+   const [value,text]=Array.isArray(option)?option:[option,option];
+   const selected=(state.conditions[key]||[]).includes(value);
+   const count=searched().filter(p=>currentFilter().match(p)&&matchesConditions(p,key)&&facetMatch(p,key,value)).length;
+   const item=document.createElement('label');const check=document.createElement('input');check.type='checkbox';check.value=value;check.checked=selected;
+   check.onchange=()=>{state.conditions[key]=check.checked?[...(state.conditions[key]||[]),value]:(state.conditions[key]||[]).filter(x=>x!==value);renderList();};
+   item.append(check,`${text} (${count})`);box.append(item);
+   if(selected){const remove=document.createElement('button');remove.type='button';remove.textContent=text+' ×';remove.setAttribute('aria-label',text+' 조건 해제');remove.onclick=()=>{state.conditions[key]=state.conditions[key].filter(x=>x!==value);renderList();};$('selected-conditions').append(remove);}
+  }
+ }
+ $('reset-filters').hidden=!state.query&&state.filter==='all'&&!Object.values(state.conditions).some(x=>x.length)&&!state.includeClosed;
 }
+function resetFilters(){state.conditions={};state.filter='all';state.query='';state.includeClosed=false;$('include-closed').checked=false;$('search').value='';remember.set('taxonomy-filter','all');renderList();}
 
 function renderList() {
   const list = searched()
     .filter(currentFilter().match)
-    .filter(currentRegion().match)
+    .filter(p=>matchesConditions(p))
     .sort(SORTS[state.sort].compare);
 
   $("count").textContent = list.length ? list.length + "건" : "0건";
   $("empty").hidden = list.length > 0;
-  $("controls").hidden = openPostings().length === 0;
+  $("controls").hidden = false;
   $("sort").textContent = SORTS[state.sort].label + " ⇅";
 
   const rows = $("rows");
   rows.replaceChildren();
   list.forEach((p, i) => {
-    const row = renderRow(p);
+    const row = renderRow(p, {closed:TX.closed(p)});
     if (i >= VISIBLE_AT_FIRST) row.hidden = true;
     rows.append(row);
   });
@@ -817,20 +787,20 @@ function renderList() {
   }
 
   renderFilters();
-  renderClosed();
+
 }
 
 
 function render(postings) {
-  state.postings = postings;
+  state.postings = TX.groupPostings(postings);
   renderList();
 }
 
 async function load() {
-  const savedFilter = remember.get("filter", "all");
-  state.filter = FILTERS.some((f) => f.key === savedFilter) ? savedFilter : savedFilter === "full" ? "trainee" : "all";
-  const savedRegion = remember.get("region", "all");
-  state.region = REGIONS.some((r) => r.key === savedRegion) ? savedRegion : "all";
+  const savedFilter=remember.get('taxonomy-filter','all');
+  state.filter=FILTERS.some(f=>f.key===savedFilter)?savedFilter:'all';
+  $('include-closed').onchange=e=>{state.includeClosed=e.target.checked;renderList();};
+  $('reset-filters').onclick=resetFilters;$('empty-reset').onclick=resetFilters;
   const savedSort = remember.get("sort", DEFAULT_SORT);
 
   // 검색어는 기억하지 않는다. 다음 방문에 걸러진 목록이 나오면
@@ -850,16 +820,15 @@ async function load() {
   render(FALLBACK);
   if (SUPABASE_URL.startsWith("__")) return; // 키가 안 채워진 미리보기
   try {
-    // 내려간 공고도 함께 받아 하단 구역에 보여준다
-    const url = SUPABASE_URL +
-      "/rest/v1/job_postings?select=company_name,title,region,region_group,deadline,posted_at,first_seen_at," +
-      "employment_type,detail_url,removed_at,original_posted_at,repost_count,ij_id,view_count," +
-      "source,is_big4,career_min_years,career_max_years" +
-      "&is_target=is.true&order=posted_at.desc";
-    const res = await fetch(url, { headers: { apikey: SUPABASE_KEY } });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const data = await res.json();
-    if (Array.isArray(data)) render(data);
+    const data=[];
+    for(let offset=0;;offset+=1000){
+      const url=SUPABASE_URL+'/rest/v1/job_postings?select=__POSTING_FIELDS__&or=__POSTING_SCOPE__&order=posted_at.desc,id.desc&limit=1000&offset='+offset;
+      const res=await fetch(url,{headers:{apikey:SUPABASE_KEY}});
+      if(!res.ok)throw new Error('HTTP '+res.status);
+      const rows=await res.json();if(!Array.isArray(rows))throw new Error('공고 형식 오류');
+      data.push(...rows);if(rows.length<1000)break;
+    }
+    render(data);
   } catch (err) {
     // 실시간 조회에 실패해도 화면은 그대로 둔다
     console.warn("공고를 불러오지 못했습니다:", err.message);
@@ -880,14 +849,7 @@ async function load() {
 
 // 구독 폼은 2026-09-09 에 없앴다. 알림은 회원가입으로 받는다 (/login/ → 온보딩 → 내 계정).
 
-// 내려간 공고 구역 접기/펼치기
-$("closed-toggle").addEventListener("click", () => {
-  const rows = $("closed-rows");
-  const open = rows.hidden;
-  rows.hidden = !open;
-  $("closed-toggle").setAttribute("aria-expanded", String(open));
-  $("closed-caret").textContent = open ? "▴" : "▾";
-});
+
 
 
 

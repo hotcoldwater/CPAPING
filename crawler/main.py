@@ -70,11 +70,12 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
 
     # 1. 목록 (상세는 신규 건만 — 상대 서버 부담을 줄인다)
     # 전체 목록이 확인돼야 저장·발송·내려간 공고 판정을 진행한다.
-    postings, total = kicpa.fetch_complete_list(session, board=board)
+    postings, total = kicpa.fetch_board_inventory(session, board=board)
     log.info("%s 목록 %d건 (전체 %s건)", kicpa.BOARDS[board][1], len(postings), total)
 
-    if not postings:
-        raise RuntimeError("목록이 비어 있습니다 — 사이트 구조가 바뀌었을 수 있습니다")
+
+    if not postings and board != kicpa.BOARD_ASSOCIATION:
+        raise RuntimeError("목록이 비어 있습니다 — 기존 공고를 유지하고 다시 확인합니다")
 
     db = None if dry_run else store.Store()
     run_id = db.start_run(board) if db else None
@@ -118,7 +119,7 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
             present = {p.ij_id for p in postings}
             for row in db.content_refresh_candidates(source):
                 if row['ij_id'] in present and row['ij_id'] not in fresh_ids:
-                    refreshed = kicpa.Posting(board=board, ij_id=row['ij_id'])
+                    refreshed = next(p for p in postings if p.ij_id == row['ij_id'])
                     kicpa.fetch_detail(session, refreshed)
                     db.update_content(refreshed)
         except Exception as exc:
@@ -136,7 +137,8 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
 
         # 4-1. 공고에서 법인을 추려 firms 를 갱신한다.
         # 사람이 채운 재무 컬럼은 건드리지 않는다.
-        firms.sync(db, source)
+        if board != kicpa.BOARD_ASSOCIATION:
+            firms.sync(db, source)
 
         removed = db.mark_removed(source, [p.ij_id for p in postings])
         if removed:
@@ -158,7 +160,7 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
 
         # 관리자에게도 계속 보낸다. 구독자가 없어도 서비스가 살아있는지 확인할 수 있다.
         # 경력 게시판은 판단 불가 건도 같이 보여 분류를 검수한다.
-        pending = db.unnotified_targets(source, include_unknown=career)
+        pending = db.unnotified_targets(source, include_unknown=career) if board != kicpa.BOARD_ASSOCIATION else []
         for r in pending:
             if r.get("audience") == "unknown":
                 r["title"] = "[검수 필요] " + (r.get("title") or "")
@@ -174,7 +176,8 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
             _notify_admin_activity(db)
 
         # 8. 정체 감지
-        _alert_if_stale(db, source, board, send_mail)
+        if board != kicpa.BOARD_ASSOCIATION:
+            _alert_if_stale(db, source, board, send_mail)
 
         db.finish_run(
             run_id, status="success", fetched_count=len(postings),
@@ -472,7 +475,7 @@ def main() -> int:
 
     try:
         # 수습 게시판을 먼저 — 알림이 걸린 쪽이라 경력 수집이 오래 걸려도 늦지 않게.
-        boards = [args.board] if args.board else [kicpa.BOARD_TRAINEE, kicpa.BOARD_CPA]
+        boards = [args.board] if args.board else list(kicpa.BOARDS)
         code = 0
         for board in boards:
             code = crawl(dry_run=args.dry_run, send_mail=not args.no_mail, board=board) or code

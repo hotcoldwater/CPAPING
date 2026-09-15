@@ -14,6 +14,7 @@ export default {
   "/navigation.css": "/assets/navigation.ebd01b073cc4a26d.css",
   "/navigation.js": "/assets/navigation.e7fc958ad51e8bd8.js",
   "/posting-content.css": "/assets/posting-content.c8d71d4324adde66.css",
+  "/posting-taxonomy.js": "/assets/posting-taxonomy.8b8bb77c9a609c35.js",
   "/resume-design.css": "/assets/resume-design.58d1f15cd7c4c7af.css",
   "/resume-preview.js": "/assets/resume-preview.57d02d9ffd1bb10c.js",
   "/resume-steps.js": "/assets/resume-steps.b7ce5c3ddecfc038.js",

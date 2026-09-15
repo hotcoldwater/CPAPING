@@ -60,11 +60,13 @@ class Store:
     # ------------------------------------------------------------------
     def existing_ij_ids(self, source: str) -> set[str]:
         """이미 저장된 공고의 ij_id 집합."""
-        rows = self._request(
-            "GET", "job_postings",
-            params={"select": "ij_id", "source": f"eq.{source}"},
-        )
-        return {r["ij_id"] for r in rows}
+        result = set()
+        for offset in range(0, 1000000, 1000):
+            rows = self._request("GET", "job_postings", params={"select":"ij_id",
+                "source":f"eq.{source}","order":"id.asc","limit":"1000","offset":str(offset)})
+            result.update(r["ij_id"] for r in rows)
+            if len(rows)<1000:return result
+        raise SupabaseError("공고 ID 목록이 조회 한도를 초과했습니다")
 
     def company_history(self, source: str, company_name: str) -> list[dict]:
         """같은 법인의 과거 공고. 끌올 판정에 쓴다.
@@ -77,7 +79,7 @@ class Store:
         return self._request(
             "GET", "job_postings",
             params={
-                "select": "id,ij_id,company_name,title,posted_at,original_id,original_posted_at,repost_count",
+                "select": "id,ij_id,company_name,title,posted_at,original_id,original_posted_at,repost_count,region,work_region,employment_type,body",
                 "source": f"eq.{source}",
                 "company_name": f"eq.{company_name}",
                 "order": "posted_at.asc",
@@ -104,11 +106,12 @@ class Store:
         })
 
     def update_content(self, posting):
+        from taxonomy import taxonomy_row
         if posting.source_content is None:
             raise ValueError('본문 수집에 실패해 기존 내용을 유지합니다')
         return self._request('PATCH', 'job_postings', params={
             'source':f'eq.{posting.source}', 'ij_id':f'eq.{posting.ij_id}',
-        }, json=content_row(posting))
+        }, json={**content_row(posting), **taxonomy_row(posting)})
 
     def snapshot_views(self, rows: list[dict]) -> None:
         """공고별 하루 1행으로 한공회 조회수를 남긴다. 같은 날은 마지막 값으로 덮어쓴다.
@@ -511,6 +514,8 @@ def wanted_employment(source: str, subscriber: dict) -> str | None:
     want_trainee_full(정규)·want_trainee_part(파트타임) 조합이다. 011 이 예전
     employment_filter 를 스위치로 옮겼으므로 여기서는 스위치만 본다.
     """
+    if source not in ("kicpa:cpa", "kicpa:trainee"):
+        return SKIP
     if source.endswith(":cpa"):
         return None if subscriber.get("want_career") else SKIP
     full = subscriber.get("want_trainee_full", True)
@@ -560,13 +565,16 @@ def to_light_row(posting) -> dict:
         # 규칙을 고치면 다음 크롤에 기존 공고까지 스스로 맞춰진다.
         "region_group": regions.group(posting.region),
         "last_seen_at": _now_iso(),
+        "removed_at": None,
     }
 
 
 def to_row(posting) -> dict:
     """Posting → job_postings 테이블 행 (상세까지 조회한 신규 공고용)."""
+    from taxonomy import taxonomy_row
     labels = getattr(posting, "labels", {}) or {}
     return {
+        **taxonomy_row(posting),
         "source": posting.source,
         "ij_id": posting.ij_id,
         "seq": posting.seq,

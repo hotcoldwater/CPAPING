@@ -90,7 +90,7 @@ const read = (name) => process.env[name] || fromFile[name] || "";
 //   curl -sL -A "Mozilla/5.0 ... Chrome/128.0.0.0 ..." https://cpaping.com \
 //     | grep beacon.min.js
 
-let html = readFileSync(join(HERE, "index.html"), "utf8");
+let html = readFileSync(join(HERE, "index.html"), "utf8").replaceAll("__POSTING_FIELDS__", POSTING_FIELDS).replaceAll("__POSTING_SCOPE__", POSTING_SCOPE);
 
 /**
  * 빌드 시점의 실제 공고를 index.html 에 심는다.
@@ -102,15 +102,9 @@ let html = readFileSync(join(HERE, "index.html"), "utf8");
  * 손으로 적어 두면 시간이 지나 마감된 공고가 검색결과에 남는다.
  * 빌드할 때마다 실제 값으로 갈아 끼운다.
  */
+const PAGE = 1000;
 async function fetchPostings(url, key) {
-  const query =
-    "/rest/v1/job_postings?select=company_name,title,region,region_group,deadline,posted_at,first_seen_at," +
-    "employment_type,detail_url,removed_at,original_posted_at,repost_count,ij_id,view_count," +
-    "source,is_big4,career_min_years,career_max_years" +
-    "&is_target=is.true&order=posted_at.desc";
-  const res = await fetch(url.replace(/\/$/, "") + query, { headers: { apikey: key } });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  return fetchAll(url, key, `job_postings?select=${POSTING_FIELDS}&or=${POSTING_SCOPE}&order=posted_at.desc,id.desc`);
 }
 
 const missing = [];
@@ -190,7 +184,7 @@ const inject = (text) => {
 writeFileSync(join(out, "auth.js"), inject(readFileSync(join(HERE, "auth.js"), "utf8")), "utf8");
 writeFileSync(join(out, "comments.js"), inject(readFileSync(join(HERE, "comments.js"), "utf8")), "utf8");
 copyFileSync(join(HERE, "auth.css"), join(out, "auth.css"));
-for (const file of ["mail-connect.js", "career.css", "career.js", "career-template.json", "applications.js", "resume.js", "applications.css", "navigation.js", "navigation.css", "member.css", "resume-preview.js", "resume-steps.js", "resume-design.css", "site-design.css"]) copyFileSync(join(HERE, file), join(out, file));
+for (const file of ["posting-taxonomy.js", "mail-connect.js", "career.css", "career.js", "career-template.json", "applications.js", "resume.js", "applications.css", "navigation.js", "navigation.css", "member.css", "resume-preview.js", "resume-steps.js", "resume-design.css", "site-design.css"]) copyFileSync(join(HERE, file), join(out, file));
 copyFileSync(join(HERE, "comments.css"), join(out, "comments.css"));
 const AUTH_PAGES = { "login.html": "login", "auth-callback.html": "auth/callback",
                      "onboarding.html": "onboarding", "account.html": "account", "mail-connect.html": "mail-connect", "essay.html": "essay", "applications.html": "applications", "resume.html": "resume", "notifications.html": "notifications" };
@@ -256,7 +250,6 @@ const pages = [
  * 자료가 빌드에서 통째로 빠졌는데, 페이지가 "재무 준비 중" 으로 멀쩡히
  * 그려져서 티가 나지 않았다.
  */
-const PAGE = 1000;
 
 async function fetchAll(url, key, path) {
   const base = url.replace(/\/$/, "") + "/rest/v1/" + path;

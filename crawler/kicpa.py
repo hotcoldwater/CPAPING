@@ -1,20 +1,8 @@
-"""한국공인회계사회(한공회) 구인정보 게시판 수집.
+"""한공회 CPA·일반·수습CPA·자체 채용의 모든 공개 탭을 수집한다.
 
-한공회는 구인 게시판을 여러 개로 나눠 운영한다. MVP 가 노리는 신입/수습
-공고는 대부분 '구인(수습CPA)' 게시판에 모여 있다.
-
-  trainee  구인(수습CPA)  /home/jobOffrSrchNewGnrl/  ← 주 수집 대상
-  cpa      구인(CPA)      /home/jobOffrSrchGnrl/     ← 경력 위주. 신입 공고가
-                                                       섞여 올라오기도 한다
-
-두 게시판은 목록 컬럼 구성이 다르므로(수습CPA 쪽에 '구직완료 구분',
-'고용형태'가 더 있다) 컬럼 위치를 고정하지 않고 헤더를 읽어 매핑한다.
-
-수습CPA 게시판은 등록 1개월이 지난 글이 자동 삭제되므로, 놓친 공고를
-나중에 복구할 수 없다. 폴링이 끊기지 않는 것이 중요하다.
-
-robots.txt 는 전체 허용(Allow: /)이나, 상대 서버 배려를 위해
-요청 사이에 지연을 둔다.
+CPA/일반은 같은 상세 ID를 사용하므로 기존 물리 키를 보존하고 메뉴 출처를
+별도 기록한다. 세부 탭/페이지 전체를 검증한 뒤에만 저장과 내려감 판정을 한다.
+자세한 범위는 docs/posting-taxonomy.md 참고.
 """
 
 from __future__ import annotations
@@ -34,11 +22,13 @@ BASE = "https://www.kicpa.or.kr"
 
 BOARD_TRAINEE = "trainee"
 BOARD_CPA = "cpa"
+BOARD_ASSOCIATION = "association"
 
 # 게시판 코드 → (URL 경로, 사람이 읽는 이름)
 BOARDS: dict[str, tuple[str, str]] = {
     BOARD_TRAINEE: ("jobOffrSrchNewGnrl", "구인(수습CPA)"),
     BOARD_CPA: ("jobOffrSrchGnrl", "구인(CPA)"),
+    BOARD_ASSOCIATION: ("jobInfoKicpa", "구인(한국공인회계사회)"),
 }
 
 # 회사구분: 1=회계법인, 2=회계사무소, 3=공공기관, 4=일반기업, 5=헤드헌터
@@ -48,10 +38,14 @@ JOB_SEP_CPA = "1"
 
 
 def list_url(board: str) -> str:
+    if board == BOARD_ASSOCIATION:
+        return f"{BASE}/board/list.brd"
     return f"{BASE}/home/{BOARDS[board][0]}/list.face"
 
 
 def detail_url(board: str) -> str:
+    if board == BOARD_ASSOCIATION:
+        return f"{BASE}/board/read.brd"
     return f"{BASE}/home/{BOARDS[board][0]}/detail.face"
 
 USER_AGENT = (
@@ -94,12 +88,16 @@ class Posting:
     deadline: date | None = None
     body: str = ""
     source_content: dict | None = None
+    source_categories: list[str] = field(default_factory=list)
+    source_company_type: str = ""
 
     # --- 분류 결과 (classify.py 가 채움) ---
     labels: dict = field(default_factory=dict)
 
     @property
     def detail_url(self) -> str:
+        if self.board == BOARD_ASSOCIATION:
+            return f"{detail_url(self.board)}?boardId=jobInfoKicpa&bltnNo={self.ij_id}"
         return f"{detail_url(self.board)}?ijIdNum={self.ij_id}"
 
     @property
@@ -233,6 +231,7 @@ def fetch_list(
     list_cnt: int = 50,
     co_sep: str | None = None,
     job_sep: str | None = None,
+    emp_sep: str | None = None,
 ) -> tuple[list[Posting], int | None]:
     """목록 한 페이지를 가져온다. (공고 리스트, 전체 건수) 반환.
 
@@ -240,6 +239,11 @@ def fetch_list(
     전체가 17건 남짓이라 필터 없이 다 받는 편이 낫다.
     """
     params = {"listCnt": str(list_cnt), "page": str(page)}
+    if emp_sep:
+        params["ijEmpSep"] = emp_sep
+    if board == BOARD_ASSOCIATION:
+        params.update(boardId="jobInfoKicpa", pageSize=str(list_cnt),
+                      srchBgnReg="1900.01.01", srchEndReg="2099.12.31")
     if co_sep:
         params["ijCoSep"] = co_sep
     if job_sep:
@@ -248,7 +252,8 @@ def fetch_list(
     res = session.get(list_url(board), params=params, timeout=TIMEOUT_SEC)
     res.raise_for_status()
     res.encoding = "utf-8"
-    return parse_list(res.text, board), parse_total_count(res.text)
+    parser = parse_association_list if board == BOARD_ASSOCIATION else parse_list
+    return parser(res.text, board), parse_total_count(res.text)
 
 
 def fetch_complete_list(
@@ -258,6 +263,9 @@ def fetch_complete_list(
     list_cnt: int = 100,
     max_pages: int = 100,
     delay: float = REQUEST_DELAY_SEC,
+    co_sep: str | None = None,
+    job_sep: str | None = None,
+    emp_sep: str | None = None,
 ) -> tuple[list[Posting], int]:
     """전체 건수와 고유 ID 수가 일치한 목록만 반환한다.
 
@@ -271,7 +279,8 @@ def fetch_complete_list(
     seen: set[str] = set()
     expected: int | None = None
     for page in range(1, max_pages + 1):
-        items, total = fetch_list(session, board=board, page=page, list_cnt=list_cnt)
+        filters = {k: v for k, v in dict(co_sep=co_sep, job_sep=job_sep, emp_sep=emp_sep).items() if v is not None}
+        items, total = fetch_list(session, board=board, page=page, list_cnt=list_cnt, **filters)
         if total is None or total < 0:
             raise RuntimeError("게시판 전체 건수를 확인할 수 없습니다 — 수집을 중단합니다")
         if expected is None:
@@ -337,6 +346,8 @@ def parse_detail(html: str, posting: Posting) -> Posting:
         posting.body = td.get_text("\n", strip=True)
         posting.source_content = extract_content(soup, posting.detail_url)
 
+    if td is None:
+        raise ValueError("채용 공고 본문을 찾을 수 없습니다")
     posting.detail_fetched = True
     return posting
 
@@ -345,7 +356,7 @@ def fetch_detail(session: requests.Session, posting: Posting) -> Posting:
     """상세 페이지를 가져와 Posting 을 보강한다."""
     res = session.get(
         detail_url(posting.board),
-        params={"ijIdNum": posting.ij_id},
+        params=({"boardId": "jobInfoKicpa", "bltnNo": posting.ij_id} if posting.board == BOARD_ASSOCIATION else {"ijIdNum": posting.ij_id}),
         timeout=TIMEOUT_SEC,
     )
     res.raise_for_status()
@@ -421,18 +432,69 @@ def fetch_all_boards(
     실제 운영에서는 신규 건만 상세를 조회하도록 store 계층에서 걸러낸다.
     """
     session = session or make_session()
-    boards = boards or [BOARD_TRAINEE, BOARD_CPA]
+    boards = boards or list(BOARDS)
     result: list[Posting] = []
     for board in boards:
-        result.extend(
-            fetch_postings(
-                session,
-                board=board,
-                with_detail=with_detail,
-                # CPA 게시판은 회계법인 + 회계사 공고만
-                co_sep=CO_SEP_ACCOUNTING_FIRM if board == BOARD_CPA else None,
-                job_sep=JOB_SEP_CPA if board == BOARD_CPA else None,
-                delay=delay,
-            )
-        )
+        items, _ = fetch_board_inventory(session, board=board, delay=delay)
+        if with_detail:
+            for p in items:
+                fetch_detail(session, p)
+                time.sleep(delay)
+        result.extend(items)
     return result
+
+
+COMPANY_TABS = {"1": "회계법인", "2": "회계사무소", "3": "공공기관",
+                "4": "일반기업", "5": "헤드헌터", "8": "한국공인회계사회"}
+
+
+def fetch_board_inventory(session, *, board=BOARD_TRAINEE, delay=REQUEST_DELAY_SEC):
+    """Verify every visible source tab before touching stored presence flags.
+
+    CPA/general share physical IDs; keep the old kicpa:cpa key and record the
+    actual menu memberships separately. Never insert the same document twice.
+    """
+    if board == BOARD_ASSOCIATION:
+        return fetch_complete_list(session, board=board, delay=delay)
+    scopes = ([('trainee', None, None, emp) for emp in ('5', '6', '7')]
+              if board == BOARD_TRAINEE else
+              [(category, co, job, None) for category, job in [('cpa', '1'), ('general', '-1')]
+               for co in COMPANY_TABS])
+    found = {}
+    for category, co, job, emp in scopes:
+        items, total = fetch_complete_list(session, board=board, co_sep=co,
+                                          job_sep=job, emp_sep=emp, delay=delay)
+        log.info('원문 탭 %s/%s: %s건', category, co or emp, total)
+        for p in items:
+            if co:
+                p.source_company_type = COMPANY_TABS[co]
+            p.source_categories = [category]
+            if p.ij_id in found:
+                old = found[p.ij_id]
+                old.source_categories = sorted(set(old.source_categories + [category]))
+            else:
+                found[p.ij_id] = p
+        time.sleep(delay)
+    return list(found.values()), len(found)
+
+
+def parse_association_list(html, board=BOARD_ASSOCIATION):
+    soup = BeautifulSoup(html, 'lxml')
+    result = {}
+    for a in soup.select('a'):
+        raw = (a.get('onclick', '') + ' ' + a.get('href', ''))
+        m = re.search(r"(?:readBulletin|readBltn)\(\s*['\"](?:jobInfoKicpa['\"]\s*,\s*['\"])?(\d+)['\"]", raw)
+        if not m:
+            m = re.search(r'bltnNo=(\d+)', raw)
+        if not m:
+            continue
+        row = a.find_parent('tr')
+        if row is None: continue
+        p = Posting(board=board, ij_id=m.group(1), title=_clean(a.get_text()),
+                    company_name='한국공인회계사회', co_sep='한국공인회계사회',
+                    source_company_type='한국공인회계사회', source_categories=['association'])
+        p.posted_at = _parse_date(row.get_text(' ', strip=True))
+        cells = row.find_all('td')
+        if cells: p.seq = _parse_int(cells[0].get_text())
+        result[p.ij_id] = p
+    return list(result.values())
