@@ -61,3 +61,18 @@ body[data-page="resume"] .step-form .save-bar{position:static;inset:auto;margin:
 /* Keep visually hidden legends inside the step scroll container. */
 #resume-step-viewport{position:relative}
 .resume-progress button>span:last-child{white-space:nowrap}
+
+/* Overview is the entry point; only explicit start/edit mounts the wizard visually. */
+.resume-page [hidden]{display:none!important}
+#preparation-home{overflow:auto;padding:10px 4px 32px;min-height:0}
+#preparation-home>.surface{margin-top:24px}
+#preparation-home .page-lead{display:block}
+.preparation-empty{text-align:center;padding:64px 28px}
+.preparation-empty p{color:var(--ink-2);margin:12px auto 26px;max-width:440px}
+.empty-symbol{display:grid;place-items:center;width:64px;height:64px;border-radius:20px;background:#edf2ff;color:#3755c3;font-size:34px;margin:0 auto 24px}
+.registered-summary{margin:20px 0}
+.registered-summary>div{display:grid;grid-template-columns:150px minmax(0,1fr);gap:24px;padding:15px 0;border-bottom:1px solid #edf0f6}
+.registered-summary dt{color:#66758a;font-size:13px}.registered-summary dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.draft-banner{display:flex;align-items:center;justify-content:space-between;gap:20px}.draft-banner p{font-size:13px;color:#66758a}
+.draft-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-top:1px solid #e4e9f1;padding-top:8px}.draft-actions .btn{font-size:12px}.draft-actions>span{font-size:11px;color:#63748a;margin-left:auto}
+@media(max-width:680px){.registered-summary>div{grid-template-columns:90px minmax(0,1fr);gap:12px}.draft-banner{align-items:stretch;flex-direction:column}.preparation-empty{padding:38px 18px}.draft-actions{gap:4px}.draft-actions>span{width:100%;text-align:right}}

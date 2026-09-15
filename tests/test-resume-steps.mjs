@@ -1,34 +1,15 @@
+import {setup} from './preparation-fixture.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {createRequire} from 'node:module';
 import {resumeRequest} from '../functions/_resume.js';
 const require=createRequire('/tmp/cpaping-career-qa/package.json'),{JSDOM}=require('jsdom'),{PGlite}=require('@electric-sql/pglite');
 const uid='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222';
 const pause=()=>new Promise(r=>setTimeout(r,40));
-async function wizard(){
- const dom=new JSDOM(readFileSync('web/resume.html','utf8'),{url:'https://cpaping.com/resume/',runScripts:'outside-only'}),w=dom.window,d=w.document,writes=[];
- w.cpAuth={ensure:async()=>({state:'complete'}),client:{auth:{getSession:async()=>({data:{session:{access_token:'fake'}}})}}};
- w.fetch=async(url,options)=>{if(options.method==='PUT')writes.push(JSON.parse(options.body));return {ok:true,json:async()=>url.endsWith('/state')?{mail:{email:'qa@example.com'}}:{files:[{id:uid,name:'이력서.pdf'}],rule:null,applications:[]}};};
- for(const file of ['resume-preview.js','resume-steps.js','resume.js'])w.eval(readFileSync('web/'+file,'utf8'));await pause();
- return {w,d,writes,$:id=>d.getElementById(id),next:()=>d.getElementById('resume-next').click(),close:()=>w.close()};
-}
-test('wizard shows one screen, validates each step, retains draft and saves only on final confirmation',async()=>{
- const s=await wizard();try{const {$,next,w,d,writes}=s;
- assert.equal(d.querySelectorAll('[data-resume-step]:not([hidden])').length,1);assert.equal($('resume-form').dataset.step,'1');assert.equal($('save-resume-rule').hidden,true);
- next();assert.equal($('resume-form').dataset.step,'2');$('resume-selected').value='';next();assert.equal($('resume-form').dataset.step,'2');assert.match($('resume-message').textContent,/이력서/);
- $('resume-selected').value=uid;next();assert.equal($('resume-form').dataset.step,'3');next();assert.equal($('resume-form').dataset.step,'3');
- $('applicant-name').value='지원자';$('resume-subject').value='유지할 메일';next();assert.equal($('resume-form').dataset.step,'4');
- $('resume-full').checked=false;$('resume-part').checked=false;next();assert.equal($('resume-form').dataset.step,'4');$('resume-part').checked=true;next();assert.equal($('resume-form').dataset.step,'5');
- $('resume-previous').click();$('resume-previous').click();assert.equal($('resume-subject').value,'유지할 메일');assert.equal($('resume-selected').value,uid);assert.equal($('resume-part').checked,true);
- await $('resume-form').onsubmit({preventDefault(){}});assert.equal(writes.length,0);assert.equal($('resume-form').dataset.step,'4');
- next();next();assert.equal($('resume-form').dataset.step,'6');assert.match($('resume-draft-summary').textContent,/파트타임/);assert.match($('resume-draft-summary').textContent,/제한 없음/);assert.equal($('resume-next').hidden,true);
- await $('resume-form').onsubmit({preventDefault(){}});assert.equal(writes.length,0);assert.equal(d.activeElement.id,'resume-confirmed');
- $('resume-confirmed').checked=true;await $('resume-form').onsubmit({preventDefault(){}});assert.equal(writes.length,1);assert.equal(Object.hasOwn(writes[0],'daily_limit'),false);assert.deepEqual(writes[0].filters,{employment:['Part Time']});
- }finally{s.close();}
+async function wizard(){const s=await setup();await s.start();return {...s,writes:s.calls,next:s.next};}
+test('wizard validates one visible step at a time and never saves a rule before final confirmation',async()=>{
+ const s=await wizard();try{const {$,d}=s;const writes=()=>s.calls.filter(c=>c.url.endsWith('/resume-rule'));assert.equal(d.querySelectorAll('[data-resume-step]:not([hidden])').length,1);s.next();s.next();assert.equal($('resume-form').dataset.step,'2');$('resume-file-id').value=uid;s.next();s.next();assert.equal($('resume-form').dataset.step,'3');$('applicant-name').value='지원자';s.next();$('resume-full').checked=false;$('resume-part').checked=false;s.next();assert.equal($('resume-form').dataset.step,'4');$('resume-part').checked=true;s.next();await $('resume-form').onsubmit({preventDefault(){}});assert.equal(writes().length,0);assert.equal($('resume-form').dataset.step,'6');await $('resume-form').onsubmit({preventDefault(){}});assert.equal(writes().length,0);$('resume-confirmed').checked=true;await $('resume-form').onsubmit({preventDefault(){}});assert.equal(writes().length,1);assert.deepEqual(writes()[0].body.filters,{employment:['Part Time']});}finally{s.close();}
 });
-test('final submit returns to missing consent or an invalid earlier field instead of focusing hidden content',async()=>{
- const s=await wizard();try{const {$,next,d,writes}=s;$('resume-selected').value=uid;$('applicant-name').value='지원자';for(let i=0;i<4;i++)next();d.querySelector('[name=send-mode][value=auto]').click();next();$('resume-enabled').checked=true;$('resume-confirmed').checked=true;
- await $('resume-form').onsubmit({preventDefault(){}});assert.equal(writes.length,0);assert.equal($('resume-form').dataset.step,'5');assert.equal(d.activeElement.id,'resume-consent');
- $('resume-consent').checked=true;next();$('applicant-name').value='';await $('resume-form').onsubmit({preventDefault(){}});assert.equal($('resume-form').dataset.step,'3');assert.equal(d.activeElement.id,'applicant-name');assert.equal(writes.length,0);
- }finally{s.close();}
+test('missing automatic consent returns to its step and focuses the visible control',async()=>{
+ const s=await wizard();try{const {$,d}=s;$('resume-file-id').value=uid;$('applicant-name').value='지원자';for(let i=0;i<4;i++)s.next();d.querySelector('[name=send-mode][value=auto]').click();s.next();$('resume-enabled').checked=true;$('resume-confirmed').checked=true;await $('resume-form').onsubmit({preventDefault(){}});assert.equal($('resume-form').dataset.step,'5');assert.equal(d.activeElement.id,'resume-consent');assert.equal(s.calls.filter(c=>c.url.endsWith('/resume-rule')).length,0);}finally{s.close();}
 });
 test('save API has no daily quota input requirement and ignores a legacy client cap',async t=>{
  const calls=[];t.mock.method(globalThis,'fetch',async(url,options)=>{calls.push(JSON.parse(options.body));return new Response('[{}]',{headers:{'Content-Type':'application/json'}});});

@@ -1,3 +1,4 @@
+import {setup,saved} from './preparation-fixture.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {createRequire} from 'node:module';
 import {resumeUpload,mailTemplate,resumeFilters} from '../functions/_resume.js';import {onRequest} from '../functions/api/career/[[path]].js';
 const require=createRequire('/tmp/cpaping-career-qa/package.json'),{PGlite}=require('@electric-sql/pglite'),{JSDOM}=require('jsdom');
@@ -54,20 +55,8 @@ test('resume filters accept only full/part employment and stamp the new server s
  assert.deepEqual(resumeFilters({employment:['Part Time']}).employment,['Part Time']);
  for(const value of [null,[],{}, {employment:[]},{employment:['Career']},{employment:['Full Time'],all_firms:true},{employment:['Full Time'],regions:[]}])assert.throws(()=>resumeFilters(value));
 });
-test('resume UI saves only employment, rejects empty choices, and needs no firm data',async()=>{
- const dom=new JSDOM(readFileSync('web/resume.html','utf8'),{url:'https://cpaping.com/resume/',runScripts:'outside-only'}),w=dom.window;
- try{
- w.cpAuth={ensure:async()=>({state:'complete'}),client:{auth:{getSession:async()=>({data:{session:{access_token:'fake'}}})},from:()=>{throw new Error('No firm data should be requested');}}};
- const writes=[];w.fetch=async(url,options)=>{if(options.method==='PUT')writes.push(JSON.parse(options.body));return {ok:true,json:async()=>url.endsWith('/state')?{mail:{email:'self@example.com'}}:{files:[{id:uid,name:'resume.pdf'}],rule:null,applications:[],limit:100}};};
- w.eval(readFileSync('web/resume.js','utf8'));await new Promise(r=>setTimeout(r,50));
- const d=w.document,form=d.getElementById('resume-form');
- for(const id of ['resume-firms','resume-all-firms','resume-regions','resume-revenue','resume-keywords','resume-years'])assert.equal(d.getElementById(id),null);
- assert.equal(d.querySelectorAll('.employment-choices input').length,2);
- d.getElementById('resume-full').checked=false;
- await form.onsubmit({preventDefault(){}});assert.deepEqual(writes[0].filters,{employment:['Part Time']});
- d.getElementById('resume-full').checked=false;d.getElementById('resume-part').checked=false;
- await form.onsubmit({preventDefault(){}});assert.equal(writes.length,1);assert.match(d.getElementById('resume-message').textContent,/하나 이상/);
- }finally{w.close();}
+test('preparation only saves selected employment and needs no firm data',async()=>{
+ const s=await setup({rule:saved});try{await s.start();const {$,d}=s;for(const id of ['resume-firms','resume-regions','resume-years'])assert.equal($(id),null);$('resume-full').checked=false;$('resume-part').checked=true;for(let i=0;i<5;i++)s.next();$('resume-confirmed').checked=true;await $('resume-form').onsubmit({preventDefault(){}});assert.deepEqual(s.calls.find(c=>c.url.endsWith('/resume-rule')).body.filters,{employment:['Part Time']});}finally{s.close();}
 });
 test('filter migration pauses legacy rules, drops restrictions and invalidates old automatic queues',async()=>{
  const db=new PGlite();try{

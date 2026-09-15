@@ -63,7 +63,7 @@ export async function unseal(env,user,value) {
 export function provider(env,id) {
   if(id==='google') return {id,client:env.GOOGLE_MAIL_CLIENT_ID,secret:env.GOOGLE_MAIL_CLIENT_SECRET,
     authorize:'https://accounts.google.com/o/oauth2/v2/auth',token:'https://oauth2.googleapis.com/token',
-    scope:'openid email https://www.googleapis.com/auth/gmail.send',profile:'https://openidconnect.googleapis.com/v1/userinfo'};
+    scope:'openid email https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly',profile:'https://openidconnect.googleapis.com/v1/userinfo'};
   if(id==='microsoft') return {id,client:env.MICROSOFT_MAIL_CLIENT_ID,secret:env.MICROSOFT_MAIL_CLIENT_SECRET,
     authorize:'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',token:'https://login.microsoftonline.com/common/oauth2/v2.0/token',
     scope:'openid email offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Mail.Send',profile:'https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName'};

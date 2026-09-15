@@ -25,8 +25,9 @@ async function oauthCallback(request,env) {
   const info=await profileResponse.json();
   const email=p.id==='google'?(info.email_verified?info.email:null):(info.mail||info.userPrincipalName);
   if(!email||! /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw fail('발신 이메일을 확인하지 못했습니다.');
-  await supabase(env,'career_mail_accounts?on_conflict=user_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates'},body:JSON.stringify({user_id:saved.user_id,provider:p.id,email,token_encrypted:await seal(env,saved.user_id,tokens.refresh_token),connected_at:now()})});
-  return finish('connected');
+  const canRead=p.id==='google'&&scopes.has('https://www.googleapis.com/auth/gmail.readonly');
+  await supabase(env,'career_mail_accounts?on_conflict=user_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates'},body:JSON.stringify({user_id:saved.user_id,provider:p.id,email,token_encrypted:await seal(env,saved.user_id,tokens.refresh_token),connected_at:now(),reply_read_enabled:canRead,reply_sync_error:null,reply_checked_at:null})});
+  return finish(canRead?'connected':'connected_send_only');
 }
 
 export async function onRequest({request,env,params}) {
@@ -36,9 +37,25 @@ export async function onRequest({request,env,params}) {
     if(env.CAREER_MAIL_ONLY==='true'&&!['GET state','POST mail-connect','DELETE mail'].includes(request.method+' '+path)) throw fail('현재는 개인 메일 연결·해제만 테스트할 수 있습니다.',503);
     const user=await identity(request,env),uid=enc(user.id),method=request.method;
     if(path.startsWith('resume')) return await resumeRequest(request,env,user,path);
-    if(env.CAREER_RESUME_ONLY==='true'&&['profile','jobs','rules','templates','applications'].some(p=>path===p||path.startsWith(p+'/')))throw fail('자소서 기능은 보류 중입니다. 이력서 화면에서 완성한 이력서를 업로드해 주세요.',503);
+    if(env.CAREER_RESUME_ONLY==='true'&&['profile','jobs','rules','templates','applications'].some(p=>path===p||path.startsWith(p+'/')))throw fail('자소서 기능은 보류 중입니다. 지원준비 화면에서 완성한 이력서를 업로드해 주세요.',503);
     if(path==='jobs'&&env.CAREER_JOBS_ENABLED==='false') throw fail('AI 작성과 문서 생성은 준비 중입니다. 작성 자료는 저장할 수 있습니다.',503);
     if(env.CAREER_APPLICATIONS_ENABLED==='false'&&(path==='rules'||path.startsWith('applications')||path.startsWith('templates'))) throw fail('자동지원 설정과 지원서 준비는 검증 후 열립니다.',503);
+    if(path==='application-history'&&method==='GET') {
+      const q=new URL(request.url).searchParams,offset=q.get('offset')||'0',status=q.get('status')||'all',mode=q.get('mode')||'all',result=q.get('result')||'all',search=q.get('search')||'';
+      if(!/^\d{1,7}$/.test(offset)||!['all','preparing','review','queued','sending','sent','blocked','failed','cancelled','delivery_unknown'].includes(status)||!['all','auto','review','test'].includes(mode)||!['all','pending','received','needs_review','passed','rejected'].includes(result)||search.length>100)throw fail('조회 조건을 확인해 주세요.');
+      const rows=await supabase(env,'rpc/career_application_history',{method:'POST',body:JSON.stringify({p_user:user.id,p_offset:Number(offset),p_status:status,p_mode:mode,p_result:result,p_search:search,p_id:q.get('id')?uuid(q.get('id')):null})});
+      return reply({items:rows.slice(0,25),has_more:rows.length>25});
+    }
+    if(/^deliveries\/[^/]+\/events$/.test(path)&&method==='GET') {
+      const id=uuid(path.split('/')[1]);await owned(env,'career_mail_deliveries',user.id,id,'id');
+      return reply({items:await supabase(env,`career_reply_events?user_id=eq.${uid}&delivery_id=eq.${id}&select=id,sender,subject,excerpt,result,source,received_at,created_at&order=received_at.desc&limit=100`)});
+    }
+    if(/^deliveries\/[^/]+\/result$/.test(path)&&method==='PUT') {
+      const id=uuid(path.split('/')[1]),b=await body(request,2000);
+      if(!['pending','received','needs_review','passed','rejected'].includes(b.result)||!Number.isInteger(b.version)||b.version<0)throw fail('서류 결과를 확인해 주세요.');
+      try {const rows=await supabase(env,'rpc/career_record_result',{method:'POST',body:JSON.stringify({p_user:user.id,p_delivery:id,p_result:b.result,p_source:'manual',p_expected:b.version})});return reply({ok:true,outcome:rows[0]?.outcome});}
+      catch(e){if(e.message.includes('result_conflict'))throw fail('결과가 변경되었습니다. 새로고침 후 다시 확인해 주세요.',409);if(e.message.includes('result_missing'))throw fail('발송 이력을 찾을 수 없습니다.',404);throw e;}
+    }
     if(path==='deliveries'&&method==='GET') {
       const raw=new URL(request.url).searchParams.get('offset')||'0';
       if(!/^\d{1,7}$/.test(raw))throw fail('목록 위치를 확인해 주세요.');
@@ -53,12 +70,12 @@ export async function onRequest({request,env,params}) {
     }
     if(path==='state'&&method==='GET') {
       if(env.CAREER_MAIL_ONLY==='true'||env.CAREER_RESUME_ONLY==='true') {
-        const mail=await supabase(env,`career_mail_accounts?user_id=eq.${uid}&select=provider,email,connected_at`);
+        const mail=await supabase(env,`career_mail_accounts?user_id=eq.${uid}&select=provider,email,connected_at,reply_read_enabled,reply_checked_at,reply_sync_error`);
         return reply({mail_only:env.CAREER_MAIL_ONLY==='true',resume_only:env.CAREER_RESUME_ONLY==='true',mail:mail[0]||null,providers:{google:!!(env.GOOGLE_MAIL_CLIENT_ID&&env.GOOGLE_MAIL_CLIENT_SECRET&&env.MAIL_TOKEN_KEY)}});
       }
       const [profiles,rules,mail,jobs,apps,files]=await Promise.all([
         supabase(env,`career_profiles?user_id=eq.${uid}`),supabase(env,`career_rules?user_id=eq.${uid}`),
-        supabase(env,`career_mail_accounts?user_id=eq.${uid}&select=provider,email,connected_at`),
+        supabase(env,`career_mail_accounts?user_id=eq.${uid}&select=provider,email,connected_at,reply_read_enabled,reply_checked_at,reply_sync_error`),
         supabase(env,`career_jobs?user_id=eq.${uid}&select=id,kind,status,result,error,created_at&order=created_at.desc&limit=30`),
         supabase(env,`career_applications?user_id=eq.${uid}&order=created_at.desc&limit=100`),
         supabase(env,`career_files?user_id=eq.${uid}&kind=eq.template&select=id,name,created_at,mapping,verified_at,verified_company&order=created_at.desc&limit=20`)]);
@@ -204,7 +221,7 @@ export async function onRequest({request,env,params}) {
       }
       if(sending.length)throw fail('메일 전송 중입니다. 결과를 확인한 뒤 삭제해 주세요.',409);
       // 계정은 유지하고 개인 작성 자료·토큰·지원 이력·문서를 삭제한다.
-      const tables=['career_rules','career_mail_accounts','career_oauth_states','career_jobs','career_applications','career_files','career_profiles'];
+      const tables=['career_resume_drafts','career_rules','career_mail_accounts','career_oauth_states','career_jobs','career_applications','career_files','career_profiles'];
       if(env.CAREER_HISTORY_ENABLED==='true')tables.unshift('career_mail_deliveries');
       for(const table of tables) await supabase(env,`${table}?user_id=eq.${uid}`,{method:'DELETE'});
       return reply({ok:true});

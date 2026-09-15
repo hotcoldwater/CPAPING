@@ -51,7 +51,7 @@ test('callback saves only encrypted refresh token and returns to test page witho
   throw new Error('unexpected endpoint');
  });
  const input=request('mail-callback?state='+state+'&code=single-use');input.params.path=['mail-callback'];input.request.headers.set('Cookie','career_oauth='+state);
- const r=await onRequest(input);assert.equal(r.status,303);assert.equal(r.headers.get('Location'),'/mail-connect/?mail=connected');
+ const r=await onRequest(input);assert.equal(r.status,303);assert.equal(r.headers.get('Location'),'/mail-connect/?mail=connected_send_only');
  assert.equal(saved.user_id,uid);assert.equal(await unseal(env,uid,saved.token_encrypted),'refresh');assert.equal(saved.access_token,undefined);
  assert.equal(calls.length,4);assert.ok(calls.every(x=>!x.includes('/messages/send')));
 });
