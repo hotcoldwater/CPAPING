@@ -25,13 +25,12 @@ export async function resumeRequest(request,env,user,path){
  if(env.CAREER_RESUME_ONLY!=='true'||env.CAREER_RESUME_ENABLED!=='true')throw fail('이력서 지원 기능을 준비 중입니다.',503);
  try{
  if(path==='resume-state'&&method==='GET'){
-  const [files,rules,apps,drafts]=await Promise.all([
-   supabase(env,`career_files?user_id=eq.${uid}&kind=eq.resume&select=id,name,mime,created_at&order=created_at.desc`),
+  const [rules,drafts]=await Promise.all([
    supabase(env,`career_rules?user_id=eq.${uid}&select=resume_file_id,applicant_name,mail_subject_template,mail_body_template,enabled,mode,filters,daily_limit,updated_at,enabled_since`),
-   supabase(env,`career_applications?select=*,career_review_notices(status,sent_at)&user_id=eq.${uid}&snapshot->>flow=eq.${FLOW}&status=not.in.(sent,cancelled)&order=created_at.desc&limit=100`),supabase(env,`career_resume_drafts?user_id=eq.${uid}`)]);
-  const rule=rules[0]||null,draft=drafts[0]||null;
-  const visible=new Set([rule?.resume_file_id,draft?.data?.resume_file_id]);
-  return reply({files:files.filter(f=>visible.has(f.id)),rule,draft,applications:apps,limit:100});
+   supabase(env,`career_resume_drafts?user_id=eq.${uid}`)]);
+  const rule=rules[0]||null,draft=drafts[0]||null,ids=[...new Set([rule?.resume_file_id,draft?.data?.resume_file_id].filter(Boolean))].map(uuid);
+  const files=ids.length?await supabase(env,`career_files?user_id=eq.${uid}&kind=eq.resume&id=in.(${ids.join(',')})&select=id,name,mime,created_at`):[];
+  return reply({files:files.filter(f=>ids.includes(f.id)),rule,draft,applications:[],limit:100});
  }
  if(path==='resume-draft'&&method==='PUT'){
   const b=await body(request,16000),d=b.data;
