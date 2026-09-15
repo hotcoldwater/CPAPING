@@ -3,7 +3,7 @@
 let items=[],offset=0,hasMore=false,loading=false,generation=0,selected=null,detailGeneration=0;
 const statusNames={preparing:'준비 중',review:'검수 필요',queued:'발송 대기',sending:'발송 중',sent:'발송 완료',blocked:'보류',failed:'발송 실패',delivery_unknown:'발송 결과 불명',cancelled:'취소'};
 const resultNames={pending:'결과 대기',received:'접수 확인',needs_review:'답장 확인 필요',passed:'서류합격',rejected:'서류불합격'};
-const modeNames={auto:'자동발송',review:'수동발송',test:'테스트'};
+const modeNames={auto:'바로 발송',review:'검수 후 발송',test:'테스트'};
 const node=(tag,value,cls)=>{const n=document.createElement(tag);if(value!==undefined)n.textContent=value;if(cls)n.className=cls;return n;};
 const date=(v,short=false)=>v?new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',dateStyle:'short',...(short?{}:{timeStyle:'short'})}).format(new Date(v)):'—';
 function message(value,error=false){$('message').textContent=value;$('message').classList.toggle('err',error);}
@@ -14,7 +14,7 @@ function render(){const tbody=$('deliveries');tbody.replaceChildren();for(const 
  const when=node('td',date(item.sent_at,true),'history-date');if(!item.sent_at)when.append(node('small','준비 '+date(item.created_at,true)));row.append(when,node('td',modeNames[item.mode]||'—'));
  const status=node('td');status.append(badge(statusNames[item.status]||item.status,item.status));row.append(status,node('td',item.first_open_at?'읽음 추정':item.sent_at?'확인 안 됨':'—'));
  const result=node('td');result.append(badge(resultNames[item.outcome]||'결과 대기',item.outcome||'pending'));if(item.outcome_source&&item.outcome_source!=='none')result.append(node('small',item.outcome_source==='mail'?'메일 자동 확인':'직접 기록'));row.append(result);
- const detail=node('td');const b=button('보기',()=>openDetail(item));b.setAttribute('aria-label',(item.company||'지원')+' 상세 보기');detail.append(b);row.append(detail);tbody.append(row);}
+ const detail=node('td');const label=item.status==='review'?'검수하기':['blocked','failed','delivery_unknown'].includes(item.status)?'사유 확인':'상세 보기';const b=button(label,()=>openDetail(item));b.setAttribute('aria-label',(item.company||'지원')+' '+label);detail.append(b);row.append(detail);tbody.append(row);}
  $('history-empty').hidden=items.length>0;$('history-empty').textContent=[$('status').value,$('mode').value,$('result').value].some(v=>v!=='all')||$('search').value?'조건에 맞는 지원 내역이 없습니다.':'아직 지원 내역이 없습니다.';$('more').hidden=!hasMore;
 }
 async function load(reset=true){const request=++generation;loading=true;$('refresh').disabled=true;$('more').disabled=true;try{const q=new URLSearchParams({offset:String(reset?0:offset),status:$('status').value,mode:$('mode').value,result:$('result').value,search:$('search').value.trim()});const result=await api('application-history?'+q);if(request!==generation)return;items=reset?result.items:[...items,...result.items];offset=items.length;hasMore=result.has_more;render();message('지원 내역 '+items.length+'건'+(hasMore?' · 더 보기로 이전 내역을 확인하세요.':''));}finally{if(request===generation){loading=false;$('refresh').disabled=false;$('more').disabled=false;}}}

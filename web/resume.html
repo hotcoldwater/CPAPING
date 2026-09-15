@@ -18,55 +18,54 @@
 <section id="preparation-home" hidden aria-labelledby="preparation-title">
  <div class="title-row"><div><p class="eyebrow">READY FOR YOUR NEXT CHAPTER</p><h1 id="preparation-title">지원준비</h1><p class="page-lead" id="preparation-lead"></p></div><a class="history-link" href="/applications/">지원현황 보기 ↗</a></div>
  <section id="preparation-empty" class="surface preparation-empty" hidden><span class="empty-symbol" aria-hidden="true">↗</span><h2>첫 지원을 준비해 보세요</h2><p>이력서 한 개와 지원 조건을 등록하면 새로운 공고에 지원할 수 있어요.</p><button class="btn primary" id="start-preparation" type="button">지원준비 시작하기 →</button></section>
- <section id="preparation-summary" class="surface" hidden><div class="surface-topline"><h2>현재 등록된 내용</h2><button class="btn primary" id="edit-preparation" type="button">수정하기</button></div><dl id="registered-summary" class="registered-summary"></dl><div class="file-actions"><button class="btn subtle" id="download-saved" type="button">이력서 다운로드 ↓</button><button class="btn subtle" id="pause-saved" type="button" hidden>새 공고 지원 중지</button></div></section>
+ <section id="automation-panel" class="surface automation-panel" hidden aria-labelledby="automation-heading">
+  <div class="automation-header"><div><h2 id="automation-heading">자동 지원</h2><p id="automation-status" class="small-copy"></p></div><label class="automation-toggle"><span class="sr-only">자동 지원</span><span class="switch"><input id="automation-enabled" type="checkbox" role="switch" aria-describedby="automation-status" disabled><span class="switch-track" aria-hidden="true"></span></span><strong id="automation-label">꺼짐</strong></label></div>
+  <div id="automation-options" hidden>
+   <fieldset class="automation-modes"><legend>발송 방식</legend><div class="mode-grid">
+    <label class="choice-card"><input type="radio" name="automation-mode" value="review"><span><strong>검수 후 발송</strong><span>메일과 이력서를 확인하고 보내기를 눌러요.</span></span></label>
+    <label class="choice-card"><input type="radio" name="automation-mode" value="auto"><span><strong>바로 발송</strong><span>제출 요건을 충족하면 별도 승인 없이 보내요.</span></span></label>
+   </div></fieldset>
+   <div id="automation-consent-panel" class="consent-panel" hidden><label class="check"><input type="checkbox" id="automation-consent"><span>조건에 맞는 새 공고에 등록된 이력서와 메일로 <strong>내 Gmail에서 별도 승인 없이 발송</strong>하는 데 동의합니다.</span></label><div class="file-actions"><button class="btn primary" id="confirm-automation" type="button">바로 발송 적용</button><button class="btn text-button" id="cancel-automation" type="button">취소</button></div></div>
+  </div>
+  <p class="small-copy automation-help">켜는 시점 이후의 새 공고에 적용됩니다. 끄면 아직 발송하지 않은 대기 건도 멈춥니다. 이미 발송 중인 메일은 취소할 수 없습니다.</p>
+ </section>
+ <section id="preparation-summary" class="surface" hidden><div class="surface-topline"><h2>현재 등록된 내용</h2><button class="btn primary" id="edit-preparation" type="button">수정하기</button></div><dl id="registered-summary" class="registered-summary"></dl><div class="file-actions"><button class="btn subtle" id="download-saved" type="button">이력서 다운로드 ↓</button></div></section>
  <section id="preparation-draft" class="surface draft-banner" hidden><div><h2>작성 중인 내용이 있어요</h2><p>최종 저장 전까지 현재 등록된 내용은 유지됩니다.</p></div><button class="btn primary" id="continue-preparation" type="button">이어서 작성하기 →</button></section>
 </section>
 <form id="resume-form" novalidate hidden>
 <div class="resume-heading">
  <p class="breadcrumb"><a href="/account/">마이페이지</a><span aria-hidden="true">/</span>지원준비</p>
  <div class="title-row"><div><p class="eyebrow">YOUR NEXT CHAPTER</p><h1>지원준비</h1><p class="page-lead">한 단계씩 준비하면, 새로운 기회에 지원할 수 있어요.</p></div><a class="history-link" href="/applications/">지원현황 보기 <span aria-hidden="true">↗</span></a></div>
- <div class="resume-overview" aria-label="저장된 지원 설정">
-  <div class="overview-item"><span class="overview-icon" aria-hidden="true">↗</span><div><span class="meta-label">현재 지원 상태</span><strong id="resume-rule-state">설정을 불러오는 중…</strong><span id="summary-mode" class="small-copy">저장된 설정을 확인합니다.</span></div></div>
-  <div class="overview-item"><span class="overview-icon" aria-hidden="true">@</span><div><span class="meta-label">발신 계정</span><strong id="summary-mail">확인 중…</strong></div></div>
-  <div class="overview-item"><span class="overview-icon" aria-hidden="true">≡</span><div><span class="meta-label">저장된 이력서</span><strong id="summary-file">확인 중…</strong></div></div>
- </div>
+
 </div>
 <nav class="resume-progress" aria-label="이력서 작성 단계"></nav>
 <div id="resume-step-viewport">
 
-<section data-resume-step class="setup-section" aria-labelledby="sender-heading">
- <div class="section-heading"><span class="step" aria-hidden="true">A</span><h2 id="sender-heading">발신 Gmail 연결</h2><span class="section-note">내 계정으로 직접 발송</span></div>
- <div class="surface sender-card">
-  <div class="sender-copy"><span class="mail-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M3 6h18v13H3z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m3 6 9 7 9-7" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span><div><div class="sender-title"><strong>개인 Gmail</strong><span class="state-badge" id="mail-badge">확인 중</span></div><p id="mail-state">연결 상태를 불러오는 중…</p></div></div>
-  <div class="sender-actions"><button class="btn primary" id="connect" type="button">Gmail 연결</button><button class="btn text-button" id="disconnect" type="button" hidden>연결 해제</button><button class="btn subtle" id="refresh-mail" type="button">상태 새로고침</button></div>
-  <p class="sender-note">지원 메일은 내 Gmail에서 발송됩니다. 답장 자동 확인에 동의하면 지원 관련 답장에서 서류 결과를 확인합니다.</p>
- <p id="reply-connection-state" class="small-copy"></p>
- </div>
-</section>
 <fieldset id="resume-editor" disabled>
 <legend class="sr-only">이력서와 지원 설정</legend>
 <section data-resume-step class="setup-section" id="resume-workspace" aria-labelledby="file-heading">
- <div class="section-heading"><span class="step" aria-hidden="true">B</span><h2 id="file-heading">이력서 파일 준비</h2><span class="section-note">PDF · Word(.docx)</span></div>
- <div class="file-grid">
-  <div class="surface current-file">
-   <div class="surface-topline"><h3>지원에 사용할 파일</h3><span class="state-badge" id="file-selection-badge">업로드 필요</span></div>
-   <div class="file-display"><span class="document-symbol" id="current-file-type" aria-hidden="true">FILE</span><div><strong id="current-file-name">아직 이력서가 없습니다</strong><p id="current-file-meta">이력서 파일 한 개를 업로드해 주세요.</p></div></div>
-   <input type="hidden" id="resume-file-id">
-   <div class="file-actions"><button class="btn subtle" id="download-current" type="button" disabled>파일 다운로드 <span aria-hidden="true">↓</span></button><button class="btn text-button" id="replace-resume" type="button">다른 파일 올리기</button></div>
-   <p class="small-copy" id="file-unchanged">파일의 내용과 파일명을 그대로 첨부합니다.</p>
-  </div>
-  <div class="surface upload-panel">
-   <h3>새 이력서 업로드</h3>
-   <label class="drop-zone" id="resume-drop" for="resume-upload"><span class="upload-symbol" aria-hidden="true">↑</span><strong>이력서를 끌어다 놓으세요</strong><span class="drop-instruction">또는 눌러서 파일 선택</span><span class="small-copy">PDF / Word(.docx) · 최대 3MB · 암호 없는 파일</span><input class="sr-only" type="file" id="resume-upload" accept=".pdf,.docx" aria-describedby="resume-chosen"></label>
-   <p id="resume-chosen" class="chosen-file" role="status">선택한 파일 없음</p>
-   <button type="button" class="btn primary" id="upload-resume" disabled>선택한 파일 업로드</button>
-  </div>
+ <div class="section-heading"><span class="step" aria-hidden="true">1</span><h2 id="file-heading">이력서 파일 준비</h2><span class="section-note">PDF · Word(.docx)</span></div>
+ <input type="hidden" id="resume-file-id">
+ <div class="surface upload-panel">
+  <label class="drop-zone" id="resume-drop" for="resume-upload"><span class="upload-symbol" aria-hidden="true">↑</span><strong>이력서를 업로드해 주세요</strong><span class="drop-instruction">파일을 끌어다 놓거나 눌러서 선택</span><span class="small-copy">PDF / Word(.docx) · 최대 3MB · 암호 없는 파일</span><input class="sr-only" type="file" id="resume-upload" accept=".pdf,.docx" aria-describedby="resume-chosen"></label>
+  <p id="resume-chosen" class="chosen-file" role="status" aria-live="polite">파일을 선택하면 바로 업로드됩니다.</p>
+  <button type="button" class="btn subtle" id="retry-upload" hidden>업로드 다시 시도</button>
+  <button type="button" class="btn text-button" id="keep-resume" hidden>기존 파일 유지</button>
  </div>
  <p class="inline-note">새 파일은 최종 저장하면 적용됩니다. 이전 지원에는 당시 보낸 이력서가 유지됩니다.</p>
 
 </section>
+<section data-resume-step class="setup-section" aria-labelledby="employment-heading">
+ <div class="section-heading"><span class="step" aria-hidden="true">2</span><h2 id="employment-heading">지원할 공고 선택</h2><span class="section-note">하나 또는 둘 다 선택</span></div>
+ <fieldset class="employment-options" aria-describedby="employment-help employment-error"><legend class="sr-only">지원 대상 고용 형태</legend><div class="employment-choices">
+  <label class="choice-card"><input type="checkbox" id="resume-full" value="Full Time" checked><span><strong>풀타임 <small>Full-time</small></strong><span>풀타임으로 등록된 신입·수습 공고</span></span></label>
+  <label class="choice-card"><input type="checkbox" id="resume-part" value="Part Time" checked><span><strong>파트타임 <small>Part-time</small></strong><span>파트타임으로 등록된 신입·수습 공고</span></span></label>
+ </div></fieldset>
+ <p class="field-error" id="employment-error" hidden>풀타임 또는 파트타임을 하나 이상 선택해 주세요.</p>
+ <p id="employment-help" class="inline-note">신입·수습 회계사 공고만 대상으로 합니다. 경력직 공고는 자동지원 대상에서 제외됩니다.</p>
+</section>
 <section data-resume-step class="setup-section" aria-labelledby="message-heading">
- <div class="section-heading"><span class="step" aria-hidden="true">C</span><h2 id="message-heading">지원 메일 작성</h2><span class="section-note">법인명 자동 입력</span></div>
+ <div class="section-heading"><span class="step" aria-hidden="true">3</span><h2 id="message-heading">지원 메일 작성</h2><span class="section-note">법인명 자동 입력</span></div>
  <div class="mail-grid">
   <div class="surface mail-editor">
    <h3>메일 문구</h3>
@@ -88,33 +87,30 @@
   </div>
  </div>
 </section>
-<section data-resume-step class="setup-section" aria-labelledby="employment-heading">
- <div class="section-heading"><span class="step" aria-hidden="true">D</span><h2 id="employment-heading">지원할 공고 선택</h2><span class="section-note">하나 또는 둘 다 선택</span></div>
- <fieldset class="employment-options" aria-describedby="employment-help employment-error"><legend class="sr-only">지원 대상 고용 형태</legend><div class="employment-choices">
-  <label class="choice-card"><input type="checkbox" id="resume-full" value="Full Time" checked><span><strong>풀타임 <small>Full-time</small></strong><span>풀타임으로 등록된 신입·수습 공고</span></span></label>
-  <label class="choice-card"><input type="checkbox" id="resume-part" value="Part Time" checked><span><strong>파트타임 <small>Part-time</small></strong><span>파트타임으로 등록된 신입·수습 공고</span></span></label>
- </div></fieldset>
- <p class="field-error" id="employment-error" hidden>풀타임 또는 파트타임을 하나 이상 선택해 주세요.</p>
- <p id="employment-help" class="inline-note">신입·수습 회계사 공고만 대상으로 합니다. 경력직 공고는 자동지원 대상에서 제외됩니다.</p>
+<section data-resume-step class="setup-section" aria-labelledby="sender-heading">
+ <div class="section-heading"><span class="step" aria-hidden="true">4</span><h2 id="sender-heading">발신 Gmail 연결</h2><span class="section-note">내 계정으로 직접 발송</span></div>
+ <div class="surface sender-card">
+  <div class="sender-copy"><span class="mail-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M3 6h18v13H3z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m3 6 9 7 9-7" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span><div><div class="sender-title"><strong>개인 Gmail</strong><span class="state-badge" id="mail-badge">확인 중</span></div><p id="mail-state">연결 상태를 불러오는 중…</p></div></div>
+  <div class="sender-actions"><button class="btn primary" id="connect" type="button">Gmail 연결</button><button class="btn text-button" id="disconnect" type="button" hidden>연결 해제</button><button class="btn subtle" id="refresh-mail" type="button">상태 새로고침</button></div>
+  <p class="sender-note">지원 메일은 내 Gmail에서 발송됩니다. 답장 자동 확인에 동의하면 지원 관련 답장에서 서류 결과를 확인합니다.</p>
+ <p id="reply-connection-state" class="small-copy"></p>
+ </div>
 </section>
 <section data-resume-step class="setup-section" aria-labelledby="mode-heading">
- <div class="section-heading"><span class="step" aria-hidden="true">E</span><h2 id="mode-heading">발송 방식 선택</h2><span class="section-note">직접 검수 또는 자동 발송</span></div>
+ <div class="section-heading"><span class="step" aria-hidden="true">5</span><h2 id="mode-heading">발송 방식 선택</h2><span class="section-note">직접 검수 또는 자동 발송</span></div>
  <input type="hidden" id="resume-mode" value="review">
  <fieldset class="mode-options"><legend class="sr-only">발송 방식</legend><div class="mode-grid">
-  <label class="choice-card mode-card"><input type="radio" name="send-mode" value="review" checked><span><span class="mode-title"><strong>수동발송</strong><span class="mode-tag">직접 확인 후 발송</span></span><span>지원 준비가 끝나면 가입한 이메일로 ‘보낼까요?’ 안내를 받아요. 메일과 이력서를 확인하고 보내기를 눌러 주세요.</span><span class="mode-footnote">안내 메일이나 링크를 여는 것만으로는 발송되지 않습니다.</span></span></label>
-  <label class="choice-card mode-card"><input type="radio" name="send-mode" value="auto"><span><span class="mode-title"><strong>자동발송</strong><span class="mode-tag">추가 승인 없이 발송</span></span><span>제출 요건 확인을 통과한 새 공고에는 연결한 개인 Gmail에서 지원 메일을 자동으로 보내요.</span><span class="mode-footnote">지정 양식·추가 서류·제목 규칙이 있으면 검수가 필요합니다.</span></span></label>
+  <label class="choice-card mode-card"><input type="radio" name="send-mode" value="review" checked><span><span class="mode-title"><strong>검수 후 발송</strong><span class="mode-tag">직접 확인 후 발송</span></span><span>지원 준비가 끝나면 가입한 이메일로 ‘보낼까요?’ 안내를 받아요. 메일과 이력서를 확인하고 보내기를 눌러 주세요.</span><span class="mode-footnote">안내 메일이나 링크를 여는 것만으로는 발송되지 않습니다.</span></span></label>
+  <label class="choice-card mode-card"><input type="radio" name="send-mode" value="auto"><span><span class="mode-title"><strong>바로 발송</strong><span class="mode-tag">추가 승인 없이 발송</span></span><span>제출 요건 확인을 통과한 새 공고에는 연결한 개인 Gmail에서 지원 메일을 자동으로 보내요.</span><span class="mode-footnote">지정 양식·추가 서류·제목 규칙이 있으면 검수가 필요합니다.</span></span></label>
  </div></fieldset>
  <div id="auto-consent-panel" class="consent-panel" hidden><label class="check"><input type="checkbox" id="resume-consent"><span>선택한 조건에 맞는 공고에 이력서와 메일 문구를 사용해 <strong>내 Gmail에서 별도 승인 없이 발송</strong>하는 데 동의합니다.</span></label></div>
  <div class="operation-grid"><p class="inline-note">CPAPING의 일일 메일 발송 건수 제한 없이 지원합니다.</p>
-  <details class="operation-rules surface"><summary>언제부터, 어떻게 적용되나요?<span aria-hidden="true">⌄</span></summary><ul><li>켜고 저장한 시점 이후의 새 공고부터 적용됩니다. 기존 공고와 끌올 공고에 소급 자동지원하지 않습니다.</li><li>작업은 5분 주기로 실행되며 대기시간이 추가될 수 있습니다.</li><li>중지하면 발송 대기는 검수 상태로 돌아갑니다. 이미 메일 서비스에 전송 중인 메일은 취소할 수 없습니다.</li></ul></details>
+  <details class="operation-rules surface"><summary>언제부터, 어떻게 적용되나요?<span aria-hidden="true">⌄</span></summary><ul><li>지원을 시작한 시점 이후의 새 공고부터 적용됩니다. 기존 공고와 끌올 공고에 소급 자동지원하지 않습니다.</li><li>작업은 5분 주기로 실행되며 대기시간이 추가될 수 있습니다.</li><li>중지하면 발송 대기는 검수 상태로 돌아갑니다. 이미 메일 서비스에 전송 중인 메일은 취소할 수 없습니다.</li></ul></details>
  </div>
  <label class="check file-confirm"><input type="checkbox" id="resume-confirmed" required><span>업로드한 이력서의 내용과 파일명을 확인했습니다.</span></label>
 </section>
 </fieldset>
-<div class="save-bar" aria-label="지원 설정 저장">
- <div class="save-information"><label class="activation-toggle" for="resume-enabled"><span class="switch"><input type="checkbox" id="resume-enabled" disabled><span class="switch-track" aria-hidden="true"></span></span><span>새 공고 지원 <strong id="activation-label">꺼짐</strong></span></label><p id="save-feedback" role="status" aria-live="polite">저장된 설정을 확인하고 있습니다.</p><p id="saved-at"></p></div>
- <div class="save-actions"><button class="btn stop-button" type="button" id="stop-resume" hidden>현재 지원 중지</button><button class="btn save-button" id="save-resume-rule" type="submit" disabled>설정 저장하기 <span aria-hidden="true">→</span></button></div>
-</div>
+<button class="btn save-button" id="save-resume-rule" type="submit" disabled>저장하고 지원 시작 →</button>
 </div>
 <div class="draft-actions"><button class="btn text-button" id="leave-preparation" type="button">나중에 이어서 작성</button><button class="btn text-button" id="cancel-preparation" type="button">수정 취소</button><span id="draft-save-state" role="status" aria-live="polite"></span></div>
 <div class="resume-step-navigation"><button class="btn subtle" id="resume-previous" type="button">← 이전</button><span id="resume-step-count" aria-live="polite"></span><button class="btn primary" id="resume-next" type="button">다음 단계 →</button></div>
