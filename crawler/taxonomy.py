@@ -1,7 +1,8 @@
-"""Public browsing taxonomy. Deliberately independent of legacy delivery eligibility."""
+"""Shared qualification taxonomy for public browsing and new-posting notifications."""
 import re
+from types import SimpleNamespace
 
-VERSION = 1
+VERSION = 2
 CPA = r'(?:공인\s*회계사(?!무소|회)|(?<![A-Za-z])(?:KI)?CPA(?![A-Za-z])|(?<!공인)회계사(?!무소|회))'
 CPA_RE = re.compile(CPA, re.I)
 PREFERRED = re.compile(CPA + r'[^\n.;。]{0,45}(?:우대|필수\s*아님|자격\s*(?:무관|불문))', re.I)
@@ -23,6 +24,7 @@ def qualification_sections(body):
 
 
 def taxonomy_row(p):
+    p = SimpleNamespace(**{**dict.fromkeys(('title','body','career','board','company_name','co_sep','source_company_type','recruit_type','employment_type'), ''), 'source_categories': [], 'source_content': None, **vars(p)})
     title, body, career = p.title or '', p.body or '', p.career or ''
     categories = p.source_categories or (['trainee'] if p.board == 'trainee' else ['association'] if p.board == 'association' else [])
     company = p.co_sep or p.source_company_type or ''
@@ -58,11 +60,13 @@ def taxonomy_row(p):
         if minimum and not entry: experienced=True
         if not entry and not experienced:
             scope='\n'.join(x for x in body.splitlines() if re.search(r'자격|경력|신입|수습|지원\s*요건|대상|경험',x))
-            entry = bool(re.search(r'신입|수습|시험\s*합격자',scope))
-            experienced = bool(re.search(r'경력\s*\d+|\d+\s*년\s*이상|경력자|경험\s*\d+',scope))
+            entry = bool(re.search(r'신입|수습\s*(?:공인\s*)?회계사|시험\s*합격자',scope))
+            experienced = bool(re.search(r'경력\s*\d+|\d+\s*년\s*이상|경력자|경험\s*\d+|(?:실무\s*)?수습[^\n]{0,20}(?:종료|완료)',scope))
             any_career = any_career or bool(re.search(r'경력\s*(?:무관|불문)',scope))
         any_career = any_career or (career.strip() in ('무관','경력무관','경력 무관') and not entry and not experienced)
+        if re.search(CPA+r'[^\n]{0,70}(?:경력\s*무관|경력[^\n]{0,20}요건\s*미적용)', qualifications, re.I): entry=True
         if any_career and not experienced: entry=experienced=True
+        if experienced and not re.search(r'신입|수습\s*(?:공인\s*)?회계사', clean_title) and re.search(r'경력[^\n]{0,12}채용|수습[^\n]{0,20}(?:종료|완료)', qualifications): entry=False
         if entry: groups.append('entry_cpa')
         if experienced: groups.append('experienced_cpa')
         reasons.append('CPA 모집 자격 확인' + (' · 경력 구분 확인 필요' if not groups else ''))

@@ -61,9 +61,9 @@ class CareerYearsTest(unittest.TestCase):
 
 
 class TargetRuleTest(unittest.TestCase):
-    def test_경력_회계사_공고는_빅4도_대상(self):
+    def test_경력_전용_공고는_빅4도_제외(self):
         L = C.classify(posting("[삼정KPMG] Deal Adv 4본부 가치평가 경력직 채용", company="삼정KPMG", career="3~5년"))
-        self.assertTrue(L["is_big4"]); self.assertTrue(L["is_target"]); self.assertFalse(L["needs_review"])
+        self.assertTrue(L["is_big4"]); self.assertFalse(L["is_target"]); self.assertTrue(L["needs_review"])
         self.assertEqual((L["career_min_years"], L["career_max_years"]), (3, 5))
 
     def test_경력_직원_공고는_제외(self):

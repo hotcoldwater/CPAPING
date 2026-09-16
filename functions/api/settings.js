@@ -19,7 +19,6 @@ import { supabase, page, SITE } from "../_shared.js";
 const KINDS = [
   ["full", "신입 정규직", "구인(수습CPA) 게시판의 정규직 공고", "want_trainee_full"],
   ["part", "신입 파트타임", "구인(수습CPA) 게시판의 파트타임 공고", "want_trainee_part"],
-  ["career", "경력", "구인(CPA) 게시판의 회계사 경력 채용. 빅4·일반기업 포함, 기장·사무 직원 공고는 제외", "want_career"],
 ];
 const REGIONS = [
   ["all", "전국", "모든 지역"],
@@ -216,7 +215,7 @@ export async function onRequestPost({ request, env }) {
     const patch = {
       want_trainee_full: kinds.includes("full"),
       want_trainee_part: kinds.includes("part"),
-      want_career: kinds.includes("career"),
+      want_career: false,
     };
     // 예전 컬럼도 맞춰 둔다
     patch.employment_filter = patch.want_trainee_full && !patch.want_trainee_part ? "full"

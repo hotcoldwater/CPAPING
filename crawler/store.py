@@ -180,6 +180,7 @@ class Store:
             "source": f"eq.{source}",
             "is_expired": "is.false",
             "notified_at": "is.null",
+            "recruitment_categories": "cs.{entry_cpa}",
             "order": "posted_at.desc",
         }
         if include_unknown:
@@ -282,6 +283,7 @@ class Store:
                       "original_posted_at,first_seen_at,career_min_years,career_max_years,is_big4,source",
             "source": f"eq.{source}",
             "is_target": "is.true",
+            "recruitment_categories": "cs.{entry_cpa}",
             "is_expired": "is.false",
             "order": "deadline.asc",
         }
@@ -507,17 +509,13 @@ SKIP = "skip"   # wanted_employment: 이 구독자는 이 게시판 공고를 �
 
 
 def wanted_employment(source: str, subscriber: dict) -> str | None:
-    """구독자의 종류 스위치를 이 게시판의 고용형태 조건으로 옮긴다.
+    """신입 풀타임·파트타임 설정을 두 구인 게시판에 동일하게 적용한다.
 
-    None → 고용형태 제한 없음, SKIP → 아무것도 받지 않음, 그 외 → PostgREST 필터 값.
-    경력 게시판(kicpa:cpa)은 want_career 하나로 정하고, 수습 게시판은
-    want_trainee_full(정규)·want_trainee_part(파트타임) 조합이다. 011 이 예전
-    employment_filter 를 스위치로 옮겼으므로 여기서는 스위치만 본다.
+    경력 전용 공고는 쿼리의 entry_cpa 조건에서 제외한다. want_career는 사용하지 않는다.
+    None은 고용형태 제한 없음, SKIP은 수신 안 함을 뜻한다.
     """
     if source not in ("kicpa:cpa", "kicpa:trainee"):
         return SKIP
-    if source.endswith(":cpa"):
-        return None if subscriber.get("want_career") else SKIP
     full = subscriber.get("want_trainee_full", True)
     part = subscriber.get("want_trainee_part", True)
     if full and part:

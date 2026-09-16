@@ -275,7 +275,7 @@ if (!missing.length) {
       fetchAll(url, key, "firm_financials?select=*"),
       fetchAll(url, key,
         "job_postings?select=company_name,title,region,region_group,deadline,posted_at,first_seen_at," +
-        "employment_type,detail_url,removed_at,is_big4,ij_id,source,career_min_years,career_max_years&order=posted_at.desc"),
+        "employment_type,detail_url,removed_at,is_big4,ij_id,source,career_min_years,career_max_years&or=" + POSTING_SCOPE + "&order=posted_at.desc"),
     ]);
 
     // 법인별 댓글 수 — 뷰가 아직 없으면(012 전) 0 으로 간다

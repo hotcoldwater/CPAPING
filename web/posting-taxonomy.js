@@ -4,8 +4,9 @@
  const workLabels={full_time:'풀타임',part_time:'파트타임',internship:'인턴십'};
  const boardLabels={cpa:'CPA',trainee:'수습CPA',general:'일반',association:'한국공인회계사회'};
  const categories=p=>Array.isArray(p.recruitment_categories)?p.recruitment_categories:[];
+ const entryEligible=p=>categories(p).includes('entry_cpa');
  const labels=p=>{
-  const values=categories(p).map(k=>categoryLabels[k]).filter(Boolean);
+  const values=(entryEligible(p)?['entry_cpa']:categories(p)).map(k=>categoryLabels[k]).filter(Boolean);
   if(p.company_type&&p.company_type!=='확인 필요')values.push(p.company_type);
   if(p.cpa_preferred)values.push('CPA 우대');
   return values;
@@ -29,5 +30,5 @@
    return {...rows[0],history:rows.slice(1)};
   });
  }
- globalThis.cpPosting={categoryLabels,workLabels,boardLabels,categories,labels,work,closed,groupPostings};
+ globalThis.cpPosting={categoryLabels,workLabels,boardLabels,categories,entryEligible,labels,work,closed,groupPostings};
 })();
