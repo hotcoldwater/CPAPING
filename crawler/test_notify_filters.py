@@ -13,7 +13,7 @@ class WantedEmployment(unittest.TestCase):
     def test_기존_구독자_기본값은_수습_둘_다_경력은_안_받음(self):
         sub = {"want_trainee_full": True, "want_trainee_part": True, "want_career": False}
         self.assertIsNone(wanted_employment(T, sub))
-        self.assertEqual(wanted_employment(C, sub), SKIP)
+        self.assertIsNone(wanted_employment(C, sub))
 
     def test_정규만_파트만(self):
         self.assertEqual(wanted_employment(T, {"want_trainee_full": True, "want_trainee_part": False}), "neq.Part Time")
@@ -22,11 +22,11 @@ class WantedEmployment(unittest.TestCase):
     def test_경력만(self):
         sub = {"want_trainee_full": False, "want_trainee_part": False, "want_career": True}
         self.assertEqual(wanted_employment(T, sub), SKIP)
-        self.assertIsNone(wanted_employment(C, sub))
+        self.assertIs(wanted_employment(C, sub), SKIP)
 
     def test_스위치_없는_옛_행은_수습_전부(self):
         self.assertIsNone(wanted_employment(T, {}))
-        self.assertEqual(wanted_employment(C, {}), SKIP)
+        self.assertIsNone(wanted_employment(C, {}))
 
 
 class CareerNote(unittest.TestCase):

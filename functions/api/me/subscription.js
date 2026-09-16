@@ -35,7 +35,7 @@ function switchesFrom(body) {
     return { want_trainee_full: body.employment_filter !== "part", want_trainee_part: body.employment_filter !== "full", want_career: false };
   }
   return { want_trainee_full: body.want_trainee_full !== false, want_trainee_part: body.want_trainee_part !== false,
-           want_career: body.want_career === true };
+           want_career: false };
 }
 /** 예전 컬럼. 수습 둘 다(또는 경력만)면 all, 정규만 full, 파트만 part. */
 function legacyFilter(sw) {
@@ -45,7 +45,7 @@ function legacyFilter(sw) {
 }
 const pick = (row) => ({ region_filter: row.region_filter || "all", employment_filter: row.employment_filter,
   want_trainee_full: row.want_trainee_full !== false, want_trainee_part: row.want_trainee_part !== false,
-  want_career: row.want_career === true });
+  want_career: false });
 
 export async function onRequestGet({ request, env }) {
   const user = await requireUser(request, env);

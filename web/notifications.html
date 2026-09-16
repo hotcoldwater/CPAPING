@@ -23,7 +23,6 @@
         <div class="kinds" role="group" aria-label="받을 공고" style="margin-top:10px">
           <label class="check"><input type="checkbox" id="kind-full" checked> <span><strong>풀타임</strong><small>수습 공인회계사 풀타임 채용</small></span></label>
           <label class="check"><input type="checkbox" id="kind-part" checked> <span><strong>파트타임</strong><small>시즌 · 프로젝트 단위 수습 채용</small></span></label>
-          <label class="check"><input type="checkbox" id="kind-career"> <span><strong>경력직</strong> <span class="muted small">회계사 경력 채용 · 빅4·일반기업 포함, 기장·사무 직원 공고 제외</span></span></label>
         </div>
         <h2 class="numbered-heading"><span>B</span> 희망 근무 지역</h2><label for="region">알림을 받을 지역</label><select id="region"><option value="all">전국</option><option value="capital">수도권 (서울·경기·인천)</option><option value="local">지방</option></select><p class="tip">지역무관 공고는 모든 지역에 포함됩니다.</p><div class="notification-channel"><strong>이메일 알림</strong><span>가입한 이메일로 새 공고를 전달합니다.</span></div>
         <button class="btn primary" type="button" id="alert-save" style="margin-top:10px">알림 조건 저장</button>
@@ -46,13 +45,12 @@ try{  // 알림 구독 — 서버가 사용자 토큰을 확인하고 subscriber
       $("region").value = sub.region_filter || "all";
       $("kind-full").checked = sub.want_trainee_full !== false;
       $("kind-part").checked = sub.want_trainee_part !== false;
-      $("kind-career").checked = sub.want_career === true;
     }
     $("alert-state").textContent = sub.active ? "— 받는 중" : "— 꺼짐";
   }
   await loadAlert();
   const conditions = () => ({ region_filter: $("region").value, want_trainee_full: $("kind-full").checked,
-                              want_trainee_part: $("kind-part").checked, want_career: $("kind-career").checked });
+                              want_trainee_part: $("kind-part").checked, want_career: false });
   const nothing = (c) => !c.want_trainee_full && !c.want_trainee_part && !c.want_career;
   $("alert-on").addEventListener("change", async () => {
     const on = $("alert-on").checked;$("alert-on").disabled=true;

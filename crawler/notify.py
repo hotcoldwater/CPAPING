@@ -387,7 +387,7 @@ def send_to_subscriber(subscriber: dict, rows: list[dict], career: bool = False)
     """구독자 한 명에게 신규 공고 알림. 하단에 원클릭 해지 링크를 넣는다.
 
     career 면 경력 게시판 공고다 — 제목에 [경력] 을 붙이고 연차를 보여 준다.
-    수습 메일에는 경력 알림을 아직 안 켠 사람에게 한 줄로 알려 준다(운영자 결정: 별도 메일 대신).
+    공개 서비스는 신입 지원 가능 공고만 발송한다.
     """
     if not rows:
         return
@@ -405,11 +405,6 @@ def send_to_subscriber(subscriber: dict, rows: list[dict], career: bool = False)
     if count == 1:
         subject = f"{tag} {rows[0].get('company_name') or '신규'} — {rows[0]['title'][:40]}"
 
-    upsell = "" if career or subscriber.get("want_career") else (
-        f"경력(회계사 경력 채용) 공고 알림도 받을 수 있습니다: {settings}\n")
-    upsell_html = "" if career or subscriber.get("want_career") else (
-        f"<a href='{settings}' style='color:#868D99'>경력 공고 알림도 받기</a> · ")
-
     text = "\n\n".join(_format_posting_text(r) for r in rows)
     text = (
         f"새로 올라온 {'경력 ' if career else ''}공고 {count}건입니다.\n\n{text}\n\n"
@@ -417,7 +412,6 @@ def send_to_subscriber(subscriber: dict, rows: list[dict], career: bool = False)
         f"{SITE} 에서 볼 수 있습니다.\n\n"
         f"— CPAPING\n"
         f"의견이나 요청은 이 메일에 그대로 답장해 주세요.\n"
-        f"{upsell}"
         f"알림 조건 바꾸기(종류·지역): {settings}\n"
         f"수신 거부: {unsubscribe}"
     )
@@ -437,7 +431,6 @@ def send_to_subscriber(subscriber: dict, rows: list[dict], career: bool = False)
           "border-top:1px solid #EFF1F4;padding-top:14px'>"
         "의견이나 요청은 이 메일에 그대로 답장해 주세요.<br>"
         "CPAPING · "
-        f"{upsell_html}"
         f"<a href='{settings}' style='color:#868D99'>알림 설정</a> · "
         f"<a href='{unsubscribe}' style='color:#868D99'>수신 거부</a> · "
         f"<a href='{SITE}/privacy' style='color:#868D99'>개인정보처리방침</a></div></div>"

@@ -154,18 +154,18 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
         # 7. 알림 — 구독자별로 보낸다
         # 6 이 보낸 통수는 mark_confirmation_sent 로 이미 DB 에 남았으므로
         # 7 이 다시 세면 그대로 반영된다. 따로 넘겨줄 것이 없다.
-        # 경력 게시판(kicpa:cpa)은 want_career 를 켠 구독자에게만 간다 — store.wanted_employment.
+        # 두 게시판 모두 신입 지원 가능 공고만 근무형태 설정에 따라 알린다.
         career = board == kicpa.BOARD_CPA
         notified = _notify_subscribers(db, source, send_mail)
 
         # 관리자에게도 계속 보낸다. 구독자가 없어도 서비스가 살아있는지 확인할 수 있다.
-        # 경력 게시판은 판단 불가 건도 같이 보여 분류를 검수한다.
+        # 관리자 알림도 entry_cpa 범위로 제한한다.
         pending = db.unnotified_targets(source, include_unknown=career) if board != kicpa.BOARD_ASSOCIATION else []
         for r in pending:
             if r.get("audience") == "unknown":
                 r["title"] = "[검수 필요] " + (r.get("title") or "")
         if pending and send_mail:
-            notify.send_new_postings(pending, kind="경력 회계사" if career else "신입 회계사")
+            notify.send_new_postings(pending, kind="신입 회계사")
             db.mark_notified([r["id"] for r in pending])
             log.info("관리자 알림 %d건", len(pending))
         elif pending:
@@ -301,7 +301,7 @@ def _notify_subscribers(db, source: str, send_mail: bool) -> int:
             skipped += 1
             continue
         try:
-            notify.send_to_subscriber(subscriber, rows, career=source.endswith(":cpa"))
+            notify.send_to_subscriber(subscriber, rows, career=False)
             db.log_notifications(subscriber["id"], [r["id"] for r in rows])
             total += len(rows)
             mails += 1

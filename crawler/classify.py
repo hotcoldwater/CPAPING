@@ -1,16 +1,7 @@
-"""공고 분류: 빅4 판정 / 채용 유형 판정 / 직무 태깅.
+"""공고 분류: 빅4 / 채용 유형 / 직무 / 신입 지원 가능 여부.
 
-수습 채용은 빅4를 포함한다. 경력 게시판의 직원·판단 불가 공고는
-전체 알림 선택 기능이 도입되기 전까지 기존 검수 정책을 유지한다.
-실제 한공회 데이터를 보면 공고는 크게 네 갈래로 나뉜다.
-
-  entry        신입·수습 채용            ← 알림 대상
-  experienced  경력직 채용
-  partner      개업/반개업/파트너 초빙   ← 이미 개업한 회계사 대상
-  ambiguous    판단 불가                 ← 알림 대상 + 검수 큐
-
-놓치는 것보다 한 번 더 보내는 편이 낫다고 보고, ambiguous 는 알림을 보내되
-needs_review 로 표시해 사람이 확인할 수 있게 한다.
+알림은 공개 분류의 entry_cpa 공고에 한정한다. 신입·경력 혼합 모집은 포함하고,
+경력 전용·일반 직원·자격 판단 불가 공고는 알림에서 제외한다.
 """
 
 from __future__ import annotations
@@ -296,30 +287,12 @@ def classify(posting) -> dict:
     career_min, career_max = extract_career_years(posting.career, posting.title)
     expired = is_expired(posting)
 
-    if board == "cpa":
-        # 경력(구인(CPA) 게시판): 회계사 공고면 빅4·일반기업도 대상(운영자 결정 2026-09-09).
-        # 직원 공고는 제외, 판단 불가는 대상에서 빼고 검수 큐로 — 직원 공고가 회계사
-        # 공고로 나가는 것이 놓치는 것보다 나쁘다. 운영자가 확인하면 is_target 을 켠다.
-        is_target = audience == AUDIENCE_CPA and not expired
-        needs_review = audience == AUDIENCE_UNKNOWN
-    elif board == "trainee":
-        # 수습: 법인 규모와 무관하게 신입·판단 불가 공고를 포함한다.
-        is_target = (
-            ptype in (TYPE_ENTRY, TYPE_AMBIGUOUS)
-            and not expired
-        )
-        needs_review = ptype == TYPE_AMBIGUOUS
-
-    else:
-        is_target = False
-        needs_review = audience == AUDIENCE_UNKNOWN
-
-    # Browsing now includes additional menus/tabs. Existing notification switches
-    # must retain the old physical collection scope (general / accounting firms).
-    # Rows without source provenance keep the previous classification behavior.
-    categories = getattr(posting, "source_categories", [])
-    if board == "cpa" and categories:
-        is_target = is_target and "general" in categories and getattr(posting, "source_company_type", "") == "회계법인"
+    # Public listings and notifications use the same entry-CPA scope.
+    # Mixed vacancies remain eligible when entry-level applicants can apply.
+    from taxonomy import taxonomy_row
+    taxonomy = taxonomy_row(posting)
+    is_target = board in ('trainee', 'cpa') and 'entry_cpa' in taxonomy['recruitment_categories'] and not expired
+    needs_review = taxonomy['taxonomy_needs_review']
 
     labels = {
         "big4": big4,

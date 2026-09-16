@@ -11,4 +11,4 @@ export const POSTING_FIELDS = [
 ].join(',');
 export const POSTING_CONTENT_FIELDS = 'body,source_content,content_fetched_at';
 
-export const POSTING_SCOPE = '(source.eq.kicpa:trainee,source.eq.kicpa:cpa,source.eq.kicpa:association)';
+export const POSTING_SCOPE = '(recruitment_categories.cs.{entry_cpa})';
