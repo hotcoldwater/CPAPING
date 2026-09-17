@@ -47,7 +47,7 @@ test('resume UI safely renders file names and defaults to review with automation
  const dom=new JSDOM(readFileSync('web/resume.html','utf8'),{url:'https://cpaping.com/applications/',runScripts:'outside-only'}),w=dom.window;
  w.cpAuth={ensure:async()=>({state:'complete'}),client:{auth:{getSession:async()=>({data:{session:{access_token:'fake'}}})},from:()=>({select:()=>({order:()=>({limit:async()=>({data:[{id:1,name:'테스트 법인'}]})})})})}};
  w.fetch=async()=>({ok:true,json:async()=>({files:[{id:uid,name:'<img src=x onerror=bad()>.pdf'}],rule:null,applications:[],limit:100})});
- w.eval(readFileSync('web/resume.js','utf8'));await new Promise(r=>setTimeout(r,40));assert.equal(w.document.querySelectorAll('#resume-files img').length,0);assert.equal(w.document.getElementById('automation-enabled').checked,false);assert.equal(w.document.getElementById('resume-mode').value,'review');assert.equal(w.document.getElementById('resume-consent').checked,false);dom.window.close();
+ w.eval(readFileSync('web/resume-preview.js','utf8'));w.eval(readFileSync('web/resume.js','utf8'));await new Promise(r=>setTimeout(r,40));assert.equal(w.document.querySelectorAll('#resume-files img').length,0);assert.equal(w.document.getElementById('automation-enabled').checked,false);assert.equal(w.document.getElementById('resume-mode').value,'review');assert.equal(w.document.getElementById('resume-consent').checked,false);dom.window.close();
 });
 
 test('resume filters accept only full/part employment and stamp the new server scope',()=>{

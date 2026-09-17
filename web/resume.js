@@ -1,6 +1,6 @@
 (async()=>{
 'use strict';
-const $=id=>document.getElementById(id),A=window.cpAuth;
+const $=id=>document.getElementById(id),A=window.cpAuth,T=window.cpResumeTemplate;
 let state={files:[],rule:null,draft:null},mail=null,ready=false,busy=false,editing=false,dirty=false,draftVersion=0,baseVersion=null,timer=null,draftTask=Promise.resolve(),draftError=null;
 const text=(id,value)=>{if($(id))$(id).textContent=value;};
 const date=value=>value?new Date(value).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}):'—';
@@ -16,7 +16,7 @@ function summary(){const r=state.rule,file=state.files.find(f=>f.id===r?.resume_
  const status=r?.enabled?'자동 지원 켜짐':'자동 지원 꺼짐',mode=r?.mode==='auto'?'바로 발송':'검수 후 발송';
  $('download-word').hidden=!r?.resume_docx_file_id;
  automationSummary();
- if(registered)entries($('registered-summary'),[['PDF',file?.name||'파일 확인 필요'],['Word',state.files.find(f=>f.id===r?.resume_docx_file_id)?.name||'추가 등록 필요'],['지원자',r.applicant_name||'—'],['발신 Gmail',mail?.email||'연결 필요'],['답장 자동 확인',!mail?'Gmail 연결 필요':!mail.reply_read_enabled?'읽기 권한 추가 연결 필요':mail.reply_sync_error||('사용 중'+(mail.reply_checked_at?' · 최근 확인 '+date(mail.reply_checked_at):' · 다음 작업에서 확인'))],['지원 대상',(r.filters?.employment||[]).map(x=>x==='Full Time'?'풀타임':'파트타임').join(' · ')+' / 신입·수습'],['발송 방식',mode],['현재 지원 상태',status],['메일 제목',r.mail_subject_template||'—'],['메일 본문',r.mail_body_template||'—'],['마지막 저장',date(r.updated_at)]]);
+ if(registered)entries($('registered-summary'),[['PDF',file?.name||'파일 확인 필요'],['Word',state.files.find(f=>f.id===r?.resume_docx_file_id)?.name||'추가 등록 필요'],['지원자',r.applicant_name||'—'],['발신 Gmail',mail?.email||'연결 필요'],['답장 자동 확인',!mail?'Gmail 연결 필요':!mail.reply_read_enabled?'읽기 권한 추가 연결 필요':mail.reply_sync_error||('사용 중'+(mail.reply_checked_at?' · 최근 확인 '+date(mail.reply_checked_at):' · 다음 작업에서 확인'))],['지원 대상',(r.filters?.employment||[]).map(x=>x==='Full Time'?'풀타임':'파트타임').join(' · ')+' / 신입·수습'],['발송 방식',mode],['현재 지원 상태',status],['메일 제목',T.example(r.mail_subject_template,r.applicant_name)||'—'],['메일 본문',T.example(r.mail_body_template,r.applicant_name)||'—'],['마지막 저장',date(r.updated_at)]]);
 }
 let pendingAutomation=null;
 function automationSummary(){const r=state.rule;$('automation-panel').hidden=!r?.resume_file_id;$('automation-enabled').checked=!!r?.enabled;text('automation-label',r?.enabled?'켜짐':'꺼짐');text('automation-status',r?.enabled?(r.mode==='auto'?'조건에 맞는 새 공고에 바로 발송합니다.':'새 공고의 지원 내용을 준비하고, 검수를 기다립니다.'):'자동 지원이 꺼져 있습니다. 언제든 다시 켤 수 있어요.');$('automation-options').hidden=!r?.enabled;$('automation-consent-panel').hidden=true;$('automation-consent').checked=false;for(const input of document.querySelectorAll('[name=automation-mode]'))input.checked=input.value===(r?.mode||'review');}
@@ -27,8 +27,8 @@ function populate(useDraft=false){const r=state.rule||{},d=useDraft?state.draft?
  $('resume-docx-file-id').value=d?d.resume_docx_file_id||'':r.resume_docx_file_id||'';
  $('resume-file-id').value=d?d.resume_file_id||'':r.resume_file_id||'';
  $('applicant-name').value=d?d.applicant_name||'':r.applicant_name||'';
- $('resume-subject').value=d?d.subject:r.mail_subject_template||'[입사지원] [회계법인] - {이름}';
- $('resume-body').value=d?d.body:r.mail_body_template||'안녕하세요.\n[회계법인] 채용에 지원하는 {이름}입니다.\n이력서를 첨부하오니 검토 부탁드립니다.\n감사합니다.\n{이름} 드림';
+ $('resume-subject').value=T.normalize(d?d.subject:r.mail_subject_template||'[입사지원] [회계법인] - [이름]');
+ $('resume-body').value=T.normalize(d?d.body:r.mail_body_template||'안녕하세요.\n[회계법인] 채용에 지원하는 [이름]입니다.\n이력서를 첨부하오니 검토 부탁드립니다.\n감사합니다.\n[이름] 드림');
  const employment=d?d.employment:r.filters?.employment||['Full Time','Part Time'];$('resume-full').checked=employment.includes('Full Time');$('resume-part').checked=employment.includes('Part Time');
  $('resume-mode').value=d?d.mode:r.mode||'review';window.cpResumeWillEnable=r.resume_file_id?r.enabled===true:true;text('save-resume-rule',r.resume_file_id?'변경 내용 저장 →':'저장하고 지원 시작 →');text('review-save-help',r.resume_file_id?(r.enabled?'저장하면 변경한 내용으로 자동 지원을 계속합니다.':'변경 내용만 저장합니다. 자동 지원은 꺼진 상태로 유지됩니다.'):'저장하면 선택한 방식으로 자동 지원을 시작합니다.');window.cpResumeFile=null;window.cpResumeUploadState='idle';$('resume-chosen').dataset.error='false';$('retry-upload').hidden=true;$('keep-resume').hidden=true;$('resume-confirmed').checked=false;$('resume-consent').checked=false;dirty=false;notify();
 }

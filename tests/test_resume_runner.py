@@ -94,6 +94,10 @@ class FormatSelectionTests(unittest.TestCase):
   result={'state':'classified','subject':{'kind':'designated','template':'신입_{이름}'},'filename':{'kind':'designated','template':'{이름}_지원서'},'documents':{'kind':'free'},'method':'email','recipient':'hr@example.com','file_format':'docx','uncertainty':[],'blockers':[]}
   with patch('career.resume_runner.source',return_value=self.source),patch('career.requirements_ai.analyze',return_value=result):r.prepare(self.db,self.app)
   prepared=self.db.update.call_args.args[1];self.assertEqual(prepared['document_id'],'word');self.assertEqual(prepared['subject'],'신입_지원자');self.assertEqual(prepared['snapshot']['attachments'][0]['name'],'지원자_지원서.docx');self.assertEqual(prepared['snapshot']['document_hash'],r.digest(word['data_base64']))
+ def test_square_and_legacy_tokens_resolve_for_actual_delivery(self):
+  for template in ('[입사지원] [회계법인] - [이름] / [공고]', '[입사지원] {법인} - {이름} / {공고}'):
+   self.assertEqual(r.message(template,self.rule,self.post),'[입사지원] 예시법인 - 지원자 / 채용')
+  self.assertEqual(r.message('[이름] 드림\n[회계법인] [공고]',self.rule,self.post),'지원자 드림\n예시법인 채용')
  def test_birth_year_from_registered_member_or_block(self):
   self.assertEqual(r.message('{이름}_{출생년도}',{**self.rule,'member':{'birth_date':'1995-01-02'}},self.post),'지원자_1995')
   with self.assertRaises(ValueError):r.message('{출생년도}',self.rule,self.post)

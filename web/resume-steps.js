@@ -13,7 +13,7 @@
  const progress=form.querySelector('.resume-progress');let current=0;
  const buttons=labels.map((label,index)=>{const b=document.createElement('button');b.type='button';b.innerHTML='<span class="progress-number">'+(index+1)+'</span><span>'+label+'</span>';b.addEventListener('click',()=>go(index));progress.append(b);return b;});
  function summary(){
-  const entries=[['이력서',$('preview-file').textContent||'업로드 필요'],['지원자',$('applicant-name').value||'입력 필요'],['지원 조건',[$('resume-full').checked?'풀타임':'',$('resume-part').checked?'파트타임':''].filter(Boolean).join(' · ')||'선택 필요'],['발송 방식',$('resume-mode').value==='auto'?'바로 발송':'검수 후 발송'],['메일 제목',$('resume-subject').value],['일일 발송 한도','제한 없음']];
+  const entries=[['이력서',$('preview-file').textContent||'업로드 필요'],['지원자',$('applicant-name').value||'입력 필요'],['지원 조건',[$('resume-full').checked?'풀타임':'',$('resume-part').checked?'파트타임':''].filter(Boolean).join(' · ')||'선택 필요'],['발송 방식',$('resume-mode').value==='auto'?'바로 발송':'검수 후 발송'],['메일 제목',window.cpResumeTemplate.example($('resume-subject').value,$('applicant-name').value)],['일일 발송 한도','제한 없음']];
   const dl=$('resume-draft-summary');dl.replaceChildren();for(const [key,value] of entries){const row=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=key;dd.textContent=value;row.append(dt,dd);dl.append(row);}
  }
  function show(index,focus=true){

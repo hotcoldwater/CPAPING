@@ -12,13 +12,13 @@ test('a changed script and its dependents get fresh URLs; static and live pages 
 });
 test('new resume and history pages never request a cached pre-split script, and each loads only its own data',async()=>{
  const dir=mkdtempSync(join(tmpdir(),'cpaping-split-'));try{
- writeFileSync(join(dir,'resume.js'),readFileSync('web/resume.js','utf8'));writeFileSync(join(dir,'applications.js'),readFileSync('web/applications.js','utf8'));const versions=buildAssetFiles(dir);
+ writeFileSync(join(dir,'resume-preview.js'),readFileSync('web/resume-preview.js','utf8'));writeFileSync(join(dir,'resume.js'),readFileSync('web/resume.js','utf8'));writeFileSync(join(dir,'applications.js'),readFileSync('web/applications.js','utf8'));const versions=buildAssetFiles(dir);
  const stale=new Map([['/resume.js',"document.getElementById('resume-firms').append('old'); document.getElementById('resume-applications').replaceChildren();"]]);
  for(const name of ['resume','applications']){
   const html=versionAssets(readFileSync('web/'+name+'.html','utf8'),versions);const dom=new JSDOM(html,{url:'https://cpaping.com/'+name+'/',runScripts:'outside-only'}),w=dom.window;
   try{w.cpAuth={ensure:async()=>({state:'complete'}),client:{auth:{getSession:async()=>({data:{session:{access_token:'fake'}}})},from:()=>({select:()=>({order:()=>({limit:async()=>({data:[{id:1,name:'예시법인'}]})})})})}};
    const methods=[];w.fetch=async(url,options)=>{methods.push(options.method);return {ok:true,json:async()=>url.endsWith('/state')?{mail:{email:'owner@example.com'}}:url.includes('application-history')?{items:[],has_more:false}:{files:[],applications:[],limit:100}};};
-   for(const script of w.document.scripts){const path=new URL(script.src||'/',w.location).pathname;if(path.startsWith('/assets/')&&/\/(resume|applications)\./.test(path)){assert.ok(!stale.has(path));w.eval(readFileSync(join(dir,path),'utf8'));}}
+   for(const script of w.document.scripts){const path=new URL(script.src||'/',w.location).pathname;if(path.startsWith('/assets/')&&/\/(resume(?:-preview)?|applications)\./.test(path)){assert.ok(!stale.has(path));w.eval(readFileSync(join(dir,path),'utf8'));}}
    await pause();if(name==='resume'){assert.match(w.document.getElementById('mail-state').textContent,/owner@example.com/);assert.equal(typeof w.document.getElementById('disconnect').onclick,'function');}else{assert.equal(w.document.getElementById('mail-state'),null);assert.equal(w.document.querySelector('#resume-form'),null);assert.equal(w.document.querySelectorAll('.history-table').length,1);}assert.ok(!w.document.body.textContent.includes('Cannot read properties'));assert.ok(methods.every(x=>x==='GET'));
   }finally{w.close();}
  }

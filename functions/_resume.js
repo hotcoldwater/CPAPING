@@ -27,7 +27,7 @@ export function applicationUpload(b){
 }
 export function mailTemplate(v,max,subject=false){
  const text=textValue(v,max);
- if(!text||/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text)||(subject&&/[\r\n]/.test(text))||/[{}]/.test(text.replace(/\{(?:이름|법인|공고)\}/g,'')))throw fail('메일 문구와 치환 항목을 확인해 주세요. [회계법인], {이름}, {공고}를 사용할 수 있습니다. 기존 {법인}도 지원합니다.');
+ if(!text||/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text)||(subject&&/[\r\n]/.test(text))||/[{}]/.test(text.replace(/\{(?:이름|법인|공고)\}/g,'')))throw fail('메일 문구와 치환 항목을 확인해 주세요. [회계법인], [이름], [공고]를 사용할 수 있습니다.');
  return text;
 }
 export async function resumeRequest(request,env,user,path){
