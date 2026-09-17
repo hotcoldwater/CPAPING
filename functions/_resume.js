@@ -109,10 +109,10 @@ export async function resumeRequest(request,env,user,path){
   const post=(await supabase(env,`job_postings?id=eq.${id}`))[0];
   if(!post||post.is_expired||post.removed_at)throw fail('현재 지원할 수 없는 공고입니다.');
   const canonical=post.original_id||post.id;
-  const existing=(await supabase(env,`career_applications?user_id=eq.${uid}&canonical_posting_id=eq.${canonical}`))[0];if(existing){if(existing.status==='preparing')await rpc(env,'career_enqueue_analysis',{p_posting:post.id});return reply(existing);}
+  const existing=(await supabase(env,`career_applications?user_id=eq.${uid}&canonical_posting_id=eq.${canonical}`))[0];if(existing){if(existing.deleted_at){const restored=await rpc(env,'career_restore_history',{p_user:user.id,p_id:existing.id});if(!restored.length)throw fail('지원 상태가 바뀌었습니다. 다시 확인해 주세요.',409);return reply(restored[0]);}if(existing.status==='preparing')await rpc(env,'career_enqueue_analysis',{p_posting:post.id});return reply(existing);}
   const prepared=await directApplication(env,user,rule,post);
   try{const app=(await insert(env,'career_applications',{user_id:user.id,posting_id:post.id,canonical_posting_id:canonical,origin:'manual',...prepared}))[0];return reply(app,201);}
-  catch(e){const concurrent=(await supabase(env,`career_applications?user_id=eq.${uid}&canonical_posting_id=eq.${canonical}`))[0];if(concurrent)return reply(concurrent);throw e;}
+  catch(e){const concurrent=(await supabase(env,`career_applications?user_id=eq.${uid}&canonical_posting_id=eq.${canonical}`))[0];if(concurrent&&!concurrent.deleted_at)return reply(concurrent);throw e;}
  }
  if(path.startsWith('resume-events/')&&method==='GET'){
   const id=uuid(path.split('/')[1]);await owned(env,'career_applications',user.id,id);
@@ -126,7 +126,7 @@ export async function resumeRequest(request,env,user,path){
  }
  if(path.startsWith('resume-applications/')&&method==='PUT'){
   const a=await owned(env,'career_applications',user.id,path.split('/')[1]),b=await body(request);
-  if(a.snapshot?.flow!==FLOW||!['review','blocked','preparing','queued','failed','delivery_unknown','cancelled'].includes(a.status)||b.version!==a.version)throw fail('지원 상태가 바뀌었습니다. 새로고침 후 확인해 주세요.',409);
+  if(a.deleted_at||a.snapshot?.flow!==FLOW||!['review','blocked','preparing','queued','failed','delivery_unknown','cancelled'].includes(a.status)||b.version!==a.version)throw fail('지원 상태가 바뀌었습니다. 새로고침 후 확인해 주세요.',409);
   if(a.status==='delivery_unknown'&&(b.action!=='approve'||b.delivery_checked!==true))throw fail('보낸편지함에서 발송되지 않았는지 먼저 확인해 주세요.',409);
   const data={version:a.version+1,updated_at:now(),manual_status:null};
   if(b.action==='cancel'){data.status='cancelled';data.reason='사용자가 취소했습니다.';}

@@ -42,7 +42,7 @@ def verified_email(db, user_id):
 def deliver_notice(db, notice):
     app = db.one('career_applications', id='eq.' + notice['application_id'])
     rule = db.one('career_rules', user_id='eq.' + notice['user_id'])
-    if not app or app['status'] != 'review' or app.get('manual_status') not in (None,'review') or not rule or not rule.get('enabled'):
+    if not app or app.get('deleted_at') or app['status'] != 'review' or app.get('manual_status') not in (None,'review') or not rule or not rule.get('enabled'):
         db.update('career_review_notices', {'status': 'cancelled'}, application_id='eq.' + notice['application_id'])
         return
     # Resend remembers idempotency keys for 24h. Never retry beyond that window.

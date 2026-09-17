@@ -40,6 +40,12 @@ export async function onRequest({request,env,params}) {
     if(env.CAREER_RESUME_ONLY==='true'&&['profile','jobs','rules','templates','applications'].some(p=>path===p||path.startsWith(p+'/')))throw fail('자소서 기능은 보류 중입니다. 지원준비 화면에서 완성한 이력서를 업로드해 주세요.',503);
     if(path==='jobs'&&env.CAREER_JOBS_ENABLED==='false') throw fail('AI 작성과 문서 생성은 준비 중입니다. 작성 자료는 저장할 수 있습니다.',503);
     if(env.CAREER_APPLICATIONS_ENABLED==='false'&&(path==='rules'||path.startsWith('applications')||path.startsWith('templates'))) throw fail('자동지원 설정과 지원서 준비는 검증 후 열립니다.',503);
+    if(/^application-history\/[^/]+$/.test(path)&&method==='DELETE') {
+      const b=await body(request,2000);
+      if(!['application','delivery'].includes(b.kind)||!Number.isInteger(b.version)||b.version<0)throw fail('삭제할 지원 내역을 확인해 주세요.');
+      try {await supabase(env,'rpc/career_delete_history',{method:'POST',body:JSON.stringify({p_user:user.id,p_id:uuid(path.split('/')[1]),p_kind:b.kind,p_expected:b.version})});return reply({ok:true});}
+      catch(e){if(e.message.includes('application_conflict'))throw fail('지원 상태가 바뀌었거나 메일을 발송 중입니다. 새로고침 후 다시 확인해 주세요.',409);if(e.message.includes('application_missing'))throw fail('지원 내역을 찾을 수 없습니다.',404);throw e;}
+    }
     if(path==='application-history'&&method==='GET') {
       const q=new URL(request.url).searchParams,offset=q.get('offset')||'0',status=q.get('status')||'all',mode=q.get('mode')||'all',result=q.get('result')||'all',search=q.get('search')||'';
       if(!/^\d{1,7}$/.test(offset)||!['all','analyzing','preparing','review','queued','sending','sent','blocked','failed','cancelled','delivery_unknown','passed','final_passed','rejected'].includes(status)||!['all','auto','review','test'].includes(mode)||!['all','pending','received','needs_review','passed','rejected'].includes(result)||search.length>100)throw fail('조회 조건을 확인해 주세요.');

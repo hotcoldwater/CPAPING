@@ -3,26 +3,41 @@
 const $=id=>document.getElementById(id),A=window.cpAuth;
 const names={analyzing:'AI 분석 중',review:'검수필요',blocked:'확인필요',sent:'지원완료',passed:'서류합격',final_passed:'최종합격',rejected:'불합격'};
 const busyNames={preparing:'AI가 공고의 지원 요건을 분석하고 있습니다. 일시적인 오류는 자동으로 재시도합니다.',queued:'발송을 기다리고 있습니다.',sending:'메일을 발송하고 있습니다.'};
-let items=[],offset=0,hasMore=false,loading=false,generation=0,selected=null,detailGeneration=0;
+let items=[],offset=0,hasMore=false,loading=false,generation=0,selected=null,detailGeneration=0,actionMenu=null,actionTrigger=null;
 const node=(tag,value,cls)=>{const n=document.createElement(tag);if(value!==undefined)n.textContent=value;if(cls)n.className=cls;return n;};
 const date=(v,short=false)=>v?new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',dateStyle:'short',...(short?{}:{timeStyle:'short'})}).format(new Date(v)):'—';
 const today=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const statusOf=item=>item.display_status||item.manual_status||(item.status==='preparing'?'analyzing':item.outcome_source==='manual'&&['passed','rejected'].includes(item.outcome)?item.outcome:item.status==='sent'?'sent':['blocked','failed','delivery_unknown','cancelled'].includes(item.status)?'blocked':'review');
-const editable=item=>item.application_id&&['review','blocked','failed','delivery_unknown','cancelled'].includes(item.status)&&['review','blocked'].includes(statusOf(item));
+const applicationEntry=item=>item.entry_kind?item.entry_kind==='application':!!item.application_id&&Number.isInteger(item.version);
+const editable=item=>applicationEntry(item)&&['review','blocked','failed','delivery_unknown','cancelled'].includes(item.status)&&['review','blocked'].includes(statusOf(item));
 function message(value,error=false){$('message').textContent=value;$('message').classList.toggle('err',error);}
 async function api(path,method='GET',body){const {data:{session}}=await A.client.auth.getSession();if(!session)throw new Error('다시 로그인해 주세요.');const r=await fetch('/api/career/'+path,{method,headers:{Authorization:'Bearer '+session.access_token,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});if(!r.ok){const b=await r.json().catch(()=>({}));throw new Error(b.error||'요청을 처리하지 못했습니다.');}return path.startsWith('files/')?r.blob():r.json();}
 function button(label,fn,cls='btn'){const b=node('button',label,cls);b.type='button';b.onclick=async()=>{b.disabled=true;try{await fn();}catch(e){$('detail-message').textContent=e.message;}finally{b.disabled=false;}};return b;}
 function badge(label,kind){return node('span',label,'history-badge '+kind);}
-function render(){const tbody=$('deliveries');tbody.replaceChildren();for(const item of items){
+function render(){closeActions();const tbody=$('deliveries');tbody.replaceChildren();for(const item of items){
  const row=node('tr'),company=node('td'),link=button(item.company||'지원 공고',()=>openDetail(item),'posting-link');link.setAttribute('aria-label',(item.company||'지원')+' 지원 상세');company.append(link,node('span',item.title||item.subject||'','posting-title'));row.append(company,node('td',item.region||'—'),node('td',date(item.posted_at,true),'history-date'),node('td',date(item.site_applied_on||item.sent_at,true),'history-date'));
  const read=node('td');read.append(badge(item.first_open_at?'읽음':'안읽음',item.first_open_at?'read':'unread'));row.append(read);
  const state=node('td'),value=statusOf(item),label=names[value];
- if(item.application_id){const change=button(label,()=>openStatus(item),'history-badge status-control '+value);change.setAttribute('aria-label',(item.company||'지원')+' 상태 변경: '+label);change.disabled=!!busyNames[item.status];state.append(change);}else state.append(badge(label,value));
+ if(applicationEntry(item)){const change=button(label,()=>openStatus(item),'history-badge status-control '+value);change.setAttribute('aria-label',(item.company||'지원')+' 상태 변경: '+label);change.disabled=!!busyNames[item.status];state.append(change);}else state.append(badge(label,value));
  if(busyNames[item.status]&&item.status!=='preparing')state.append(node('small',item.status==='preparing'?'준비 중':item.status==='queued'?'발송 대기 중':'발송 중'));
- row.append(state);const action=node('td');if(editable(item)){const edit=button('수정',()=>openDetail(item));edit.setAttribute('aria-label',(item.company||'지원')+' 수정');action.append(edit);}row.append(action);tbody.append(row);
+ row.append(state);const action=node('td'),more=node('button','⋮','history-more');more.type='button';more.setAttribute('aria-label',(item.company||'지원')+' 수정 및 삭제');more.setAttribute('aria-expanded','false');more.onclick=()=>openActions(item,more);action.append(more);row.append(action);tbody.append(row);
  }
  $('history-empty').hidden=items.length>0;$('history-empty').textContent=$('status').value!=='all'||$('search').value?'조건에 맞는 지원 내역이 없습니다.':'아직 지원 내역이 없습니다.';$('more').hidden=!hasMore;
 }
+function closeActions(restoreFocus=false){if(actionMenu)actionMenu.remove();if(actionTrigger){actionTrigger.setAttribute('aria-expanded','false');if(restoreFocus)actionTrigger.focus();}actionMenu=null;actionTrigger=null;}
+function openActions(item,trigger){
+ if(actionTrigger===trigger){closeActions();return;}closeActions();actionTrigger=trigger;trigger.setAttribute('aria-expanded','true');
+ const menu=node('div',undefined,'history-action-options');menu.setAttribute('role','group');menu.setAttribute('aria-label','지원 관리');actionMenu=menu;
+ const edit=button('수정',async()=>{closeActions();if(editable(item))await openDetail(item);else if(applicationEntry(item))openStatus(item);else await openDetail(item);});edit.disabled=!!busyNames[item.status];
+ const remove=button('삭제',()=>{closeActions();openDelete(item);},'btn delete-history');remove.disabled=item.status==='sending';menu.append(edit,remove);document.body.append(menu);
+ const rect=trigger.getBoundingClientRect(),height=menu.getBoundingClientRect().height;menu.style.left=Math.max(8,Math.min(rect.right-124,window.innerWidth-132))+'px';menu.style.top=Math.max(8,rect.bottom+height+8>window.innerHeight?rect.top-height-4:rect.bottom+4)+'px';(edit.disabled?remove:edit).focus();
+}
+function openDelete(item){const target=dialog(item);selected=null;$('application-detail-title').textContent=(item.company||'지원')+' · 내역 삭제';target.append(node('p','이 지원 내역을 목록에서 삭제할까요?'),node('p',item.sent_at?'이미 발송한 메일은 취소되지 않습니다.':'아직 발송하지 않은 지원은 취소됩니다.','tip'),button('취소',()=>$('application-dialog').close()),button('삭제',async()=>{
+ await api('application-history/'+item.id,'DELETE',{kind:applicationEntry(item)?'application':'delivery',version:applicationEntry(item)?item.version:(item.outcome_version||0)});$('application-dialog').close();await load();message('지원 내역을 삭제했습니다.');
+ },'btn confirm-delete-history'));}
+document.addEventListener('click',event=>{if(actionMenu&&!actionMenu.contains(event.target)&&!actionTrigger.contains(event.target))closeActions();});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&actionMenu){event.preventDefault();closeActions(true);}});
+window.addEventListener('resize',()=>closeActions());document.addEventListener('scroll',()=>closeActions(),true);
 async function load(reset=true){const request=++generation;loading=true;$('refresh').disabled=true;$('more').disabled=true;try{const q=new URLSearchParams({offset:String(reset?0:offset),status:$('status').value,search:$('search').value.trim()});const result=await api('application-history?'+q);if(request!==generation)return;items=reset?result.items:[...items,...result.items];offset=items.length;hasMore=result.has_more;render();message('지원 내역 '+items.length+'건'+(hasMore?' · 더 보기로 이전 내역을 확인하세요.':''));}finally{if(request===generation){loading=false;$('refresh').disabled=false;$('more').disabled=false;}}}
 function field(label,control){const l=node('label',label,'field');l.append(control);return l;}
 function dialog(item){selected=item;++detailGeneration;const target=$('application-detail');target.replaceChildren();$('detail-message').textContent='';$('application-detail-title').textContent=item.company||'지원 상세';if(!$('application-dialog').open)$('application-dialog').showModal();return target;}
@@ -63,7 +78,7 @@ async function openDetail(item){const target=dialog(item),request=detailGenerati
   target.append(node('h3',item.sent_at?'보낸 메일':'메일 내용'),node('strong',item.subject||'—'),node('pre',item.body||'—','delivery-body'));for(const f of files)target.append(button('첨부파일 · '+f.name,()=>download(f)));
   if(item.sent_at)target.append(node('p','발송일: '+date(item.sent_at),'tip'));
  }
- if(website&&item.application_id)target.append(button('지원 상태·지원일 입력',()=>openStatus(item)));
+ if(website&&applicationEntry(item))target.append(button('지원 상태·지원일 입력',()=>openStatus(item)));
 }
 try{
  const auth=await A.ensure('needs_profile');if(!['complete','needs_profile'].includes(auth.state))return;
@@ -72,6 +87,6 @@ try{
  await load();const query=new URLSearchParams(location.search),review=query.get('review'),posting=query.get('posting');
  if(review&&/^[\da-f-]{36}$/i.test(review)){const item=await freshItem(review);if(item)await openDetail(item);else message('해당 지원 내역을 찾을 수 없습니다.',true);}
  if(posting&&/^\d{1,15}$/.test(posting)){const app=await api('resume-applications','POST',{posting_id:posting});history.replaceState(null,'',location.pathname);await refreshSelected(app.id);}
- setInterval(async()=>{if(document.hidden||loading)return;try{if(!$('application-dialog').open&&offset<=25)await load();else if(selected&&busyNames[selected.status]){const id=selected.id,request=detailGeneration,result=await api('application-history?id='+encodeURIComponent(id));if(request===detailGeneration&&result.items[0]&&(result.items[0].status!==selected.status||result.items[0].version!==selected.version))await openDetail(result.items[0]);}}catch{}},5000);
+ setInterval(async()=>{if(document.hidden||loading)return;try{if(!$('application-dialog').open&&!actionMenu&&offset<=25)await load();else if(selected&&busyNames[selected.status]){const id=selected.id,request=detailGeneration,result=await api('application-history?id='+encodeURIComponent(id));if(request===detailGeneration&&result.items[0]&&(result.items[0].status!==selected.status||result.items[0].version!==selected.version))await openDetail(result.items[0]);}}catch{}},5000);
 }catch(e){message(e.message,true);}
 })();

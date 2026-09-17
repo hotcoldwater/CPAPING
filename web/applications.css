@@ -17,3 +17,6 @@ body[data-page="applications"] .member-shell main{max-width:1200px;width:100%}
 #application-detail .send-application{display:block;width:100%;margin:24px 0 0;background:#244e8c;color:#fff;border-color:#244e8c;font-weight:600;padding:13px}
 
 .history-badge.analyzing{color:#3b64a1;background:#edf3ff}
+
+.history-more{border:0;background:transparent;color:#63738a;border-radius:6px;font-size:24px;line-height:1;min-width:36px;min-height:36px;cursor:pointer}.history-more:hover,.history-more[aria-expanded=true]{background:#eaf0f8}.history-more:focus-visible{outline:2px solid #416dc5;outline-offset:2px}
+.history-action-options{position:fixed;z-index:1000;width:124px;box-sizing:border-box;padding:5px;background:white;border:1px solid #dce3ee;border-radius:9px;box-shadow:0 6px 24px #15284020;display:flex;flex-direction:column;gap:3px}.history-action-options .btn{width:100%;text-align:left;background:transparent;border:0;padding:10px 14px;margin:0;font:inherit;font-size:13px;cursor:pointer}.history-action-options .btn:hover{background:#f1f5fa}.history-action-options .btn:disabled{opacity:.45;cursor:default}.history-action-options .delete-history,.confirm-delete-history{color:#a33c3c}

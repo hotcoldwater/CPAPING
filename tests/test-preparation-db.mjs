@@ -110,3 +110,30 @@ test('analysis jobs enqueue on collection, retry durably, reject stale results a
  for(const role of ['anon','authenticated']){assert.equal((await db.query("select has_table_privilege($1,'career_analysis_jobs','SELECT') ok",[role])).rows[0].ok,false);assert.equal((await db.query("select has_function_privilege($1,'career_claim_analysis()','EXECUTE') ok",[role])).rows[0].ok,false);}
  }finally{await db.close();}
 });
+test('history deletion cancels unsent work, retains send evidence and blocks other owners, stale versions and in-flight sends',async()=>{
+ const db=await setup();try{
+ await db.exec('alter table job_postings add column region text,add column work_region text,add column region_group text,add column posted_at date,add column first_seen_at timestamptz,add column recruitment_categories text[],add column body text,add column source_content jsonb;');
+ for(const file of ['027_application_history_workflow.sql','028_immediate_analysis.sql','029_history_deletion.sql'])await db.exec(readFileSync('db/migrations/'+file,'utf8'));await upload(db);
+ await db.query("insert into career_mail_accounts(user_id,provider,email,token_encrypted) values($1,'google','me@example.com','fake')",[uid]);
+ const add=async(post,status)=>(await db.query("insert into career_applications(user_id,posting_id,canonical_posting_id,status,snapshot) values($1,$2,$2,$3,'{\"flow\":\"uploaded-resume-v1\"}') returning *",[uid,post,status])).rows[0];
+ const queued=await add(1,'queued'),sent=await add(2,'sent'),sending=await add(3,'sending'),pending=await add(4,'preparing');
+ const remove=(id,version=1,user=uid,kind='application')=>db.query('select career_delete_history($1,$2,$3,$4)',[user,id,kind,version]);
+ const list=async()=>(await db.query('select career_application_history($1) item',[uid])).rows.map(x=>x.item);
+ await assert.rejects(()=>remove(queued.id,1,other),/application_missing/);await assert.rejects(()=>remove(queued.id,99),/application_conflict/);await assert.rejects(()=>remove(sending.id),/application_conflict/);
+ await remove(queued.id);await remove(pending.id);assert.equal((await db.query('select * from career_claim_resume_send()')).rows.length,0);
+ assert.equal((await db.query('select status from career_applications where id=$1',[queued.id])).rows[0].status,'cancelled');
+ assert.equal((await db.query("update career_applications set status='queued' where id=$1 and status='preparing' and version=1 returning id",[pending.id])).rows.length,0);
+ await assert.rejects(()=>db.query("select career_set_application_status($1,$2,2,'review')",[uid,queued.id]),/application_missing/);
+ const delivery=(await db.query("insert into career_mail_deliveries(user_id,application_id,application_version,company,recipient,subject,body,mode,status,sent_at) values($1,$2,1,'법인','hr@example.com','제목','본문','review','sent',now()) returning *",[uid,sent.id])).rows[0];
+ await assert.rejects(()=>remove(delivery.id,0,uid,'delivery'),/application_conflict/);
+ await remove(sent.id);assert.deepEqual((await list()).map(x=>x.id),[sending.id]);
+ const retained=(await db.query('select status,sent_at from career_mail_deliveries where id=$1',[delivery.id])).rows[0];assert.equal(retained.status,'sent');assert.deepEqual(retained.sent_at,delivery.sent_at);
+ assert.equal((await db.query('select * from career_restore_history($1,$2)',[other,queued.id])).rows.length,0);
+ const restored=(await db.query('select * from career_restore_history($1,$2)',[uid,queued.id])).rows[0];assert.equal(restored.status,'cancelled');assert.equal(restored.deleted_at,null);assert.equal((await db.query('select * from career_claim_resume_send()')).rows.length,0);
+ await assert.rejects(()=>add(1,'review'),/unique|duplicate/);
+ const oldApp=(await db.query("insert into career_applications(user_id,posting_id,canonical_posting_id,status,snapshot) values($1,5,5,'sent','{}') returning id",[uid])).rows[0].id;
+ const legacy=(await db.query("insert into career_mail_deliveries(user_id,application_id,application_version,company,recipient,subject,body,mode,status) values($1,$2,1,'법인','hr@example.com','제목','본문','test','sent') returning *",[uid,oldApp])).rows[0];assert.equal((await list()).find(x=>x.id===legacy.id).entry_kind,'delivery');
+ await assert.rejects(()=>remove(legacy.id,legacy.outcome_version,other,'delivery'),/application_missing/);await remove(legacy.id,legacy.outcome_version,uid,'delivery');assert.equal((await list()).some(x=>x.id===legacy.id),false);
+ for(const role of ['anon','authenticated'])for(const fn of ['career_delete_history(uuid,uuid,text,integer)','career_restore_history(uuid,uuid)'])assert.equal((await db.query('select has_function_privilege($1,$2,\'EXECUTE\') ok',[role,fn])).rows[0].ok,false);
+ }finally{await db.close();}
+});

@@ -28,6 +28,10 @@ class NoticeTests(unittest.TestCase):
   with patch.object(n.requests,'post') as send:n.deliver_notice(self.db,self.notice);send.assert_not_called()
   self.app['status']='review';self.db.update.return_value=[]
   with patch.object(n,'verified_email',return_value='owner@example.com'),patch.object(n.requests,'post') as send:n.deliver_notice(self.db,self.notice);send.assert_not_called()
+ def test_deleted_application_never_sends_notice(self):
+  self.app['deleted_at']='2026-09-17T00:00:00Z'
+  with patch.object(n.requests,'post') as send:n.deliver_notice(self.db,self.notice);send.assert_not_called()
+  self.assertEqual(self.db.update.call_args.args[1]['status'],'cancelled')
  def test_both_subject_and_body_support_firm_token_without_recursion(self):
   for template in ['[입사지원] [회계법인] - {이름}','[회계법인] 지원. {법인}. {공고}']:
    text=r.message(template,{'applicant_name':'지원자'},{'company_name':'예시법인','title':'채용'});self.assertIn('예시법인',text);self.assertNotIn('[회계법인]',text)
