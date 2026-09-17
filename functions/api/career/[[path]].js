@@ -42,7 +42,7 @@ export async function onRequest({request,env,params}) {
     if(env.CAREER_APPLICATIONS_ENABLED==='false'&&(path==='rules'||path.startsWith('applications')||path.startsWith('templates'))) throw fail('자동지원 설정과 지원서 준비는 검증 후 열립니다.',503);
     if(path==='application-history'&&method==='GET') {
       const q=new URL(request.url).searchParams,offset=q.get('offset')||'0',status=q.get('status')||'all',mode=q.get('mode')||'all',result=q.get('result')||'all',search=q.get('search')||'';
-      if(!/^\d{1,7}$/.test(offset)||!['all','preparing','review','queued','sending','sent','blocked','failed','cancelled','delivery_unknown','passed','final_passed','rejected'].includes(status)||!['all','auto','review','test'].includes(mode)||!['all','pending','received','needs_review','passed','rejected'].includes(result)||search.length>100)throw fail('조회 조건을 확인해 주세요.');
+      if(!/^\d{1,7}$/.test(offset)||!['all','analyzing','preparing','review','queued','sending','sent','blocked','failed','cancelled','delivery_unknown','passed','final_passed','rejected'].includes(status)||!['all','auto','review','test'].includes(mode)||!['all','pending','received','needs_review','passed','rejected'].includes(result)||search.length>100)throw fail('조회 조건을 확인해 주세요.');
       const rows=await supabase(env,'rpc/career_application_history',{method:'POST',body:JSON.stringify({p_user:user.id,p_offset:Number(offset),p_status:status,p_mode:mode,p_result:result,p_search:search,p_id:q.get('id')?uuid(q.get('id')):null})});
       const items=rows.slice(0,25);
       if(items.some(a=>a.application_id&&(!a.subject||!a.body))){

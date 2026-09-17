@@ -1,13 +1,13 @@
 (async()=>{
 'use strict';
 const $=id=>document.getElementById(id),A=window.cpAuth;
-const names={review:'검수필요',blocked:'확인필요',sent:'지원완료',passed:'서류합격',final_passed:'최종합격',rejected:'불합격'};
-const busyNames={preparing:'지원 정보를 준비하고 있습니다.',queued:'발송을 기다리고 있습니다.',sending:'메일을 발송하고 있습니다.'};
+const names={analyzing:'AI 분석 중',review:'검수필요',blocked:'확인필요',sent:'지원완료',passed:'서류합격',final_passed:'최종합격',rejected:'불합격'};
+const busyNames={preparing:'AI가 공고의 지원 요건을 분석하고 있습니다. 일시적인 오류는 자동으로 재시도합니다.',queued:'발송을 기다리고 있습니다.',sending:'메일을 발송하고 있습니다.'};
 let items=[],offset=0,hasMore=false,loading=false,generation=0,selected=null,detailGeneration=0;
 const node=(tag,value,cls)=>{const n=document.createElement(tag);if(value!==undefined)n.textContent=value;if(cls)n.className=cls;return n;};
 const date=(v,short=false)=>v?new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',dateStyle:'short',...(short?{}:{timeStyle:'short'})}).format(new Date(v)):'—';
 const today=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-const statusOf=item=>item.display_status||item.manual_status||(item.outcome_source==='manual'&&['passed','rejected'].includes(item.outcome)?item.outcome:item.status==='sent'?'sent':['blocked','failed','delivery_unknown','cancelled'].includes(item.status)?'blocked':'review');
+const statusOf=item=>item.display_status||item.manual_status||(item.status==='preparing'?'analyzing':item.outcome_source==='manual'&&['passed','rejected'].includes(item.outcome)?item.outcome:item.status==='sent'?'sent':['blocked','failed','delivery_unknown','cancelled'].includes(item.status)?'blocked':'review');
 const editable=item=>item.application_id&&['review','blocked','failed','delivery_unknown','cancelled'].includes(item.status)&&['review','blocked'].includes(statusOf(item));
 function message(value,error=false){$('message').textContent=value;$('message').classList.toggle('err',error);}
 async function api(path,method='GET',body){const {data:{session}}=await A.client.auth.getSession();if(!session)throw new Error('다시 로그인해 주세요.');const r=await fetch('/api/career/'+path,{method,headers:{Authorization:'Bearer '+session.access_token,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});if(!r.ok){const b=await r.json().catch(()=>({}));throw new Error(b.error||'요청을 처리하지 못했습니다.');}return path.startsWith('files/')?r.blob():r.json();}
@@ -18,7 +18,7 @@ function render(){const tbody=$('deliveries');tbody.replaceChildren();for(const 
  const read=node('td');read.append(badge(item.first_open_at?'읽음':'안읽음',item.first_open_at?'read':'unread'));row.append(read);
  const state=node('td'),value=statusOf(item),label=names[value];
  if(item.application_id){const change=button(label,()=>openStatus(item),'history-badge status-control '+value);change.setAttribute('aria-label',(item.company||'지원')+' 상태 변경: '+label);change.disabled=!!busyNames[item.status];state.append(change);}else state.append(badge(label,value));
- if(busyNames[item.status])state.append(node('small',item.status==='preparing'?'준비 중':item.status==='queued'?'발송 대기 중':'발송 중'));
+ if(busyNames[item.status]&&item.status!=='preparing')state.append(node('small',item.status==='preparing'?'준비 중':item.status==='queued'?'발송 대기 중':'발송 중'));
  row.append(state);const action=node('td');if(editable(item)){const edit=button('수정',()=>openDetail(item));edit.setAttribute('aria-label',(item.company||'지원')+' 수정');action.append(edit);}row.append(action);tbody.append(row);
  }
  $('history-empty').hidden=items.length>0;$('history-empty').textContent=$('status').value!=='all'||$('search').value?'조건에 맞는 지원 내역이 없습니다.':'아직 지원 내역이 없습니다.';$('more').hidden=!hasMore;
@@ -30,7 +30,7 @@ async function freshItem(id){return items.find(x=>x.id===id)||(await api('applic
 async function refreshSelected(id){await load();const current=await freshItem(id);if(current)await openDetail(current);}
 function safeLink(target,label,url){if(!/^https:\/\//.test(url||''))return;const link=node('a',label,'btn');link.href=url;link.target='_blank';link.rel='noopener noreferrer';target.append(link);}
 function openStatus(item){const target=dialog(item);$('application-detail-title').textContent=(item.company||'지원')+' · 상태 변경';
- target.append(node('p',item.title||''));const choice=node('select');choice.id='application-status';for(const [value,label] of Object.entries(names)){const option=node('option',label);option.value=value;choice.append(option);}choice.value=statusOf(item);target.append(field('지원 상태',choice));
+ target.append(node('p',item.title||''));const choice=node('select');choice.id='application-status';for(const [value,label] of Object.entries(names).filter(([key])=>key!=='analyzing')){const option=node('option',label);option.value=value;choice.append(option);}choice.value=statusOf(item);target.append(field('지원 상태',choice));
  const website=item.snapshot?.analysis?.method==='website',applied=node('input');applied.type='date';applied.max=today();applied.value=item.site_applied_on||'';
  if(website)target.append(field('사이트에 지원한 날짜',applied));
  target.append(node('p','전화·문자 등으로 받은 결과를 직접 기록하세요. 상태를 변경해도 메일이 발송되지는 않습니다.','tip'),button('저장',async()=>{

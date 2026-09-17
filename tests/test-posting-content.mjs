@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { renderPostingPage } from '../web/posting-page.mjs';
 import { renderPostingContent } from '../web/posting-content.mjs';
 const p={detail_url:'https://www.kicpa.or.kr/job?id=123',content_fetched_at:'2026-09-14T08:00:00Z'};
 test('plain stored body is visible before rich-content backfill and remains escaped',()=>{
@@ -23,4 +24,10 @@ test('renders images tables attachments and public contacts without executing so
 test('missing body and invalid source version show honest fallback instead of invented content',()=>{
   const html=renderPostingContent({...p,source_content:{version:9,nodes:['invented']}});
   assert.ok(html.includes('아직 가져온 본문이 없습니다'));assert.ok(!html.includes('invented'));
+});
+test('posting analysis shows pending until completion and labels unresolved results for manual confirmation',()=>{
+ const pending=renderPostingPage({posting:{id:1,ij_id:'123',title:'채용',company_name:'예시',application_analysis:null}});
+ assert.match(pending,/id="analysis-status">AI 분석 중/);assert.match(pending,/data-pending="1"/);
+ const failed=renderPostingPage({posting:{id:1,ij_id:'123',title:'채용',company_name:'예시',application_analysis:{state:'needs_confirmation',uncertainty:['지원 이메일 확인 필요']}}});
+ assert.match(failed,/id="analysis-status">확인필요/);assert.match(failed,/지원 이메일 확인 필요/);assert.match(failed,/data-pending="0"/);
 });

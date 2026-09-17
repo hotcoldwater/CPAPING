@@ -12,6 +12,10 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: read
+  actions: write
+
 # 실행이 겹치면 중복 알림이 나갈 수 있으므로 한 번에 하나만 돈다.
 concurrency:
   group: crawl
@@ -36,6 +40,7 @@ jobs:
 
       - name: 크롤 실행
         env:
+          GH_ANALYSIS_TOKEN: ${{ github.token }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           # 구독자에게 나가는 메일은 Resend 로 보낸다.

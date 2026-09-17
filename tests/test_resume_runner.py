@@ -12,12 +12,13 @@ class ResumeTests(unittest.TestCase):
   self.source='회사명: 예시법인\n제출서류: 이력서(자유양식)\n이메일 지원: hr@example.com\n마감일: 2099-12-31'
   self.rule={'user_id':'u','resume_file_id':'file','applicant_name':'지원자','mail_subject_template':'[입사지원] {법인} - {이름}','mail_body_template':'이력서를 첨부합니다. {이름}', 'updated_at':'r1','enabled':True,'mode':'auto','consent_version':'resume-auto-v1','enabled_since':'2026-01-01','filters':{'scope':matching.RESUME_SCOPE,'employment':['Full Time','Part Time']}}
   self.post={'id':1,'company_name':'예시법인','title':'채용','detail_url':'https://www.kicpa.or.kr/test','source':'kicpa:trainee','posting_type':'entry','audience':'cpa','is_target':True,'employment_type':'Full Time','first_seen_at':'2026-09-14'}
+  self.post['application_analysis']={'state':'classified','subject':{'kind':'free'},'filename':{'kind':'free'},'documents':{'kind':'free'},'method':'email','recipient':'hr@example.com','file_format':'pdf','uncertainty':[],'blockers':[]}
   self.account={'user_id':'u','email':'self@example.com','connected_at':'m1'}
   self.app={'id':'app','user_id':'u','posting_id':1,'origin':'rule','version':1,'created_at':'2026-09-13','status':'preparing','snapshot':{'flow':r.FLOW}}
   self.tables={'career_rules':self.rule,'career_files':self.file,'job_postings':self.post,'career_mail_accounts':self.account,'career_applications':self.app}
   self.db=Mock();self.db.one.side_effect=lambda table,**kw:copy.deepcopy(self.tables.get(table))
  def prepare(self):
-  with patch('career.resume_runner.source',return_value=self.source),patch('career.requirements_ai.analyze',return_value={'state':'classified','subject':{'kind':'free'},'filename':{'kind':'free'},'documents':{'kind':'free'},'method':'email','recipient':'hr@example.com','file_format':'pdf','uncertainty':[],'blockers':[]}):r.prepare(self.db,self.app)
+  with patch('career.resume_runner.source',return_value=self.source):r.prepare(self.db,self.app)
   data=self.db.update.call_args.args[1];self.app.update(data);return data
  def test_explicit_free_resume_queues_after_ai_analysis_and_attaches_exact_file(self):
   d=self.prepare();self.assertEqual(d['status'],'queued');self.assertEqual(d['document_id'],'file');self.assertTrue(d['snapshot']['auto'])
@@ -87,6 +88,18 @@ class ResumeTests(unittest.TestCase):
  def test_manual_career_application_remains_reviewable(self):
   self.post['source']='kicpa:cpa';self.app['origin']='manual'
   self.assertEqual(self.prepare()['status'],'review')
+ def test_unanalysed_application_stays_preparing_without_failure_or_mail(self):
+  self.post['application_analysis']=None
+  self.db.rows.return_value=[self.app]
+  r.prepare_pending(self.db)
+  self.db.update.assert_not_called()
+  self.db.rpc.assert_called_with('career_enqueue_analysis',{'p_posting':1})
+ def test_exhausted_analysis_becomes_confirmation_without_new_ai_or_source_reads(self):
+  self.post['application_analysis']={'state':'needs_confirmation','uncertainty':['3회 분석 실패']}
+  with patch('career.resume_runner.source') as fetch,patch('career.requirements_ai.analyze') as analyze:
+   r.prepare(self.db,self.app);fetch.assert_not_called();analyze.assert_not_called()
+  self.assertEqual(self.db.update.call_args.args[1]['status'],'blocked')
+  self.assertIn('3회 분석 실패',self.db.update.call_args.args[1]['reason'])
  def test_disabled_worker_has_no_db_or_ai_activity(self):
   with patch.dict('os.environ',{'CAREER_RESUME_ENABLED':'false'}),patch('career.resume_runner.DB') as db:r.main();db.assert_not_called()
 
@@ -101,7 +114,8 @@ class FormatSelectionTests(unittest.TestCase):
   self.rule['resume_docx_file_id']='word'
   self.db.one.side_effect=lambda table,**kw:copy.deepcopy(word if table=='career_files' and kw.get('id')=='eq.word' else self.tables.get(table))
   result={'state':'classified','subject':{'kind':'designated','template':'신입_{이름}'},'filename':{'kind':'designated','template':'{이름}_지원서'},'documents':{'kind':'free'},'method':'email','recipient':'hr@example.com','file_format':'docx','uncertainty':[],'blockers':[]}
-  with patch('career.resume_runner.source',return_value=self.source),patch('career.requirements_ai.analyze',return_value=result):r.prepare(self.db,self.app)
+  self.post['application_analysis']=result
+  with patch('career.resume_runner.source',return_value=self.source):r.prepare(self.db,self.app)
   prepared=self.db.update.call_args.args[1];self.assertEqual(prepared['document_id'],'word');self.assertEqual(prepared['subject'],'신입_지원자');self.assertEqual(prepared['snapshot']['attachments'][0]['name'],'지원자_지원서.docx');self.assertEqual(prepared['snapshot']['document_hash'],r.digest(word['data_base64']))
  def test_square_and_legacy_tokens_resolve_for_actual_delivery(self):
   for template in ('[입사지원] [회계법인] - [이름] / [공고]', '[입사지원] {법인} - {이름} / {공고}'):
