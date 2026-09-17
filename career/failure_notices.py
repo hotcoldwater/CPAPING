@@ -12,6 +12,9 @@ def process(db):
         try:
             if n.get('claimed_at') and datetime.fromisoformat(n['claimed_at'])<datetime.now(timezone.utc)-timedelta(hours=23):
                 db.update('career_failure_notices',{'status':'unknown'},id='eq.'+n['id']);continue
+            app=db.one('career_applications',id='eq.'+n['application_id'])
+            if not app or app.get('status') not in ('blocked','failed','delivery_unknown') or app.get('manual_status') not in (None,'blocked'):
+                db.update('career_failure_notices',{'status':'cancelled'},id='eq.'+n['id']);continue
             payload=n.get('payload')
             if not payload:
                 event=db.one('career_application_events',id='eq.'+n['event_id'])

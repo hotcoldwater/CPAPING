@@ -9,3 +9,9 @@ body[data-page="applications"] .member-shell main{max-width:1200px;width:100%}
 @media(max-width:600px){.history-filters{gap:10px}.history-filters label{flex:1;min-width:120px}.history-filters .history-search{min-width:65%}.history-table td,.history-table th{padding:14px 12px}.history-table{min-width:790px}#application-dialog{padding:18px}.history-title h1{font-size:25px}}
 
 .attachment-row{padding:12px 0;border-bottom:1px solid #e5eaf2}.attachment-row .field{display:block}.attachment-row input{width:100%;box-sizing:border-box}.attachment-row button{margin:6px 6px 0 0}
+
+/* Read signals and manually recorded outcomes are separate from transport. */
+.history-badge.read,.history-badge.final_passed{background:#e7f5eb;color:#257348}.history-badge.unread{background:#eef0f3;color:#727b87}
+.status-control{border:1px solid transparent;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}.status-control:hover{border-color:currentColor}.status-control:disabled{cursor:wait;opacity:.8}.status-control:focus-visible,.posting-link:focus-visible{outline:2px solid #416dc5;outline-offset:3px}
+.posting-link{border:0;background:none;padding:0;text-align:left;color:#19314e;font:inherit;font-size:14px;font-weight:600;cursor:pointer}.posting-link:hover{text-decoration:underline}
+#application-detail .send-application{display:block;width:100%;margin:24px 0 0;background:#244e8c;color:#fff;border-color:#244e8c;font-weight:600;padding:13px}

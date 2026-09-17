@@ -1,4 +1,4 @@
-import {resumeRequest} from '../../_resume.js';
+import {resumeRequest,renderApplicationMail} from '../../_resume.js';
 import {identity,reply,fail,body,textValue,uuid,owned,patch,insert,enqueue,enc,now,supabase,seal,unseal,provider,callback,random,base64,validateProfile,validateFilters} from '../../_career.js';
 
 async function oauthCallback(request,env) {
@@ -42,9 +42,20 @@ export async function onRequest({request,env,params}) {
     if(env.CAREER_APPLICATIONS_ENABLED==='false'&&(path==='rules'||path.startsWith('applications')||path.startsWith('templates'))) throw fail('자동지원 설정과 지원서 준비는 검증 후 열립니다.',503);
     if(path==='application-history'&&method==='GET') {
       const q=new URL(request.url).searchParams,offset=q.get('offset')||'0',status=q.get('status')||'all',mode=q.get('mode')||'all',result=q.get('result')||'all',search=q.get('search')||'';
-      if(!/^\d{1,7}$/.test(offset)||!['all','preparing','review','queued','sending','sent','blocked','failed','cancelled','delivery_unknown'].includes(status)||!['all','auto','review','test'].includes(mode)||!['all','pending','received','needs_review','passed','rejected'].includes(result)||search.length>100)throw fail('조회 조건을 확인해 주세요.');
+      if(!/^\d{1,7}$/.test(offset)||!['all','preparing','review','queued','sending','sent','blocked','failed','cancelled','delivery_unknown','passed','final_passed','rejected'].includes(status)||!['all','auto','review','test'].includes(mode)||!['all','pending','received','needs_review','passed','rejected'].includes(result)||search.length>100)throw fail('조회 조건을 확인해 주세요.');
       const rows=await supabase(env,'rpc/career_application_history',{method:'POST',body:JSON.stringify({p_user:user.id,p_offset:Number(offset),p_status:status,p_mode:mode,p_result:result,p_search:search,p_id:q.get('id')?uuid(q.get('id')):null})});
-      return reply({items:rows.slice(0,25),has_more:rows.length>25});
+      const items=rows.slice(0,25);
+      if(items.some(a=>a.application_id&&(!a.subject||!a.body))){
+        const rule=(await supabase(env,`career_rules?user_id=eq.${uid}`))[0];
+        if(rule?.applicant_name){
+          const member=(await supabase(env,`member_details?user_id=eq.${uid}`))[0]||{};
+          for(const a of items){const post={company_name:a.company,title:a.title};
+            if(!a.subject){try{a.subject=renderApplicationMail(a.snapshot?.analysis?.subject?.kind==='designated'?a.snapshot.analysis.subject.template:rule.mail_subject_template,rule,post,member);}catch{a.subject=renderApplicationMail(rule.mail_subject_template,rule,post);}}
+            if(!a.body)a.body=renderApplicationMail(rule.mail_body_template,rule,post);
+          }
+        }
+      }
+      return reply({items,has_more:rows.length>25});
     }
     if(/^deliveries\/[^/]+\/events$/.test(path)&&method==='GET') {
       const id=uuid(path.split('/')[1]);await owned(env,'career_mail_deliveries',user.id,id,'id');

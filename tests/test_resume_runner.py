@@ -59,6 +59,15 @@ class ResumeTests(unittest.TestCase):
    with self.subTest(change=change):self.assertFalse(matching.matches_resume({**self.post,**change},self.rule))
   for filters in [{'all_firms':True},{'employment':['Part Time']},{'scope':matching.RESUME_SCOPE,'employment':[]},{'scope':matching.RESUME_SCOPE,'employment':['Career']}]:
    with self.subTest(filters=filters):self.assertFalse(matching.matches_resume(self.post,{**self.rule,'filters':filters}))
+ def test_history_cutoff_and_disabled_rules_never_backfill(self):
+  self.assertFalse(matching.matches_resume(self.post,{**self.rule,'history_since':'2026-09-15'}))
+  self.assertFalse(matching.matches_resume(self.post,{**self.rule,'enabled':False}))
+  self.assertTrue(matching.matches_resume(self.post,{**self.rule,'history_since':'2026-09-13'}))
+ def test_initial_failure_mail_has_real_name_and_company(self):
+  value=r.initial_message(self.rule,self.post)
+  self.assertEqual(value['subject'],'[입사지원] 예시법인 - 지원자')
+  self.assertEqual(value['body'],'이력서를 첨부합니다. 지원자')
+  self.assertEqual(value['snapshot']['company'],'예시법인')
  def test_matcher_only_reads_rules_and_postings(self):
   self.db.all.side_effect=lambda table,**kw: {'career_rules':[self.rule],'job_postings':[self.post,{**self.post,'id':2,'source':'kicpa:cpa'}]}[table]
   self.db.one.return_value=None;self.db.one.side_effect=None

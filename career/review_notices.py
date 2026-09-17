@@ -24,9 +24,9 @@ def invitation(application, recipient):
         'subject': f'[CPAPING] {company}에 지원서를 보낼까요?',
         'text': (f'{company}의 새 공고에 맞춰 지원서를 준비했습니다.\n\n'
                  '아래 링크에서 로그인한 뒤 수신자·메일·첨부파일과 공고의 제출 요건을 확인해 주세요.\n'
-                 '「검수 완료 · 보내기」를 눌러야 담당자에게 발송됩니다. 링크를 열기만 해서는 발송되지 않습니다.\n\n'
+                 '「발송」를 눌러야 담당자에게 발송됩니다. 링크를 열기만 해서는 발송되지 않습니다.\n\n'
                  f'https://cpaping.com/applications/?review={application["id"]}\n\n'
-                 '지원하지 않으려면 해당 지원을 취소하세요. 새 공고 지원 설정은 이력서 화면에서 중지할 수 있습니다.'),
+                 '자동 지원은 지원준비 화면에서 끌 수 있습니다.'),
         'reply_to': 'contact@cpaping.com',
     }
 
@@ -42,7 +42,7 @@ def verified_email(db, user_id):
 def deliver_notice(db, notice):
     app = db.one('career_applications', id='eq.' + notice['application_id'])
     rule = db.one('career_rules', user_id='eq.' + notice['user_id'])
-    if not app or app['status'] != 'review' or not rule or not rule.get('enabled'):
+    if not app or app['status'] != 'review' or app.get('manual_status') not in (None,'review') or not rule or not rule.get('enabled'):
         db.update('career_review_notices', {'status': 'cancelled'}, application_id='eq.' + notice['application_id'])
         return
     # Resend remembers idempotency keys for 24h. Never retry beyond that window.
