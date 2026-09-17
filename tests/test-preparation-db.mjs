@@ -60,3 +60,27 @@ test('paired save is atomic, checks owner and MIME; failure notices and history 
  for(const role of ['anon','authenticated'])for(const table of ['career_failure_notices','career_requirement_analyses','career_application_events'])assert.equal((await db.query('select has_table_privilege($1,$2,\'SELECT\') ok',[role,table])).rows[0].ok,false);
  }finally{await db.close();}
 });
+test('new history tracks manual results and site dates, keeps send facts, blocks automatic reply results and duplicate failure notices',async()=>{
+ const db=await setup();try{
+ await db.exec('alter table job_postings add column region text,add column work_region text,add column region_group text,add column posted_at date,add column first_seen_at timestamptz;');
+ await db.exec(readFileSync('db/migrations/027_application_history_workflow.sql','utf8'));await upload(db);
+ const resume=(await db.query("select id from career_files where user_id=$1 limit 1",[uid])).rows[0].id;
+ await db.query("insert into career_mail_accounts(user_id,provider,email,token_encrypted) values($1,'google','me@example.com','fake')",[uid]);await save(db,resume);
+ await db.query("update job_postings set first_seen_at='2000-01-01' where id=2");
+ const insertAuto=()=>db.query("insert into career_applications(user_id,posting_id,canonical_posting_id,origin,snapshot) values($1,2,2,'rule','{\"flow\":\"uploaded-resume-v1\"}') returning id",[uid]);
+ assert.equal((await insertAuto()).rows.length,0);await db.query("update job_postings set first_seen_at=now()+interval '1 second' where id=2");await db.query('update career_rules set enabled=false');assert.equal((await insertAuto()).rows.length,0);
+
+ await db.query("update job_postings set region='서울',work_region='서울 강남',posted_at='2026-09-16' where id=1");
+ const app=(await db.query("insert into career_applications(user_id,posting_id,canonical_posting_id,status,reason,snapshot) values($1,1,1,'blocked','사이트 접수','{\"flow\":\"uploaded-resume-v1\",\"analysis\":{\"method\":\"website\"}}') returning *",[uid])).rows[0];
+ const set=(status,version=1,date=null,user=uid)=>db.query('select * from career_set_application_status($1,$2,$3,$4,$5)',[user,app.id,version,status,date]);
+ await assert.rejects(()=>set('sent'),/application_date/);await assert.rejects(()=>set('sent',1,'2099-01-01'),/application_date/);await assert.rejects(()=>set('sent',1,'2026-09-15',other),/application_missing/);
+ let row=(await set('sent',1,'2026-09-15')).rows[0];assert.equal(row.status,'blocked');assert.equal(row.manual_status,'sent');assert.equal(row.sent_at,null);
+ const list=async(status='all',user=uid)=>(await db.query("select career_application_history($1,0,$2) item",[user,status])).rows.map(x=>x.item);
+ const entry=(await list('sent'))[0];assert.equal(entry.region,'서울 강남');assert.equal(entry.posted_at,'2026-09-16');assert.equal(entry.site_applied_on,'2026-09-15');assert.equal(entry.sent_at,null);assert.equal(entry.display_status,'sent');assert.equal((await list('blocked')).length,0);assert.equal((await list('all',other)).length,0);
+ await assert.rejects(()=>set('passed',1,'2026-09-15'),/application_conflict/);await set('passed',2,'2026-09-15');await set('final_passed',3,'2026-09-15');await set('rejected',4,'2026-09-15');await set('sent',5,'2026-09-15');assert.equal((await db.query('select count(*)::int n from career_failure_notices')).rows[0].n,1);assert.equal((await db.query('select count(*)::int n from career_application_events')).rows[0].n,6);
+ await db.query("update career_applications set status='queued' where id=$1",[app.id]);await assert.rejects(()=>set('sent',6,'2026-09-15'),/application_conflict/);
+ const d=(await db.query("insert into career_mail_deliveries(user_id,company,recipient,subject,body,mode,status,outcome,outcome_source) values($1,'법인','hr@example.com','제목','본문','review','sent','passed','mail') returning id",[uid])).rows[0];
+ assert.equal((await db.query("select outcome from career_record_result($1,$2,'rejected','mail')",[uid,d.id])).rows[0].outcome,'passed');assert.equal((await db.query('select count(*)::int n from career_reply_events')).rows[0].n,0);assert.equal((await list('passed')).length,0);
+ for(const role of ['anon','authenticated'])assert.equal((await db.query("select has_function_privilege($1,'career_set_application_status(uuid,uuid,integer,text,date)','EXECUTE') ok",[role])).rows[0].ok,false);
+ }finally{await db.close();}
+});

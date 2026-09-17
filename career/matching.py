@@ -55,7 +55,7 @@ def resume_candidate(post,filters):
 
 def matches_resume(post,rule):
     if not rule.get('enabled') or not is_open(post):return False
-    if not rule.get('enabled_since') or not post.get('first_seen_at') or post['first_seen_at']<=rule['enabled_since']:return False
+    if not rule.get('enabled_since') or not post.get('first_seen_at') or post['first_seen_at']<=max(rule['enabled_since'],rule.get('history_since') or rule['enabled_since']):return False
     if post.get('original_id'):return False
     return resume_candidate(post,rule.get('filters') or {})
 

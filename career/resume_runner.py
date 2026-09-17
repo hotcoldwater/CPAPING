@@ -96,13 +96,22 @@ def message(template,rule,post):
     return re.sub(r'\[(회계법인|이름|공고)\]|\{(이름|법인|공고|출생년도|합격년도)\}',fill,template)
 
 
+def initial_message(rule,post):
+    from .routing import TEST_USER_ID,TEST_RECIPIENT
+    snapshot={'flow':FLOW,'company':post.get('company_name'),'title':post.get('title'),'posting_ij_id':post.get('ij_id'),'detail_url':post.get('detail_url'),
+              'test_recipient':TEST_RECIPIENT if rule.get('user_id')==TEST_USER_ID else None}
+    subject=message(rule.get('mail_subject_template') or '[입사지원] [회계법인] - [이름]',rule,post)
+    body=message(rule.get('mail_body_template') or '안녕하세요. [회계법인]에 지원하는 [이름]입니다.',rule,post)
+    return {'subject':subject,'body':body,'snapshot':snapshot}
+
+
 def prepare(db,app):
     user=app['user_id'];rule=db.one('career_rules',user_id='eq.'+user)
     if not rule or not rule.get('resume_file_id'):raise ValueError('이력서와 지원 설정을 먼저 저장해 주세요.')
-    file=db.one('career_files',id='eq.'+rule['resume_file_id'],user_id='eq.'+user);check_file(file)
     post=db.one('job_postings',id=f'eq.{app["posting_id"]}')
     if not post or not matching.is_open(post):raise ValueError('마감되거나 내려간 공고입니다.')
     if app['origin']=='rule' and not matching.resume_candidate(post,rule.get('filters') or {}):raise ValueError('자동지원은 선택한 풀타임·파트타임 신입·수습 공고만 가능합니다. 경력직은 대상이 아닙니다.')
+    file=db.one('career_files',id='eq.'+rule['resume_file_id'],user_id='eq.'+user);check_file(file)
     account=db.one('career_mail_accounts',user_id='eq.'+user)
     if not account:raise ValueError('개인 Gmail을 먼저 연결해 주세요.')
     original=source(post);deadline_check(original)
@@ -136,12 +145,12 @@ def prepare(db,app):
 def match_new(db):
     rules=db.all('career_rules',enabled='eq.true',resume_file_id='not.is.null',order='user_id.asc')
     if not rules:return
-    posts=db.all('job_postings',first_seen_at='gt.'+min(r['enabled_since'] for r in rules),is_expired='eq.false',removed_at='is.null',order='id.asc')
+    posts=db.all('job_postings',first_seen_at='gt.'+min(max(r['enabled_since'],r.get('history_since') or r['enabled_since']) for r in rules),is_expired='eq.false',removed_at='is.null',order='id.asc')
     for rule in rules:
         for post in posts:
             if not matching.matches_resume(post,rule):continue
             if db.one('career_applications',user_id='eq.'+rule['user_id'],canonical_posting_id=f'eq.{post["id"]}',select='id'):continue
-            try:db.insert('career_applications',{'user_id':rule['user_id'],'posting_id':post['id'],'canonical_posting_id':post['id'],'origin':'rule','snapshot':{'flow':FLOW}})
+            try:db.insert('career_applications',{'user_id':rule['user_id'],'posting_id':post['id'],'canonical_posting_id':post['id'],'origin':'rule',**initial_message(rule,post)})
             except Exception:log.warning('지원 준비 등록 실패 또는 중복')
 
 
@@ -215,9 +224,6 @@ def main():
     from . import failure_notices
     try:failure_notices.process(db)
     except Exception:log.warning('지원 실패 안내를 완료하지 못했습니다.')
-    from . import replies
-    try:replies.process(db)
-    except Exception:log.warning('답장 확인 작업을 완료하지 못했습니다.')
     log.info('이력서 지원 처리 완료')
 
 if __name__=='__main__':main()

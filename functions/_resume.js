@@ -30,6 +30,30 @@ export function mailTemplate(v,max,subject=false){
  if(!text||/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text)||(subject&&/[\r\n]/.test(text))||/[{}]/.test(text.replace(/\{(?:이름|법인|공고)\}/g,'')))throw fail('메일 문구와 치환 항목을 확인해 주세요. [회계법인], [이름], [공고]를 사용할 수 있습니다.');
  return text;
 }
+// Materialize templates for the editor without replacing the stored template.
+export function renderApplicationMail(template,rule,post,member={}){
+ const values={'이름':rule.applicant_name,'회계법인':post.company_name,'법인':post.company_name,'공고':post.title,'출생년도':String(member.birth_date||'').slice(0,4),'합격년도':String(member.pass_year||'')};
+ return String(template||'').replace(/\[(회계법인|이름|공고)\]|\{(이름|법인|공고|출생년도|합격년도)\}/g,(_,a,b)=>{if(!values[a||b])throw fail('메일에 필요한 '+(a||b)+' 정보를 확인해 주세요.');return values[a||b];});
+}
+async function directApplication(env,user,rule,post){
+ const analysis=post.application_analysis||{},reasons=[...(analysis.uncertainty||[]),...(analysis.blockers||[])];
+ if(!analysis.state)reasons.push('지원 요건을 확인하지 못했습니다. 공고를 확인하고 직접 작성해 주세요.');
+ if(analysis.documents?.kind==='designated')reasons.push('공고의 지정 지원서 양식을 작성해 주세요.');
+ if(analysis.method==='website')reasons.push('지원 사이트에서 직접 접수해야 합니다.');
+ if(analysis.file_format==='unsupported')reasons.push('요구하는 파일 형식을 직접 준비해 주세요.');
+ if(!analysis.recipient&&analysis.method!=='website')reasons.push('공고에서 지원 이메일을 확인해 주세요.');
+ const member=(await supabase(env,`member_details?user_id=eq.${enc(user.id)}`))[0]||{};
+ const render=t=>renderApplicationMail(t,rule,post,member);
+ let subject=render(rule.mail_subject_template),mailBody=render(rule.mail_body_template);
+ if(analysis.subject?.kind==='designated')try{subject=render(analysis.subject.template);}catch(e){reasons.push(e.message);}
+ const id=analysis.file_format==='docx'?rule.resume_docx_file_id:rule.resume_file_id;
+ const file=id?(await supabase(env,`career_files?id=eq.${uuid(id)}&user_id=eq.${enc(user.id)}&select=id,name,mime`))[0]:null;
+ let name=file?.name;
+ if(!file)reasons.push('요구하는 형식의 지원서 파일을 업로드해 주세요.');
+ else if(analysis.filename?.kind==='designated')try{name=render(analysis.filename.template).replace(/\.(pdf|docx)$/i,'')+(file.mime===pdf?'.pdf':'.docx');}catch(e){reasons.push(e.message);}
+ const snapshot={flow:FLOW,company:post.company_name,title:post.title,posting_ij_id:post.ij_id,detail_url:post.detail_url,analysis,auto:false,requirements:reasons,attachments:file?[{id:file.id,name,mime:file.mime}]:[],test_recipient:user.id==='bbcfa2b9-9f2d-447b-84e1-68a55b776f71'||user.email?.toLowerCase()==='ohshsh00@gmail.com'?'leorich21@naver.com':null};
+ return {subject,body:mailBody,recipient:analysis.recipient||null,document_id:file?.id||null,snapshot,status:reasons.length?'blocked':'review',reason:[...new Set(reasons)].join('\n')||null};
+}
 export async function resumeRequest(request,env,user,path){
  const method=request.method,uid=enc(user.id);
  if(env.CAREER_RESUME_ONLY!=='true'||env.CAREER_RESUME_ENABLED!=='true')throw fail('이력서 지원 기능을 준비 중입니다.',503);
@@ -83,20 +107,31 @@ export async function resumeRequest(request,env,user,path){
   const rule=(await supabase(env,`career_rules?user_id=eq.${uid}`))[0];if(!rule?.resume_file_id)throw fail('이력서와 지원 설정을 먼저 저장해 주세요.');
   const post=(await supabase(env,`job_postings?id=eq.${id}`))[0];
   if(!post||post.is_expired||post.removed_at)throw fail('현재 지원할 수 없는 공고입니다.');
-  const app=(await insert(env,'career_applications',{user_id:user.id,posting_id:post.id,canonical_posting_id:post.original_id||post.id,origin:'manual',snapshot:{flow:FLOW}}))[0];return reply(app,202);
+  const canonical=post.original_id||post.id;
+  const existing=(await supabase(env,`career_applications?user_id=eq.${uid}&canonical_posting_id=eq.${canonical}`))[0];if(existing)return reply(existing);
+  const prepared=await directApplication(env,user,rule,post);
+  try{const app=(await insert(env,'career_applications',{user_id:user.id,posting_id:post.id,canonical_posting_id:canonical,origin:'manual',...prepared}))[0];return reply(app,201);}
+  catch(e){const concurrent=(await supabase(env,`career_applications?user_id=eq.${uid}&canonical_posting_id=eq.${canonical}`))[0];if(concurrent)return reply(concurrent);throw e;}
  }
  if(path.startsWith('resume-events/')&&method==='GET'){
   const id=uuid(path.split('/')[1]);await owned(env,'career_applications',user.id,id);
   return reply(await supabase(env,`career_application_events?application_id=eq.${id}&user_id=eq.${uid}&order=created_at.asc&limit=100`));
  }
+ if(/^resume-applications\/[^/]+\/status$/.test(path)&&method==='PUT'){
+  const b=await body(request,2000);
+  if(!['review','blocked','sent','passed','final_passed','rejected'].includes(b.status)||!Number.isInteger(b.version)||b.version<1|| (b.applied_on!=null&&!/^\d{4}-\d{2}-\d{2}$/.test(b.applied_on)))throw fail('상태와 지원일을 확인해 주세요.');
+  try{return reply((await rpc(env,'career_set_application_status',{p_user:user.id,p_application:uuid(path.split('/')[1]),p_expected:b.version,p_status:b.status,p_applied_on:b.applied_on||null}))[0]);}
+  catch(e){if(e.message.includes('application_conflict'))throw fail('지원 상태가 바뀌었거나 발송 처리 중입니다. 새로고침 후 확인해 주세요.',409);if(e.message.includes('application_missing'))throw fail('지원 내역을 찾을 수 없습니다.',404);if(e.message.includes('application_date')||e.message.includes('date/time'))throw fail('사이트에 지원한 날짜를 오늘 이전 날짜로 입력해 주세요.');throw e;}
+ }
  if(path.startsWith('resume-applications/')&&method==='PUT'){
   const a=await owned(env,'career_applications',user.id,path.split('/')[1]),b=await body(request);
-  if(a.snapshot?.flow!==FLOW||!['review','blocked','preparing','queued','failed'].includes(a.status)||b.version!==a.version)throw fail('지원 상태가 바뀌었습니다. 새로고침 후 확인해 주세요.',409);
-  const data={version:a.version+1,updated_at:now()};
+  if(a.snapshot?.flow!==FLOW||!['review','blocked','preparing','queued','failed','delivery_unknown','cancelled'].includes(a.status)||b.version!==a.version)throw fail('지원 상태가 바뀌었습니다. 새로고침 후 확인해 주세요.',409);
+  if(a.status==='delivery_unknown'&&(b.action!=='approve'||b.delivery_checked!==true))throw fail('보낸편지함에서 발송되지 않았는지 먼저 확인해 주세요.',409);
+  const data={version:a.version+1,updated_at:now(),manual_status:null};
   if(b.action==='cancel'){data.status='cancelled';data.reason='사용자가 취소했습니다.';}
   else if(b.action==='prepare'){if(a.status==='queued')throw fail('발송 대기 중에는 다시 준비할 수 없습니다.');data.status='preparing';data.reason=null;data.snapshot={flow:FLOW};data.document_id=null;}
   else if(b.action==='approve'){
-   if(!['review','blocked','failed'].includes(a.status)||b.reviewed!==true)throw fail('공고 원문, 수신자, 메일 문구와 이력서를 확인해 주세요.');
+   if(!['review','blocked','failed','delivery_unknown','cancelled'].includes(a.status)||b.reviewed!==true)throw fail('공고 원문, 수신자, 메일 문구와 이력서를 확인해 주세요.');
    if(a.snapshot.analysis?.method==='website')throw fail('사이트 접수 공고입니다. 지원 사이트에서 직접 접수해 주세요.');
    const recipient=textValue(b.recipient,254).toLowerCase();if(!/^[A-Za-z0-9.!#$%&'*+\/=?^_`{|}~-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(recipient))throw fail('지원 이메일을 확인해 주세요.');
    const rule=(await supabase(env,`career_rules?user_id=eq.${uid}`))[0];
@@ -105,7 +140,7 @@ export async function resumeRequest(request,env,user,path){
    if(!account)throw fail('발신 계정이 바뀌었습니다. 다시 준비해 주세요.',409);
    data.subject=textValue(b.subject,200);data.body=textValue(b.body,10000);
    if(!data.subject||/[\r\n\x00-\x1f]/.test(data.subject)||!data.body)throw fail('메일 제목과 본문을 확인해 주세요.');
-   const requested=b.attachments||a.snapshot.attachments||(a.document_id?[{id:a.document_id}]:[]);
+   const requested=b.attachments||(a.status==='review'?(a.snapshot.attachments||(a.document_id?[{id:a.document_id}]:[])):[]);
    if(!Array.isArray(requested)||requested.length<1||requested.length>5)throw fail('첨부파일 1~5개를 준비해 주세요.');
    const attachments=[];let total=0;
    for(const entry of requested){
