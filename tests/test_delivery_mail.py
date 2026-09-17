@@ -5,6 +5,7 @@ from career import mail,delivery
 
 class DeliveryTest(unittest.TestCase):
  def setUp(self):
+  routing=patch('career.routing.resolve',side_effect=lambda db,account,intended:intended);routing.start();self.addCleanup(routing.stop)
   self.app={'id':'fake-id','version':2,'recipient':'recipient@example.com','subject':'제목','body':'내용 <script>test</script>','company':'법인'}
   self.account={'user_id':'owner','provider':'google','email':'sender@example.com'}
   self.file={'id':'file-id','name':'지원서.docx','mime':'application/vnd.openxmlformats-officedocument.wordprocessingml.document','data_base64':base64.b64encode(b'docx').decode()}

@@ -55,12 +55,17 @@ def mime_message(app,account,file):
         if not re.fullmatch(r'https://cpaping\.com/api/mail-open/[A-Za-z0-9_-]{43}\.gif',tracking):raise MailError('열람 확인 주소가 올바르지 않습니다.')
         content=html.escape(app['body']).replace('\n','<br>')
         msg.add_alternative('<html><body>'+content+'<p style="font-size:12px;color:#666">이 메일에는 열람 상태 확인을 위한 이미지가 포함되어 있습니다.</p><img src="'+tracking+'" width="1" height="1" alt=""></body></html>',subtype='html')
-    major,minor=file['mime'].split('/',1)
-    msg.add_attachment(base64.b64decode(file['data_base64']),maintype=major,subtype=minor,filename=file['name'])
+    for attachment in (file if isinstance(file,list) else [file]):
+        major,minor=attachment['mime'].split('/',1)
+        msg.add_attachment(base64.b64decode(attachment['data_base64']),maintype=major,subtype=minor,filename=attachment['name'])
     return msg.as_bytes()
 
 
 def send(app,account,file,save_refresh):
+    from .runtime import DB
+    from .routing import resolve
+    if app.get('user_id',account['user_id'])!=account['user_id']:raise MailError('지원 계정이 일치하지 않습니다.')
+    app={**app,'recipient':resolve(DB(),account,app.get('intended_recipient') or app['recipient'])}
     token=access(account,save_refresh)
     raw=mime_message(app,account,file)
     headers={'Authorization':'Bearer '+token}

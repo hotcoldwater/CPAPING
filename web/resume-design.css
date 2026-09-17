@@ -79,3 +79,5 @@ body[data-page="resume"] .step-form .save-bar{position:static;inset:auto;margin:
 
 /* Primary controls live beside the saved preparation summary. */
 .automation-panel{margin:24px 0}.automation-header{display:flex;align-items:center;justify-content:space-between;gap:20px}.automation-header h2{margin-bottom:6px}.automation-toggle{display:flex;align-items:center;gap:10px;cursor:pointer;flex-shrink:0;color:#24466e}.automation-toggle strong{font-size:13px}.automation-toggle .switch{width:44px;height:26px}.automation-toggle .switch-track:after{width:20px;height:20px}.automation-toggle .switch input:checked+.switch-track:after{transform:translateX(18px)}.automation-toggle .switch input:focus-visible+.switch-track{outline-color:#3755c3}.automation-modes{margin-top:22px!important}.automation-modes legend{font-size:13px;font-weight:600;margin-bottom:10px}.automation-modes .choice-card strong{font-size:15px}.automation-help{margin-top:16px!important}.upload-panel>.drop-zone{margin-top:0!important}#preparation-home .page-lead:empty{display:none}.automation-panel[aria-busy="true"]{opacity:.7}
+
+#resume-file-pair{white-space:pre-line;overflow-wrap:anywhere;line-height:1.9}

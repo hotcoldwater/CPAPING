@@ -43,6 +43,11 @@ def resume_candidate(post,filters):
     if filters.get('scope')!=RESUME_SCOPE:return False
     employment=filters.get('employment')
     if not isinstance(employment,list) or not employment or any(v not in ('Full Time','Part Time') for v in employment):return False
+    if post.get('recruitment_categories') is not None:
+        if 'entry_cpa' not in post['recruitment_categories']:return False
+        kinds=post.get('work_types') or []
+        selected={'Full Time':'full_time','Part Time':'part_time'}
+        return any(selected[x] in kinds for x in employment) if kinds else post.get('employment_type') in employment
     if post.get('source')!='kicpa:trainee' or post.get('posting_type')!='entry' or post.get('audience')!='cpa' or post.get('is_target') is not True:return False
     if post.get('career_min_years') is not None and float(post['career_min_years'])>0:return False
     return post.get('employment_type') in employment

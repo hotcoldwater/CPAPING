@@ -7,9 +7,14 @@ from . import mail
 def now():return datetime.now(timezone.utc).isoformat()
 
 def deliver(db,app,account,file,save_refresh,mode='review',test_key=None):
+    from .routing import resolve
+    files=file if isinstance(file,list) else [file]
+    intended=app['recipient'];actual=resolve(db,account,intended)
+    app={**app,'recipient':actual,'intended_recipient':intended}
     token=secrets.token_urlsafe(32)
     payload={'user_id':account['user_id'],'application_id':None if mode=='test' else app['id'],
-             'application_version':None if mode=='test' else app['version'],'document_id':file['id'],
+             'application_version':None if mode=='test' else app['version'],'document_id':files[0]['id'],'intended_recipient':intended,
+             'attachments':[{'id':f['id'],'name':f['name'],'mime':f['mime'],'hash':hashlib.sha256(f['data_base64'].encode()).hexdigest()} for f in files],
              'sender_email':account['email'],'test_key':test_key,'company':app['company'],'recipient':app['recipient'],'subject':app['subject'],
              'body':app['body'],'mode':mode,'status':'sending','tracking_hash':hashlib.sha256(token.encode()).hexdigest()}
     # UNIQUE 제약이 재실행/동시 실행을 차단한다. 이력 저장 실패 시 발송하지 않는다.
