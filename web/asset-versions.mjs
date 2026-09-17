@@ -16,8 +16,8 @@ export default {
   "/posting-content.css": "/assets/posting-content.c8d71d4324adde66.css",
   "/posting-taxonomy.js": "/assets/posting-taxonomy.9a4bb1ba84cdd559.js",
   "/resume-design.css": "/assets/resume-design.208010141610aa53.css",
-  "/resume-preview.js": "/assets/resume-preview.53fa10a7eacbfe57.js",
-  "/resume-steps.js": "/assets/resume-steps.381a54bbfe0d2105.js",
-  "/resume.js": "/assets/resume.217c9954df4873a7.js",
+  "/resume-preview.js": "/assets/resume-preview.e08211a314506c22.js",
+  "/resume-steps.js": "/assets/resume-steps.32b2e34352819ce3.js",
+  "/resume.js": "/assets/resume.fc068c5e11446a8e.js",
   "/site-design.css": "/assets/site-design.8d034d2bd6facac2.css"
 };

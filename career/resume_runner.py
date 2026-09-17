@@ -88,10 +88,12 @@ def message(template,rule,post):
     member=rule.get('member') or {}
     values={'이름':rule['applicant_name'],'법인':post.get('company_name') or '', '공고':post.get('title') or '', '출생년도':str(member.get('birth_date') or '')[:4], '합격년도':str(member.get('pass_year') or '')}
     def fill(m):
-        value=values[m[1] or '법인']
-        if not value:raise ValueError('지정 제목에 필요한 '+str(m[1])+' 정보가 없습니다. 직접 작성해 주세요.')
+        key=m[1] or m[2]
+        key='법인' if key=='회계법인' else key
+        value=values[key]
+        if not value:raise ValueError('지정 제목에 필요한 '+key+' 정보가 없습니다. 직접 작성해 주세요.')
         return value
-    return re.sub(r'\[회계법인\]|\{(이름|법인|공고|출생년도|합격년도)\}',fill,template)
+    return re.sub(r'\[(회계법인|이름|공고)\]|\{(이름|법인|공고|출생년도|합격년도)\}',fill,template)
 
 
 def prepare(db,app):
