@@ -23,6 +23,7 @@ jobs:
       - run: pip install -r career/requirements.txt
       - name: 이력서 준비 및 발송
         env:
+          KIMI_API_KEY: ${{ secrets.KIMI_API_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           MAIL_FROM: ${{ vars.MAIL_FROM || secrets.MAIL_FROM }}
           CAREER_RESUME_ENABLED: 'true'

@@ -7,7 +7,7 @@ export const POSTING_FIELDS = [
   'removed_at', 'is_expired', 'view_count', 'source', 'audience', 'is_big4',
   'career_min_years', 'career_max_years', 'region_group', 'original_id', 'content_hash',
   'recruitment_categories', 'company_type', 'source_categories', 'source_company_type',
-  'work_types', 'contract_types', 'cpa_preferred', 'application_methods', 'form_type', 'taxonomy_needs_review',
+  'work_types', 'contract_types', 'cpa_preferred', 'application_methods', 'form_type', 'application_analysis', 'taxonomy_needs_review',
 ].join(',');
 export const POSTING_CONTENT_FIELDS = 'body,source_content,content_fetched_at';
 

@@ -27,3 +27,12 @@ test('automation endpoint binds owner and validates booleans, mode and version b
  const data={enabled:false,mode:'review',updated_at:'2026-09-15T00:00:00Z',user_id:other};const r=await call('resume-automation','PUT',data);assert.equal(r.status,200);assert.equal((await r.json()).rule.enabled,false);assert.deepEqual(payload,{p_user:uid,p_enabled:false,p_mode:'review',p_expected:data.updated_at,p_consent:null});
  for(const patch of [{enabled:'true'},{mode:'invalid'},{updated_at:null},{updated_at:'bad'}])assert.equal((await call('resume-automation','PUT',{...data,...patch})).status,400);assert.equal(calls,1);
 });
+test('manual correction attaches only owned files, preserves source classification and queues once',async t=>{
+ const app={id:other,user_id:uid,status:'blocked',version:3,snapshot:{flow:'uploaded-resume-v1',analysis:{method:'email'},requirements:['지정양식']},document_id:uid};let patched;
+ t.mock.method(globalThis,'fetch',async(url,opt)=>{url=String(url);if(url.includes('/auth/'))return json({id:uid,email_confirmed_at:'yes'});if(url.includes('career_applications')){if(opt.method==='PATCH'){patched=JSON.parse(opt.body);return json([{...app,...patched}]);}return json([app]);}if(url.includes('career_rules'))return json([{updated_at:'r1'}]);if(url.includes('career_mail_accounts'))return json([{email:'me@example.com',connected_at:'m1'}]);if(url.includes('career_files'))return json([{id:uid,user_id:uid,kind:'resume',name:'resume.pdf',mime:'application/pdf',data_base64:'JVBERi0='}]);return json([]);});
+ const data={version:3,action:'approve',reviewed:true,subject:'수정 제목',body:'본문',recipient:'hr@example.com',attachments:[{id:uid,name:'이름.pdf'}]};
+ assert.equal((await call('resume-applications/'+other,'PUT',data)).status,200);assert.equal(patched.status,'queued');assert.equal(patched.snapshot.auto,false);assert.equal(patched.snapshot.manual_edit,true);assert.equal(patched.snapshot.attachments[0].name,'이름.pdf');assert.equal(patched.snapshot.attachments[0].hash.length,64);
+ assert.equal((await call('resume-applications/'+other,'PUT',{...data,attachments:[{id:uid,name:'이름.docx'}]})).status,400);
+ app.snapshot.analysis.method='website';assert.equal((await call('resume-applications/'+other,'PUT',data)).status,400);
+ app.snapshot.analysis.method='email';app.status='delivery_unknown';assert.equal((await call('resume-applications/'+other,'PUT',data)).status,409);
+});

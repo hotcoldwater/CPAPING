@@ -271,6 +271,7 @@ footer a{color:var(--ink-2)}
   <main>
     <section>
       <div class="sec-head"><h2>공고 요약</h2><span class="unit">한공회 게시판 기준</span></div>
+      <dl class="facts">${[['제목양식',p.application_analysis?.subject?.kind],['파일제목',p.application_analysis?.filename?.kind],['지원서류',p.application_analysis?.documents?.kind],['지원형태',p.application_analysis?.method]].map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(({free:'자유',designated:'지정',email:'메일',website:'사이트'})[v]||'확인 필요')}</dd></div>`).join('')}</dl>
       <dl class="facts">${rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}${
         p.view_count != null ? `<div><dt>한공회 조회수</dt><dd id="views" data-ij="${esc(p.ij_id)}" data-live="${st.key === "open" ? "1" : "0"}">${Number(p.view_count).toLocaleString("ko-KR")}회<span class="delta" id="views-delta"></span></dd></div>` : ""}</dl>
       ${st.key === "removed" ? '<p class="note">이 공고는 한공회 게시판에서 내려갔습니다. 아래는 마지막으로 수집한 내용이며 원문 링크가 열리지 않을 수 있습니다.</p>' : ''}

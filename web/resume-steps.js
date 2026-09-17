@@ -26,7 +26,7 @@
  function error(index,control,text){show(index);const m=$('resume-message');m.hidden=false;m.textContent=text;m.classList.add('err');control?.focus();control?.reportValidity();return false;}
  function validate(index){
   if(index===0&&(window.cpResumeUploadState==='error'||window.cpResumeUploadState==='uploading'))return error(index,$('resume-upload'),'새 파일 업로드를 완료하거나 기존 파일 유지를 선택해 주세요.');
-  if(index===0&&!$('resume-file-id').value)return error(index,$('resume-upload'),'이력서 파일을 업로드해 주세요.');
+  if(index===0&&(!$('resume-file-id').value||!$('resume-docx-file-id').value))return error(index,$('resume-upload'),'PDF와 Word(.docx) 파일을 각각 업로드해 주세요.');
   if(index===1&&!$('resume-full').checked&&!$('resume-part').checked){$('employment-error').hidden=false;return error(index,$('resume-full'),'풀타임 또는 파트타임을 하나 이상 선택해 주세요.');}
   if(index===1)$('employment-error').hidden=true;
   if(index===3&&window.cpResumeWillEnable&&!window.cpResumeMail)return error(index,$('connect'),'지원 메일을 보낼 Gmail을 연결해 주세요.');

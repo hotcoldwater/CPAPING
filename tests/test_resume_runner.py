@@ -17,9 +17,9 @@ class ResumeTests(unittest.TestCase):
   self.tables={'career_rules':self.rule,'career_files':self.file,'job_postings':self.post,'career_mail_accounts':self.account,'career_applications':self.app}
   self.db=Mock();self.db.one.side_effect=lambda table,**kw:copy.deepcopy(self.tables.get(table))
  def prepare(self):
-  with patch('career.resume_runner.source',return_value=self.source):r.prepare(self.db,self.app)
+  with patch('career.resume_runner.source',return_value=self.source),patch('career.requirements_ai.analyze',return_value={'state':'classified','subject':{'kind':'free'},'filename':{'kind':'free'},'documents':{'kind':'free'},'method':'email','recipient':'hr@example.com','file_format':'pdf','uncertainty':[],'blockers':[]}):r.prepare(self.db,self.app)
   data=self.db.update.call_args.args[1];self.app.update(data);return data
- def test_explicit_free_resume_queues_without_ai_and_attaches_exact_file(self):
+ def test_explicit_free_resume_queues_after_ai_analysis_and_attaches_exact_file(self):
   d=self.prepare();self.assertEqual(d['status'],'queued');self.assertEqual(d['document_id'],'file');self.assertTrue(d['snapshot']['auto'])
   content=mail.mime_message(self.app,self.account,self.file);m=BytesParser(policy=policy.default).parsebytes(content)
   attachments=list(m.iter_attachments());self.assertEqual(attachments[0].get_payload(decode=True),self.raw);self.assertEqual(attachments[0].get_filename(),'resume.pdf')
@@ -37,7 +37,7 @@ class ResumeTests(unittest.TestCase):
  def test_auto_send_uses_history_and_exact_uploaded_file(self):
   self.prepare();self.app['status']='sending';self.db.reset_mock()
   with patch('career.resume_runner.source',return_value=self.source),patch('career.resume_runner.delivery.deliver',return_value=('mid','did')) as deliver:r.send_one(self.db,self.app)
-  deliver.assert_called_once();self.assertEqual(deliver.call_args.kwargs['mode'],'auto');self.assertEqual(deliver.call_args.args[3]['data_base64'],self.file['data_base64']);self.assertEqual(self.db.update.call_args.args[1]['status'],'sent')
+  deliver.assert_called_once();self.assertEqual(deliver.call_args.kwargs['mode'],'auto');self.assertEqual(deliver.call_args.args[3][0]['data_base64'],self.file['data_base64']);self.assertEqual(self.db.update.call_args.args[1]['status'],'sent')
  def test_changed_rule_or_post_blocks_before_send(self):
   self.prepare();self.app['status']='sending'
   with patch('career.resume_runner.source',return_value=self.source+' changed'),patch('career.resume_runner.delivery.deliver') as deliver:r.send_one(self.db,self.app);deliver.assert_not_called()
@@ -82,3 +82,20 @@ class ResumeTests(unittest.TestCase):
   with patch.dict('os.environ',{'CAREER_RESUME_ENABLED':'false'}),patch('career.resume_runner.DB') as db:r.main();db.assert_not_called()
 
 if __name__=='__main__':unittest.main()
+
+class FormatSelectionTests(unittest.TestCase):
+ setUp=ResumeTests.setUp
+ def test_docx_selection_and_designated_names_use_exact_original_bytes(self):
+  import docx
+  out=io.BytesIO();d=docx.Document();d.add_paragraph('Synthetic Word support file');d.save(out)
+  word={**self.file,'id':'word','name':'resume.docx','mime':'application/vnd.openxmlformats-officedocument.wordprocessingml.document','data_base64':base64.b64encode(out.getvalue()).decode()}
+  self.rule['resume_docx_file_id']='word'
+  self.db.one.side_effect=lambda table,**kw:copy.deepcopy(word if table=='career_files' and kw.get('id')=='eq.word' else self.tables.get(table))
+  result={'state':'classified','subject':{'kind':'designated','template':'신입_{이름}'},'filename':{'kind':'designated','template':'{이름}_지원서'},'documents':{'kind':'free'},'method':'email','recipient':'hr@example.com','file_format':'docx','uncertainty':[],'blockers':[]}
+  with patch('career.resume_runner.source',return_value=self.source),patch('career.requirements_ai.analyze',return_value=result):r.prepare(self.db,self.app)
+  prepared=self.db.update.call_args.args[1];self.assertEqual(prepared['document_id'],'word');self.assertEqual(prepared['subject'],'신입_지원자');self.assertEqual(prepared['snapshot']['attachments'][0]['name'],'지원자_지원서.docx');self.assertEqual(prepared['snapshot']['document_hash'],r.digest(word['data_base64']))
+ def test_birth_year_from_registered_member_or_block(self):
+  self.assertEqual(r.message('{이름}_{출생년도}',{**self.rule,'member':{'birth_date':'1995-01-02'}},self.post),'지원자_1995')
+  with self.assertRaises(ValueError):r.message('{출생년도}',self.rule,self.post)
+ def test_mixed_new_cpa_posting_matches_even_outside_trainee_board(self):
+  self.assertTrue(matching.resume_candidate({**self.post,'source':'kicpa:cpa','recruitment_categories':['entry_cpa','experienced_cpa'],'work_types':['full_time'],'career_min_years':2},self.rule['filters']))

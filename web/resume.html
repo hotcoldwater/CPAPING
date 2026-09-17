@@ -29,7 +29,7 @@
   </div>
   <p class="small-copy automation-help">켜는 시점 이후의 새 공고에 적용됩니다. 끄면 아직 발송하지 않은 대기 건도 멈춥니다. 이미 발송 중인 메일은 취소할 수 없습니다.</p>
  </section>
- <section id="preparation-summary" class="surface" hidden><div class="surface-topline"><h2>현재 등록된 내용</h2><button class="btn primary" id="edit-preparation" type="button">수정하기</button></div><dl id="registered-summary" class="registered-summary"></dl><div class="file-actions"><button class="btn subtle" id="download-saved" type="button">이력서 다운로드 ↓</button></div></section>
+ <section id="preparation-summary" class="surface" hidden><div class="surface-topline"><h2>현재 등록된 내용</h2><button class="btn primary" id="edit-preparation" type="button">수정하기</button></div><dl id="registered-summary" class="registered-summary"></dl><div class="file-actions"><button class="btn subtle" id="download-saved" type="button">PDF 다운로드 ↓</button><button class="btn subtle" id="download-word" type="button" hidden>Word 다운로드 ↓</button></div></section>
  <section id="preparation-draft" class="surface draft-banner" hidden><div><h2>작성 중인 내용이 있어요</h2><p>최종 저장 전까지 현재 등록된 내용은 유지됩니다.</p></div><button class="btn primary" id="continue-preparation" type="button">이어서 작성하기 →</button></section>
 </section>
 <form id="resume-form" novalidate hidden>
@@ -45,10 +45,10 @@
 <legend class="sr-only">이력서와 지원 설정</legend>
 <section data-resume-step class="setup-section" id="resume-workspace" aria-labelledby="file-heading">
  <div class="section-heading"><span class="step" aria-hidden="true">1</span><h2 id="file-heading">이력서 파일 준비</h2><span class="section-note">PDF · Word(.docx)</span></div>
- <input type="hidden" id="resume-file-id">
+ <input type="hidden" id="resume-file-id"><input type="hidden" id="resume-docx-file-id">
  <div class="surface upload-panel">
-  <label class="drop-zone" id="resume-drop" for="resume-upload"><span class="upload-symbol" aria-hidden="true">↑</span><strong>이력서를 업로드해 주세요</strong><span class="drop-instruction">파일을 끌어다 놓거나 눌러서 선택</span><span class="small-copy">PDF / Word(.docx) · 최대 3MB · 암호 없는 파일</span><input class="sr-only" type="file" id="resume-upload" accept=".pdf,.docx" aria-describedby="resume-chosen"></label>
-  <p id="resume-chosen" class="chosen-file" role="status" aria-live="polite">파일을 선택하면 바로 업로드됩니다.</p>
+  <label class="drop-zone" id="resume-drop" for="resume-upload"><span class="upload-symbol" aria-hidden="true">↑</span><strong>같은 지원서를 PDF와 Word로 각각 올려 주세요</strong><span class="drop-instruction">파일을 끌어다 놓거나 눌러서 선택</span><span class="small-copy">PDF와 Word(.docx) 모두 필요 · 파일당 최대 3MB</span><input class="sr-only" type="file" id="resume-upload" accept=".pdf,.docx" aria-describedby="resume-chosen"></label>
+  <p class="small-copy">형식 지정이 없으면 PDF, Word 지정 공고에는 DOCX로 제출합니다. 같은 형식의 새 파일을 올리면 현재 파일이 교체됩니다.</p><p id="resume-file-pair" role="status"></p><p id="resume-chosen" class="chosen-file" role="status" aria-live="polite">파일을 선택하면 바로 업로드됩니다.</p>
   <button type="button" class="btn subtle" id="retry-upload" hidden>업로드 다시 시도</button>
   <button type="button" class="btn text-button" id="keep-resume" hidden>기존 파일 유지</button>
  </div>
@@ -82,7 +82,7 @@
    <div class="preview-heading"><div class="window-dots" aria-hidden="true"><i></i><i></i><i></i></div><h3>메일 미리보기</h3><span class="preview-example">예시</span></div>
    <dl class="preview-meta"><div><dt>보낸 사람</dt><dd id="preview-sender">Gmail을 연결해 주세요</dd></div><div><dt>받는 사람</dt><dd>예시회계법인 채용 담당자 <span class="small-copy">· 예시</span></dd></div><div><dt>제목</dt><dd id="preview-subject"></dd></div></dl>
    <pre id="preview-body"></pre>
-   <div class="preview-attachment"><span aria-hidden="true">↳</span><span id="preview-file">이력서를 업로드해 주세요</span></div>
+   <div class="preview-attachment"><span aria-hidden="true">↳</span><span id="preview-file">같은 지원서를 PDF와 Word로 각각 올려 주세요</span></div>
    <p class="preview-footnote">예시회계법인으로 바꾼 미리보기입니다. 실제 발송 시에는 해당 공고의 법인명이 들어가며, 첨부파일 안의 글자는 변경되지 않습니다.</p>
   </div>
  </div>
@@ -101,7 +101,7 @@
  <input type="hidden" id="resume-mode" value="review">
  <fieldset class="mode-options"><legend class="sr-only">발송 방식</legend><div class="mode-grid">
   <label class="choice-card mode-card"><input type="radio" name="send-mode" value="review" checked><span><span class="mode-title"><strong>검수 후 발송</strong><span class="mode-tag">직접 확인 후 발송</span></span><span>지원 준비가 끝나면 가입한 이메일로 ‘보낼까요?’ 안내를 받아요. 메일과 이력서를 확인하고 보내기를 눌러 주세요.</span><span class="mode-footnote">안내 메일이나 링크를 여는 것만으로는 발송되지 않습니다.</span></span></label>
-  <label class="choice-card mode-card"><input type="radio" name="send-mode" value="auto"><span><span class="mode-title"><strong>바로 발송</strong><span class="mode-tag">추가 승인 없이 발송</span></span><span>제출 요건 확인을 통과한 새 공고에는 연결한 개인 Gmail에서 지원 메일을 자동으로 보내요.</span><span class="mode-footnote">지정 양식·추가 서류·제목 규칙이 있으면 검수가 필요합니다.</span></span></label>
+  <label class="choice-card mode-card"><input type="radio" name="send-mode" value="auto"><span><span class="mode-title"><strong>바로 발송</strong><span class="mode-tag">추가 승인 없이 발송</span></span><span>제출 요건 확인을 통과한 새 공고에는 연결한 개인 Gmail에서 지원 메일을 자동으로 보내요.</span><span class="mode-footnote">지정된 제목·파일명은 자동 반영합니다. 지정 지원서·사이트 접수 등은 이유를 안내하고 직접 지원을 도와드립니다.</span></span></label>
  </div></fieldset>
  <div id="auto-consent-panel" class="consent-panel" hidden><label class="check"><input type="checkbox" id="resume-consent"><span>선택한 조건에 맞는 공고에 이력서와 메일 문구를 사용해 <strong>내 Gmail에서 별도 승인 없이 발송</strong>하는 데 동의합니다.</span></label></div>
  <div class="operation-grid"><p class="inline-note">CPAPING의 일일 메일 발송 건수 제한 없이 지원합니다.</p>
