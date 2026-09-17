@@ -4,9 +4,9 @@ const pause=()=>new Promise(r=>setTimeout(r,40)),id='11111111-1111-4111-8111-111
 async function fixture(patch={},query='?review='+id){
  const w=new JSDOM(readFileSync('web/applications.html','utf8'),{url:'https://cpaping.com/applications/'+query,runScripts:'outside-only',pretendToBeVisual:true}).window;
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
- w.cpAuth={ensure:async()=>({state:'complete'}),client:{auth:{getSession:async()=>({data:{session:{access_token:'fake'}}})}}};const calls=[];
+ w.cpAuth={ensure:async()=>({state:'complete'}),client:{auth:{getSession:async()=>({data:{session:{access_token:'fake'}}})}}};const calls=[];let deleted=false;
  const item={id,application_id:id,company:'예시법인',title:'신입 회계사',region:'서울',posted_at:'2026-09-16',status:'review',version:1,recipient:'hr@example.com',subject:'예시법인 지원자',body:'지원자입니다.',snapshot:{analysis:{method:'email'},attachments:[{id:file,name:'지원서.pdf'}]},...patch};
- w.fetch=async(url,opt)=>{const body=opt.body?JSON.parse(opt.body):null;calls.push({url,body});if(String(url).endsWith('resume-attachments'))return {ok:true,json:async()=>({id:file})};if(body?.action==='approve'){item.status='queued';item.version++;}return {ok:true,json:async()=>String(url).endsWith('resume-applications')?item:{items:[item],has_more:false}};};
+ w.fetch=async(url,opt)=>{const body=opt.body?JSON.parse(opt.body):null;calls.push({url,body,method:opt.method});if(String(url).endsWith('resume-attachments'))return {ok:true,json:async()=>({id:file})};if(opt.method==='DELETE')deleted=true;if(body?.action==='approve'){item.status='queued';item.version++;}return {ok:true,json:async()=>String(url).endsWith('resume-applications')?item:{items:deleted?[]:[item],has_more:false}};};
  w.setInterval=fn=>{w.analysisPoll=fn;return 1;};w.eval(readFileSync('web/applications.js','utf8'));await pause();return {w,calls,item,target:w.document.getElementById('application-detail')};
 }
 test('review keeps attachments, supports delete/add, sends explicitly and waits for actual completion',async()=>{
@@ -39,4 +39,19 @@ test('pending analysis has a distinct label, no send button, and refreshes into 
  assert.equal(w.document.querySelector('.status-control').textContent,'AI 분석 중');assert.equal(w.document.querySelector('.status-control').disabled,true);assert.match(target.textContent,/AI가 공고의 지원 요건을 분석/);assert.equal(target.querySelector('.send-application'),null);assert.equal(calls.some(c=>c.body?.action==='approve'),false);
  w.fetch=async()=>({ok:true,json:async()=>({items:[{...item,status:'review',display_status:'review',version:2}],has_more:false})});await w.analysisPoll();assert.ok(target.querySelector('.send-application'));assert.equal(target.querySelector('.attachment-row input').value,'지원서.pdf');
  }finally{w.close();}
+});
+test('overflow actions open editor, cancel deletion and delete with owner version only after confirmation',async()=>{
+ const {w,calls,item,target}=await fixture({},'');try{
+ const d=w.document;assert.equal(d.querySelector('th:last-child').textContent,'');d.querySelector('.history-more').click();let menu=d.querySelector('.history-action-options');assert.deepEqual([...menu.querySelectorAll('button')].map(b=>b.textContent),['수정','삭제']);await menu.querySelector('button').onclick();assert.equal(target.querySelector('.attachment-row input').value,'지원서.pdf');d.querySelector('#application-dialog').close();
+ d.querySelector('.history-more').click();d.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));assert.equal(d.querySelector('.history-action-options'),null);assert.equal(d.activeElement,d.querySelector('.history-more'));
+ d.querySelector('.history-more').click();await d.querySelector('.delete-history').onclick();assert.equal(calls.some(c=>c.method==='DELETE'),false);await [...target.querySelectorAll('button')].find(b=>b.textContent==='취소').onclick();assert.equal(calls.some(c=>c.method==='DELETE'),false);
+ d.querySelector('.history-more').click();await d.querySelector('.delete-history').onclick();await target.querySelector('.confirm-delete-history').onclick();const req=calls.find(c=>c.method==='DELETE');assert.equal(req.url,'/api/career/application-history/'+id);assert.deepEqual(req.body,{kind:'application',version:1});assert.match(d.querySelector('#message').textContent,/삭제했습니다/);assert.equal(d.querySelectorAll('#deliveries tr').length,0);assert.equal(calls.some(c=>c.body?.action==='approve'),false);
+ }finally{w.close();}
+});
+test('sending entries cannot be deleted and sent entries edit outcome without sending again',async()=>{
+ let f=await fixture({status:'sending'},'');try{f.w.document.querySelector('.history-more').click();assert.equal(f.w.document.querySelector('.delete-history').disabled,true);}finally{f.w.close();}
+ f=await fixture({status:'sent',sent_at:'2026-09-17T01:00:00Z'},'');try{f.w.document.querySelector('.history-more').click();await f.w.document.querySelector('.history-action-options button').onclick();assert.ok(f.target.querySelector('#application-status'));assert.equal(f.target.querySelector('.send-application'),null);}finally{f.w.close();}
+});
+test('legacy delivery linked to an older application deletes the delivery using its own version',async()=>{
+ const {w,calls,target}=await fixture({entry_kind:'delivery',application_id:file,version:undefined,outcome_version:2,status:'sent'},'');try{w.document.querySelector('.history-more').click();await w.document.querySelector('.delete-history').onclick();await target.querySelector('.confirm-delete-history').onclick();assert.deepEqual(calls.find(c=>c.method==='DELETE').body,{kind:'delivery',version:2});}finally{w.close();}
 });
