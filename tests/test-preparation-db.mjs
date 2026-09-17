@@ -84,3 +84,29 @@ test('new history tracks manual results and site dates, keeps send facts, blocks
  for(const role of ['anon','authenticated'])assert.equal((await db.query("select has_function_privilege($1,'career_set_application_status(uuid,uuid,integer,text,date)','EXECUTE') ok",[role])).rows[0].ok,false);
  }finally{await db.close();}
 });
+test('analysis jobs enqueue on collection, retry durably, reject stale results and repair untouched pending applications',async()=>{
+ const db=await setup();try{
+ await db.exec('alter table job_postings add column region text,add column work_region text,add column region_group text,add column posted_at date,add column first_seen_at timestamptz,add column recruitment_categories text[],add column body text,add column source_content jsonb,add column content_hash text;');
+ await db.exec(readFileSync('db/migrations/027_application_history_workflow.sql','utf8'));await upload(db);
+ await db.query("update job_postings set recruitment_categories=array['entry_cpa'],body='old source' where id=1");
+ await db.query("insert into career_applications(user_id,posting_id,canonical_posting_id,status,reason,snapshot) values($1,1,1,'blocked','지원 요건을 확인하지 못했습니다. 공고를 확인하고 직접 작성해 주세요.','{\"flow\":\"uploaded-resume-v1\"}')",[uid]);
+ await db.exec(readFileSync('db/migrations/028_immediate_analysis.sql','utf8'));
+ assert.equal((await db.query('select status from career_applications')).rows[0].status,'preparing');
+ assert.equal((await db.query("select career_application_history($1,0,'analyzing') item",[uid])).rows[0].item.display_status,'analyzing');
+ const claim=async()=>(await db.query('select * from career_claim_analysis()')).rows[0];
+ const finish=async(job,result=null)=>(await db.query('select career_finish_analysis($1,$2,$3,$4) ok',[job.posting_id,job.lease,result,'일시적 연결 오류'])).rows[0].ok;
+ for(let attempt=1;attempt<=3;attempt++){
+  let job=await claim();assert.equal(job.attempts,attempt);assert.equal(await claim(),undefined);assert.equal(await finish(job),true);
+  const state=(await db.query('select status from career_analysis_jobs')).rows[0].status;assert.equal(state,attempt<3?'pending':'failed');
+  const result=(await db.query('select application_analysis from job_postings where id=1')).rows[0].application_analysis;
+  if(attempt<3){assert.equal(result,null);await db.query('update career_analysis_jobs set available_at=now()');}else{assert.equal(result.state,'needs_confirmation');assert.match(result.uncertainty[0],/3회/);}
+ }
+ assert.equal(await claim(),undefined);assert.equal((await db.query('select count(*)::int n from career_failure_notices')).rows[0].n,1);
+ await db.query('select career_enqueue_analysis(1,true)');let stale=await claim();await db.query("update job_postings set body='edited source' where id=1");assert.equal(await finish(stale,{state:'classified'}),false);
+ let fresh=await claim();assert.equal(fresh.attempts,1);assert.equal(await finish(fresh,{state:'classified',evidence_hash:'a'.repeat(64),source_hash:'bodyhash'}),true);
+ await db.query('select career_enqueue_analysis(1)');assert.equal(await claim(),undefined);
+ await db.query("insert into job_postings(id,company_name,title,recruitment_categories) values(101,'새법인','새 공고',array['entry_cpa'])");let initial=await claim();assert.equal(initial.posting_id,101);
+ await db.query("update career_analysis_jobs set locked_at=now()-interval '8 minutes' where posting_id=101");let recovered=await claim();assert.equal(recovered.attempts,2);assert.notEqual(recovered.lease,initial.lease);assert.equal(await finish(initial,{state:'classified'}),false);assert.equal(await finish(recovered,{state:'classified'}),true);
+ for(const role of ['anon','authenticated']){assert.equal((await db.query("select has_table_privilege($1,'career_analysis_jobs','SELECT') ok",[role])).rows[0].ok,false);assert.equal((await db.query("select has_function_privilege($1,'career_claim_analysis()','EXECUTE') ok",[role])).rows[0].ok,false);}
+ }finally{await db.close();}
+});

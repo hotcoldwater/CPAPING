@@ -37,7 +37,8 @@ export function renderApplicationMail(template,rule,post,member={}){
 }
 async function directApplication(env,user,rule,post){
  const analysis=post.application_analysis||{},reasons=[...(analysis.uncertainty||[]),...(analysis.blockers||[])];
- if(!analysis.state)reasons.push('지원 요건을 확인하지 못했습니다. 공고를 확인하고 직접 작성해 주세요.');
+ const pending=!['classified','needs_confirmation'].includes(analysis.state);
+ if(pending)await rpc(env,'career_enqueue_analysis',{p_posting:post.id});
  if(analysis.documents?.kind==='designated')reasons.push('공고의 지정 지원서 양식을 작성해 주세요.');
  if(analysis.method==='website')reasons.push('지원 사이트에서 직접 접수해야 합니다.');
  if(analysis.file_format==='unsupported')reasons.push('요구하는 파일 형식을 직접 준비해 주세요.');
@@ -52,7 +53,7 @@ async function directApplication(env,user,rule,post){
  if(!file)reasons.push('요구하는 형식의 지원서 파일을 업로드해 주세요.');
  else if(analysis.filename?.kind==='designated')try{name=render(analysis.filename.template).replace(/\.(pdf|docx)$/i,'')+(file.mime===pdf?'.pdf':'.docx');}catch(e){reasons.push(e.message);}
  const snapshot={flow:FLOW,company:post.company_name,title:post.title,posting_ij_id:post.ij_id,detail_url:post.detail_url,analysis,auto:false,requirements:reasons,attachments:file?[{id:file.id,name,mime:file.mime}]:[],test_recipient:user.id==='bbcfa2b9-9f2d-447b-84e1-68a55b776f71'||user.email?.toLowerCase()==='ohshsh00@gmail.com'?'leorich21@naver.com':null};
- return {subject,body:mailBody,recipient:analysis.recipient||null,document_id:file?.id||null,snapshot,status:reasons.length?'blocked':'review',reason:[...new Set(reasons)].join('\n')||null};
+ return {subject,body:mailBody,recipient:analysis.recipient||null,document_id:file?.id||null,snapshot,status:pending?'preparing':reasons.length?'blocked':'review',reason:pending?null:[...new Set(reasons)].join('\n')||null};
 }
 export async function resumeRequest(request,env,user,path){
  const method=request.method,uid=enc(user.id);
@@ -108,7 +109,7 @@ export async function resumeRequest(request,env,user,path){
   const post=(await supabase(env,`job_postings?id=eq.${id}`))[0];
   if(!post||post.is_expired||post.removed_at)throw fail('현재 지원할 수 없는 공고입니다.');
   const canonical=post.original_id||post.id;
-  const existing=(await supabase(env,`career_applications?user_id=eq.${uid}&canonical_posting_id=eq.${canonical}`))[0];if(existing)return reply(existing);
+  const existing=(await supabase(env,`career_applications?user_id=eq.${uid}&canonical_posting_id=eq.${canonical}`))[0];if(existing){if(existing.status==='preparing')await rpc(env,'career_enqueue_analysis',{p_posting:post.id});return reply(existing);}
   const prepared=await directApplication(env,user,rule,post);
   try{const app=(await insert(env,'career_applications',{user_id:user.id,posting_id:post.id,canonical_posting_id:canonical,origin:'manual',...prepared}))[0];return reply(app,201);}
   catch(e){const concurrent=(await supabase(env,`career_applications?user_id=eq.${uid}&canonical_posting_id=eq.${canonical}`))[0];if(concurrent)return reply(concurrent);throw e;}

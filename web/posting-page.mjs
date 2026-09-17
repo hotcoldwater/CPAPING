@@ -271,7 +271,8 @@ footer a{color:var(--ink-2)}
   <main>
     <section>
       <div class="sec-head"><h2>공고 요약</h2><span class="unit">한공회 게시판 기준</span></div>
-      <dl class="facts">${[['제목양식',p.application_analysis?.subject?.kind],['파일제목',p.application_analysis?.filename?.kind],['지원서류',p.application_analysis?.documents?.kind],['지원형태',p.application_analysis?.method]].map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(({free:'자유',designated:'지정',email:'메일',website:'사이트'})[v]||'확인 필요')}</dd></div>`).join('')}</dl>
+      <p class="note"><strong id="analysis-status">${!['classified','needs_confirmation'].includes(p.application_analysis?.state)?'AI 분석 중':p.application_analysis?.state==='needs_confirmation'?'확인필요':'분석 완료'}</strong><span id="analysis-reason"> ${esc((p.application_analysis?.uncertainty||[]).join(' · '))}</span></p>
+      <dl class="facts" id="analysis-facts" data-ij="${esc(p.ij_id)}" data-pending="${!['classified','needs_confirmation'].includes(p.application_analysis?.state)?'1':'0'}">${[['제목양식',p.application_analysis?.subject?.kind],['파일제목',p.application_analysis?.filename?.kind],['지원서류',p.application_analysis?.documents?.kind],['지원형태',p.application_analysis?.method]].map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(({free:'자유',designated:'지정',email:'메일',website:'사이트'})[v]||(!['classified','needs_confirmation'].includes(p.application_analysis?.state)?'AI 분석 중':'확인필요'))}</dd></div>`).join('')}</dl>
       <dl class="facts">${rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}${
         p.view_count != null ? `<div><dt>한공회 조회수</dt><dd id="views" data-ij="${esc(p.ij_id)}" data-live="${st.key === "open" ? "1" : "0"}">${Number(p.view_count).toLocaleString("ko-KR")}회<span class="delta" id="views-delta"></span></dd></div>` : ""}</dl>
       ${st.key === "removed" ? '<p class="note">이 공고는 한공회 게시판에서 내려갔습니다. 아래는 마지막으로 수집한 내용이며 원문 링크가 열리지 않을 수 있습니다.</p>' : ''}
@@ -290,6 +291,22 @@ footer a{color:var(--ink-2)}
   </section>
   <script src="/comments.js" defer></script>
   <script>
+  (function(){
+    var box=document.getElementById('analysis-facts'),busy=false;
+    if(!box||box.dataset.pending!=='1')return;
+    var U='__SUPABASE_URL__',K='__SUPABASE_PUBLISHABLE_KEY__';
+    if(U.indexOf('__')===0)return;
+    var timer=setInterval(async function(){
+      if(document.hidden||busy)return;busy=true;
+      try{
+        var r=await fetch(U+'/rest/v1/job_postings?select=application_analysis&ij_id=eq.'+encodeURIComponent(box.dataset.ij),{headers:{apikey:K}});
+        if(!r.ok)return;var rows=await r.json(),a=rows[0]&&rows[0].application_analysis;
+        if(!a||!['classified','needs_confirmation'].includes(a.state))return;
+        var values=[a.subject&&a.subject.kind,a.filename&&a.filename.kind,a.documents&&a.documents.kind,a.method],labels={free:'자유',designated:'지정',email:'메일',website:'사이트'};
+        box.querySelectorAll('dd').forEach(function(el,i){el.textContent=labels[values[i]]||'확인필요';});document.getElementById('analysis-status').textContent=a.state==='needs_confirmation'?'확인필요':'분석 완료';document.getElementById('analysis-reason').textContent=' '+(a.uncertainty||[]).join(' · ');clearInterval(timer);
+      }catch(e){}finally{busy=false;}
+    },5000);
+  })();
   // 한공회 조회수는 크롤러가 매분 갱신하지만 이 페이지는 배포 시점에 만들어진다.
   // 열린 공고만, 열 때 최신값과 "오늘 +N"(어제 이력 대비)을 한 번 받아온다.
   (async function () {

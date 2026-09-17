@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 
 import classify
+import analysis_dispatch
 import firms
 import kicpa
 import notify
@@ -112,6 +113,7 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
         # 본문이 지워진다.
         fresh_ids = {p.ij_id for p in fresh}
         db.upsert_postings([store.to_row(p) for p in postings if p.ij_id in fresh_ids])
+        analysis_dispatch.dispatch_pending(db)
         db.upsert_postings([store.to_light_row(p) for p in postings if p.ij_id not in fresh_ids])
 
         # Refresh at most one existing public document per board/run, without re-notifying.
@@ -124,6 +126,7 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
                     db.update_content(refreshed)
         except Exception as exc:
             log.warning('기존 공고 본문 갱신 보류: %s', type(exc).__name__)
+        analysis_dispatch.dispatch_pending(db)
 
         # 4-0. 한공회 조회수 이력 — 부가 기능이라 실패해도 크롤을 멈추지 않는다
         try:

@@ -105,17 +105,31 @@ def initial_message(rule,post):
     return {'subject':subject,'body':body,'snapshot':snapshot}
 
 
-def prepare(db,app):
-    user=app['user_id'];rule=db.one('career_rules',user_id='eq.'+user)
+def prepare(db,app,original=None):
+    user=app['user_id'];post=db.one('job_postings',id=f'eq.{app["posting_id"]}')
+    result=(post or {}).get('application_analysis')
+    if post and not requirements_ai.completed(result):
+        db.rpc('career_enqueue_analysis',{'p_posting':post['id']})
+        raise requirements_ai.AnalysisPending()
+    rule=db.one('career_rules',user_id='eq.'+user)
     if not rule or not rule.get('resume_file_id'):raise ValueError('이력서와 지원 설정을 먼저 저장해 주세요.')
-    post=db.one('job_postings',id=f'eq.{app["posting_id"]}')
     if not post or not matching.is_open(post):raise ValueError('마감되거나 내려간 공고입니다.')
     if app['origin']=='rule' and not matching.resume_candidate(post,rule.get('filters') or {}):raise ValueError('자동지원은 선택한 풀타임·파트타임 신입·수습 공고만 가능합니다. 경력직은 대상이 아닙니다.')
     file=db.one('career_files',id='eq.'+rule['resume_file_id'],user_id='eq.'+user);check_file(file)
     account=db.one('career_mail_accounts',user_id='eq.'+user)
     if not account:raise ValueError('개인 Gmail을 먼저 연결해 주세요.')
-    original=source(post);deadline_check(original)
-    result=requirements_ai.analyze(db,post,original);reasons=requirements_ai.reasons(result)
+    if result.get('state')=='needs_confirmation':
+        original=original or post.get('body') or ''
+    else:
+        try:original=original if original is not None else source(post)
+        except Exception:
+            db.rpc('career_enqueue_analysis',{'p_posting':post['id'],'p_force':True})
+            raise requirements_ai.AnalysisPending()
+        if result.get('source_hash') and result['source_hash']!=digest(original):
+            db.rpc('career_enqueue_analysis',{'p_posting':post['id'],'p_force':True})
+            raise requirements_ai.AnalysisPending()
+    deadline_check(original)
+    reasons=requirements_ai.reasons(result)
     recipients=[result['recipient']] if result.get('recipient') else []
     if result.get('file_format')=='docx':
         docx=db.one('career_files',id='eq.'+rule['resume_docx_file_id'],user_id='eq.'+user) if rule.get('resume_docx_file_id') else None
@@ -201,6 +215,17 @@ def send_one(db,app):
         db.update('career_applications',{'status':'delivery_unknown','reason':'발송 결과를 확인하지 못했습니다. 보낸편지함을 확인해 주세요.','updated_at':now()},id='eq.'+app['id'])
 
 
+def prepare_pending(db,posting_id=None,original=None):
+    filters={'snapshot->>flow':'eq.'+FLOW}
+    if posting_id is not None:filters['posting_id']='eq.'+str(posting_id)
+    for app in db.rows('career_applications',status='eq.preparing',order='created_at.asc',limit=100,**filters):
+        try:prepare(db,app,original=original)
+        except requirements_ai.AnalysisPending:continue
+        except Exception as e:
+            reason=str(e)[:800] if isinstance(e,ValueError) else '지원 준비 중 오류가 발생했습니다. 다시 준비해 주세요.'
+            db.update('career_applications',{'status':'blocked','reason':reason,'updated_at':now()},id='eq.'+app['id'],status='eq.preparing',version=f'eq.{app["version"]}')
+
+
 def main():
     load_dotenv();logging.basicConfig(level=logging.INFO)
     if os.getenv('CAREER_RESUME_ENABLED')!='true':return
@@ -208,11 +233,7 @@ def main():
     db.update('career_applications',{'status':'delivery_unknown','reason':'전송 처리가 중단됐습니다. 자동 재발송하지 않습니다.','updated_at':now()},status='eq.sending',updated_at='lt.'+cutoff,**{'snapshot->>flow':'eq.'+FLOW})
     db.update('career_mail_deliveries',{'status':'delivery_unknown','reason':'전송 접수 기록 갱신이 중단됐습니다.'},status='eq.sending',created_at='lt.'+cutoff)
     match_new(db)
-    for app in db.rows('career_applications',status='eq.preparing',order='created_at.asc',limit=10,**{'snapshot->>flow':'eq.'+FLOW}):
-        try:prepare(db,app)
-        except Exception as e:
-            reason=str(e)[:800] if isinstance(e,ValueError) else '지원 준비 중 오류가 발생했습니다. 다시 준비해 주세요.'
-            db.update('career_applications',{'status':'blocked','reason':reason,'updated_at':now()},id='eq.'+app['id'],status='eq.preparing',version=f'eq.{app["version"]}')
+    prepare_pending(db)
     from . import review_notices
     try:review_notices.process(db)
     except Exception:log.warning('검수 안내 작업을 완료하지 못했습니다.')

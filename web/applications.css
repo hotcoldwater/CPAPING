@@ -15,3 +15,5 @@ body[data-page="applications"] .member-shell main{max-width:1200px;width:100%}
 .status-control{border:1px solid transparent;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}.status-control:hover{border-color:currentColor}.status-control:disabled{cursor:wait;opacity:.8}.status-control:focus-visible,.posting-link:focus-visible{outline:2px solid #416dc5;outline-offset:3px}
 .posting-link{border:0;background:none;padding:0;text-align:left;color:#19314e;font:inherit;font-size:14px;font-weight:600;cursor:pointer}.posting-link:hover{text-decoration:underline}
 #application-detail .send-application{display:block;width:100%;margin:24px 0 0;background:#244e8c;color:#fff;border-color:#244e8c;font-weight:600;padding:13px}
+
+.history-badge.analyzing{color:#3b64a1;background:#edf3ff}
