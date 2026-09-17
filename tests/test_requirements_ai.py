@@ -48,3 +48,17 @@ class RoutingTests(unittest.TestCase):
   with patch('career.mail.send',return_value='mid'):
    delivery.deliver(db,{**self.app,'version':1,'company':'법인'},self.account,[self.file,{**self.file,'id':'f2','name':'evidence.pdf'}],lambda _:None)
   row=db.insert.call_args.args[1];self.assertEqual(row['recipient'],routing.TEST_RECIPIENT);self.assertEqual(row['intended_recipient'],'hr@example.com');self.assertEqual(len(row['attachments']),2)
+
+class EvidenceRegressionTests(unittest.TestCase):
+ def test_whitespace_only_quote_difference_is_grounded_without_accepting_new_words(self):
+  self.assertEqual(ai.ground('메일 제목: 이름','메일\n제목:\n이름'),'메일\n제목:\n이름')
+  self.assertIsNone(ai.ground('파일 제목: 이름','메일 제목: 이름'))
+ def test_unresolved_literal_birth_year_never_passes(self):
+  case=AnalysisTests();case.setUp();case.value['subject']['template']='신입_{이름}(출생년도)'
+  with self.assertRaises(ValueError):ai.validate(case.value,case.source,[])
+ def test_default_pdf_is_policy_not_uncertainty(self):
+  case=AnalysisTests();case.setUp();case.value.update(file_format='pdf',format_evidence='',uncertainty=['파일 형식 명시 없음 - PDF 가정'])
+  self.assertEqual(ai.validate(case.value,case.source,[])['state'],'classified')
+ def test_image_evidence_never_silently_disappears(self):
+  _,missing=ai.bundle('이력서 이메일 접수\n읽지 못한 이미지: 공고 이미지')
+  self.assertTrue(missing)
