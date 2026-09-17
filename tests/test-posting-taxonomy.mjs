@@ -29,6 +29,33 @@ test('entry-only regional tabs retain mixed jobs and never reveal career/general
   assert.equal(d.querySelector('#empty').hidden,false);d.querySelector('#empty-reset').click();assert.equal(d.querySelectorAll('#rows>.row').length,5);
  }finally{w.close();}
 });
+test('work and region intersect with matching counts, legacy types, mixed types and reset',()=>{
+ const dom=new JSDOM(readFileSync('web/index.html','utf8'),{url:'https://cpaping.com/',runScripts:'outside-only'}),w=dom.window;
+ try{
+  w.localStorage.setItem('cpaping.entry-work','obsolete');
+  w.eval(readFileSync('web/posting-taxonomy.js','utf8'));
+  w.eval([...w.document.scripts].find(s=>s.textContent.includes('const SUPABASE_URL')).textContent.replace('load();',''));w.eval('load()');
+  const make=(id,region,work_types,extra={})=>({...posts[0],id,ij_id:String(id),title:'공고 '+id,region,work_types,...extra});
+  const fixtures=[make(10,'서울',['full_time']),make(11,'서울',['part_time']),make(12,'경기',['internship']),make(13,'부산',['full_time','part_time']),make(14,'인천',[],{employment_type:'Part Time'}),make(15,'서울',[]),make(16,'서울',['internship'],{deadline:'2000-01-01'}),make(17,'서울',['part_time'],{recruitment_categories:['experienced_cpa']})];
+  w.eval('render('+JSON.stringify(fixtures)+')');
+  const d=w.document,button=(group,label)=>[...d.querySelectorAll('#'+group+' button')].find(b=>b.firstChild.textContent===label);
+  const size=()=>d.querySelectorAll('#rows>.row').length;
+  const counts=group=>[...d.querySelectorAll('#'+group+' .n')].map(n=>Number(n.textContent));
+  assert.deepEqual(counts('work-filters'),[6,2,3,1]);assert.deepEqual(counts('filters'),[6,3,2,1]);
+  button('work-filters','파트').click();assert.equal(size(),3);assert.deepEqual(counts('filters'),[3,1,1,1]);
+  assert.equal(d.activeElement,button('work-filters','파트'));
+  button('filters','서울').click();assert.equal(size(),1);assert.match(d.querySelector('#rows').textContent,/공고 11/);
+  assert.deepEqual(counts('work-filters'),[3,1,1,0]);assert.equal(button('work-filters','인턴').disabled,true);
+  assert.equal(w.localStorage.getItem('cpaping.entry-work'),'part_time');assert.equal(w.localStorage.getItem('cpaping.entry-region'),'seoul');
+  button('filters','경기').click();assert.equal(size(),1);assert.match(d.querySelector('#rows').textContent,/공고 14/);
+  button('work-filters','인턴').click();assert.equal(size(),1);assert.match(d.querySelector('#rows').textContent,/공고 12/);
+  d.querySelector('#include-closed').click();button('filters','서울').click();assert.equal(size(),1);assert.match(d.querySelector('#rows').textContent,/공고 16/);
+  const search=d.querySelector('#search');search.value='없는 공고';search.dispatchEvent(new w.Event('input'));assert.equal(size(),0);
+  assert.equal(d.querySelector('#controls').hidden,false);d.querySelector('#empty-reset').click();assert.equal(size(),6);
+  for(const group of ['work-filters','filters'])assert.equal(button(group,'전체').getAttribute('aria-pressed'),'true');
+  assert.equal(w.localStorage.getItem('cpaping.entry-work'),'all');assert.equal(w.localStorage.getItem('cpaping.entry-region'),'all');
+ }finally{w.close();}
+});
 test('confirmed duplicate keeps history and different work conditions stay separate',()=>{
  const base={...posts[0],posted_at:'2026-09-01',employment_type:'Full Time'};
  const later={...base,id:6,ij_id:'6',original_id:1,posted_at:'2026-09-15'};

@@ -205,7 +205,10 @@ html.member #hero { display: none; }
   background: var(--bg-subtle); border-bottom: 1px solid var(--line);
 }
 .filters { display: flex; gap: 5px; }
-/* 종류·지역 버튼만 남겨 한 줄에 둔다. 검색·정렬은 위 머리줄 오른쪽에 있다. */
+.filter-groups{display:grid;gap:8px;min-width:0}
+.filter-row{display:flex;align-items:center;gap:8px}
+.filter-label{width:48px;flex-shrink:0;font-size:11px;color:var(--ink-2)}
+/* 근무형태·지역은 두 줄로 선택한다. 검색·정렬은 위 머리줄 오른쪽에 있다. */
 .controls .facets { display: flex; gap: 5px; flex-wrap: nowrap; align-items: center; }
 .listhead .right { margin-left: auto; display: flex; gap: 6px; align-items: center; }
 .search {
@@ -412,7 +415,10 @@ footer .footer-mail { margin-top: 4px; font-size: 11px; opacity: .75; user-selec
   </section>
 
   <div class="controls" id="controls">
-    <div class="filters" id="filters" role="group" aria-label="근무 지역"></div>
+    <div class="filter-groups">
+      <div class="filter-row"><span class="filter-label" id="work-filter-label">근무형태</span><div class="filters" id="work-filters" role="group" aria-labelledby="work-filter-label"></div></div>
+      <div class="filter-row"><span class="filter-label" id="region-filter-label">지역</span><div class="filters" id="filters" role="group" aria-labelledby="region-filter-label"></div></div>
+    </div>
     <label class="closed-option"><input type="checkbox" id="include-closed"> 마감 공고 포함</label>
   </div>
 
@@ -478,6 +484,14 @@ function regionMatches(p, key) {
 }
 const FILTERS = [['all','전체'],['seoul','서울'],['gyeonggi','경기'],['local','지방']]
  .map(([key,label])=>({key,label,match:p=>regionMatches(p,key)}));
+function workMatches(p,key){
+ if(key==='all')return true;
+ const types=Array.isArray(p.work_types)&&p.work_types.length?p.work_types:
+  [({'Full Time':'full_time','Part Time':'part_time','Internship':'internship'}[p.employment_type])].filter(Boolean);
+ return types.includes(key);
+}
+const WORK_FILTERS=[['all','전체'],['full_time','풀타임'],['part_time','파트'],['internship','인턴']]
+ .map(([key,label])=>({key,label,match:p=>workMatches(p,key)}));
 const SORTS = {
   // 목록이 하는 일은 "지난번 이후 뭐가 바뀌었나" 를 보여주는 것이라
   // 최신순을 기본으로 둔다. 마감 임박 건은 D-day 가 빨갛게 표시된다.
@@ -489,7 +503,7 @@ const SORTS = {
 const SORT_CYCLE = ["posted", "deadline", "views"];
 const DEFAULT_SORT = "posted";
 
-const state = { postings: [], filter: "all", includeClosed: false, query: "", sort: DEFAULT_SORT, comments: {} };
+const state = { postings: [], filter: "all", work: "all", includeClosed: false, query: "", sort: DEFAULT_SORT, comments: {} };
 
 const $ = (id) => document.getElementById(id);
 
@@ -701,21 +715,27 @@ function renderFacet(boxId, defs, current, onPick, otherMatch) {
     count.textContent = n;
     btn.append(count);
     btn.disabled = n === 0 && f.key !== "all";
-    btn.onclick = () => onPick(f.key);
+    btn.onclick = () => {
+      onPick(f.key);
+      box.querySelectorAll('button')[defs.indexOf(f)]?.focus({preventScroll:true});
+    };
     box.append(btn);
   }
 }
 
 function currentFilter() { return FILTERS.find((f) => f.key === state.filter) || FILTERS[0]; }
+function currentWorkFilter(){return WORK_FILTERS.find(f=>f.key===state.work)||WORK_FILTERS[0];}
 function renderFilters(){
- renderFacet('filters',FILTERS,state.filter,key=>{state.filter=key;remember.set('entry-region',key);renderList();},()=>true);
+ renderFacet('work-filters',WORK_FILTERS,state.work,key=>{state.work=key;remember.set('entry-work',key);renderList();},currentFilter().match);
+ renderFacet('filters',FILTERS,state.filter,key=>{state.filter=key;remember.set('entry-region',key);renderList();},currentWorkFilter().match);
  const gyeonggi=$('filters').querySelectorAll('button')[2];gyeonggi.title='경기·인천';
 }
-function resetFilters(){state.filter='all';state.query='';state.includeClosed=false;$('include-closed').checked=false;$('search').value='';remember.set('entry-region','all');renderList();}
+function resetFilters(){state.filter='all';state.work='all';remember.set('entry-work','all');state.query='';state.includeClosed=false;$('include-closed').checked=false;$('search').value='';remember.set('entry-region','all');renderList();}
 
 function renderList() {
   const list = searched()
     .filter(currentFilter().match)
+    .filter(currentWorkFilter().match)
     .sort(SORTS[state.sort].compare);
 
   $("count").textContent = list.length ? list.length + "건" : "0건";
@@ -754,6 +774,8 @@ function render(postings) {
 }
 
 async function load() {
+  const savedWork=remember.get('entry-work','all');
+  state.work=WORK_FILTERS.some(f=>f.key===savedWork)?savedWork:'all';
   const savedFilter=remember.get('entry-region','all');
   state.filter=FILTERS.some(f=>f.key===savedFilter)?savedFilter:'all';
   $('include-closed').onchange=e=>{state.includeClosed=e.target.checked;renderList();};
