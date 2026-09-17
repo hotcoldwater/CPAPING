@@ -125,13 +125,13 @@ export async function resumeRequest(request,env,user,path){
  }
  if(path.startsWith('resume-applications/')&&method==='PUT'){
   const a=await owned(env,'career_applications',user.id,path.split('/')[1]),b=await body(request);
-  if(a.snapshot?.flow!==FLOW||!['review','blocked','preparing','queued','failed','delivery_unknown'].includes(a.status)||b.version!==a.version)throw fail('지원 상태가 바뀌었습니다. 새로고침 후 확인해 주세요.',409);
+  if(a.snapshot?.flow!==FLOW||!['review','blocked','preparing','queued','failed','delivery_unknown','cancelled'].includes(a.status)||b.version!==a.version)throw fail('지원 상태가 바뀌었습니다. 새로고침 후 확인해 주세요.',409);
   if(a.status==='delivery_unknown'&&(b.action!=='approve'||b.delivery_checked!==true))throw fail('보낸편지함에서 발송되지 않았는지 먼저 확인해 주세요.',409);
   const data={version:a.version+1,updated_at:now(),manual_status:null};
   if(b.action==='cancel'){data.status='cancelled';data.reason='사용자가 취소했습니다.';}
   else if(b.action==='prepare'){if(a.status==='queued')throw fail('발송 대기 중에는 다시 준비할 수 없습니다.');data.status='preparing';data.reason=null;data.snapshot={flow:FLOW};data.document_id=null;}
   else if(b.action==='approve'){
-   if(!['review','blocked','failed','delivery_unknown'].includes(a.status)||b.reviewed!==true)throw fail('공고 원문, 수신자, 메일 문구와 이력서를 확인해 주세요.');
+   if(!['review','blocked','failed','delivery_unknown','cancelled'].includes(a.status)||b.reviewed!==true)throw fail('공고 원문, 수신자, 메일 문구와 이력서를 확인해 주세요.');
    if(a.snapshot.analysis?.method==='website')throw fail('사이트 접수 공고입니다. 지원 사이트에서 직접 접수해 주세요.');
    const recipient=textValue(b.recipient,254).toLowerCase();if(!/^[A-Za-z0-9.!#$%&'*+\/=?^_`{|}~-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(recipient))throw fail('지원 이메일을 확인해 주세요.');
    const rule=(await supabase(env,`career_rules?user_id=eq.${uid}`))[0];

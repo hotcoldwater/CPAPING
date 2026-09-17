@@ -34,7 +34,7 @@ test('manual correction attaches only owned files, preserves source classificati
  assert.equal((await call('resume-applications/'+other,'PUT',data)).status,200);assert.equal(patched.status,'queued');assert.equal(patched.snapshot.auto,false);assert.equal(patched.snapshot.manual_edit,true);assert.equal(patched.snapshot.attachments[0].name,'이름.pdf');assert.equal(patched.snapshot.attachments[0].hash.length,64);
  assert.equal((await call('resume-applications/'+other,'PUT',{...data,attachments:[{id:uid,name:'이름.docx'}]})).status,400);
  app.snapshot.analysis.method='website';assert.equal((await call('resume-applications/'+other,'PUT',data)).status,400);
- app.snapshot.analysis.method='email';app.status='delivery_unknown';assert.equal((await call('resume-applications/'+other,'PUT',data)).status,409);
+ app.snapshot.analysis.method='email';app.status='cancelled';assert.equal((await call('resume-applications/'+other,'PUT',data)).status,200);app.snapshot.analysis.method='email';app.status='delivery_unknown';assert.equal((await call('resume-applications/'+other,'PUT',data)).status,409);
 });
 test('manual status API binds authenticated owner, requires version and never queues mail',async t=>{
  let payload,url;t.mock.method(globalThis,'fetch',async(u,opt)=>{if(String(u).includes('/auth/'))return json({id:uid,email_confirmed_at:'yes'});url=String(u);payload=JSON.parse(opt.body);return json([{manual_status:'final_passed'}]);});
