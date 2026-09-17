@@ -16,7 +16,7 @@ def analyze_once(post):
     if any('연결된 페이지 또는 첨부파일을 읽지 못했습니다' in m or '한공회 첨부파일을 읽지 못했습니다' in m for m in missing):
         raise ValueError(' '.join(missing)[:600])
     key=digest(ai.VERSION+'\n'+text+'\n'+json.dumps(missing,ensure_ascii=False))
-    output=ai.call_ai([{'role':'system','content':ai.PROMPT},{'role':'user','content':text[:160000]}],3000,max_attempts=1)
+    output=ai.call_ai([{'role':'system','content':ai.PROMPT},{'role':'user','content':text[:160000]}],3000,max_attempts=1,timeout_seconds=45)
     result=ai.validate(output,text,missing)
     result.update(evidence_hash=key,source_hash=digest(original))
     return result,original
@@ -48,6 +48,8 @@ def process(db,budget=360):
             if os.getenv('CAREER_RESUME_ENABLED')=='true':
                 from .resume_runner import prepare_pending
                 prepare_pending(db,posting_id=job['posting_id'],original=original)
+                from .dispatch import wake_delivery
+                wake_delivery(db)
     return completed
 
 def main():

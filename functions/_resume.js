@@ -1,4 +1,5 @@
 import {body,enc,fail,insert,now,owned,patch,reply,supabase,textValue,uuid} from './_career.js';
+import {wakeDelivery} from './_wake.js';
 const FLOW='uploaded-resume-v1';
 const pdf='application/pdf',docx='application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const rpc=(env,name,data)=>supabase(env,'rpc/'+name,{method:'POST',body:JSON.stringify(data)});
@@ -157,7 +158,7 @@ export async function resumeRequest(request,env,user,path){
    data.document_id=attachments[0].id;
    data.recipient=recipient;data.status='queued';data.approved_at=now();data.reason=null;data.snapshot={...a.snapshot,rule_updated_at:rule.updated_at,sender_email:account.email,sender_connected_at:account.connected_at,allowed_recipients:[recipient],attachments,manual_edit:true,auto:false,requirements_reviewed:true};
   }else throw fail('지원 작업을 확인해 주세요.');
-  const rows=await patch(env,'career_applications',`id=eq.${a.id}&user_id=eq.${uid}&version=eq.${a.version}&status=eq.${a.status}`,data);if(!rows.length)throw fail('지원 상태가 바뀌었습니다. 새로고침해 주세요.',409);return reply(rows[0]);
+  const rows=await patch(env,'career_applications',`id=eq.${a.id}&user_id=eq.${uid}&version=eq.${a.version}&status=eq.${a.status}`,data);if(!rows.length)throw fail('지원 상태가 바뀌었습니다. 새로고침해 주세요.',409);if(data.status==='queued')await wakeDelivery(env);return reply(rows[0]);
  }
  return reply({error:'지원하지 않는 요청입니다.'},404);
  }catch(e){

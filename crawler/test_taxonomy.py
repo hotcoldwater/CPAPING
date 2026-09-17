@@ -77,3 +77,15 @@ class TaxonomyTests(unittest.TestCase):
   self.assertEqual(len(rows),1);self.assertEqual(rows[0].ij_id,'12345');self.assertIn('bltnNo=12345',rows[0].detail_url)
 
 if __name__=='__main__':unittest.main()
+
+class FastInventoryTests(unittest.TestCase):
+ def test_fast_inventory_keeps_scopes_and_allows_partial_pages(self):
+  from kicpa import fetch_recent_inventory
+  with patch('kicpa.fetch_list',side_effect=lambda session,**kw:([Posting(board='cpa',ij_id=kw['co_sep'])],200)) as fetch:
+   rows,count=fetch_recent_inventory(None,board='cpa',delay=0)
+  self.assertEqual(fetch.call_count,12);self.assertEqual(count,6);self.assertTrue(all(p.source_categories==['cpa','general'] for p in rows))
+  self.assertTrue(all(c.kwargs['page']==1 for c in fetch.call_args_list))
+ def test_failed_recent_page_never_appears_empty_success(self):
+  from kicpa import fetch_recent_inventory
+  with patch('kicpa.fetch_list',return_value=([],200)):
+   with self.assertRaises(RuntimeError):fetch_recent_inventory(None,delay=0)

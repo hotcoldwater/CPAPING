@@ -1,19 +1,16 @@
-name: 업로드 이력서 지원 처리
+name: 승인된 지원 메일 즉시 발송
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '*/5 * * * *'
 permissions:
   contents: read
-  actions: write
 concurrency:
-  group: resume-delivery
+  group: approved-delivery
   cancel-in-progress: false
 jobs:
   process:
-    if: vars.CAREER_RESUME_ENABLED == 'true'
+    if: vars.CAREER_RESUME_ENABLED == 'true' && vars.CAREER_SEND_ENABLED == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -22,9 +19,8 @@ jobs:
           cache: pip
           cache-dependency-path: career/requirements.txt
       - run: pip install -r career/requirements.txt
-      - name: 이력서 준비 및 발송
+      - name: 승인된 메일 발송
         env:
-          GH_DELIVERY_TOKEN: ${{ github.token }}
           KIMI_API_KEY: ${{ secrets.KIMI_API_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           MAIL_FROM: ${{ vars.MAIL_FROM || secrets.MAIL_FROM }}
@@ -35,4 +31,4 @@ jobs:
           MAIL_TOKEN_KEY: ${{ secrets.MAIL_TOKEN_KEY }}
           GOOGLE_MAIL_CLIENT_ID: ${{ secrets.GOOGLE_MAIL_CLIENT_ID }}
           GOOGLE_MAIL_CLIENT_SECRET: ${{ secrets.GOOGLE_MAIL_CLIENT_SECRET }}
-        run: python -m career.resume_runner
+        run: python -m career.send_queue

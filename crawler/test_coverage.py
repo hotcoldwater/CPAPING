@@ -82,3 +82,12 @@ class CompleteListTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class FastCrawlSafetyTests(unittest.TestCase):
+ def test_partial_fast_scan_never_removes_or_overwrites_existing_posts(self):
+  post=kicpa.Posting(ij_id='known',title='신입 회계사')
+  db=Mock();db.existing_ij_ids.return_value={'known'};db.unnotified_targets.return_value=[]
+  with patch.object(kicpa,'make_session'),patch.object(kicpa,'fetch_recent_inventory',return_value=([post],1)),patch.object(main.store,'Store',return_value=db),patch.object(main,'_detect_reposts'),patch.object(main,'_notify_subscribers',return_value=0),patch.object(main,'_alert_if_stale'),patch.object(main.analysis_dispatch,'dispatch_pending'):
+   self.assertEqual(main.crawl(fast=True,send_mail=False),0)
+  db.mark_removed.assert_not_called();db.content_refresh_candidates.assert_not_called();db.snapshot_views.assert_not_called();db.expire_past_deadline.assert_not_called()
+  self.assertTrue(all(not c.args[0] for c in db.upsert_postings.call_args_list))

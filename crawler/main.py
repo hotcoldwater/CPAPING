@@ -65,20 +65,26 @@ ONCE = float("inf")
 
 
 def crawl(dry_run: bool = False, send_mail: bool = True,
-          board: str = kicpa.BOARD_TRAINEE) -> int:
+          board: str = kicpa.BOARD_TRAINEE, fast: bool = False) -> int:
     source = f"kicpa:{board}"
     session = kicpa.make_session()
+    fast_db = None
+    if fast and not dry_run:
+        fast_db = store.Store()
+        if fast_db._request('POST','rpc/crawl_full_scan_due',json={'p_board':board}) is True:
+            fast = False
+            log.info('%s 전체 점검 기한 도달 — 이번 회차에서 수행',board)
 
     # 1. 목록 (상세는 신규 건만 — 상대 서버 부담을 줄인다)
     # 전체 목록이 확인돼야 저장·발송·내려간 공고 판정을 진행한다.
-    postings, total = kicpa.fetch_board_inventory(session, board=board)
+    postings, total = (kicpa.fetch_recent_inventory if fast else kicpa.fetch_board_inventory)(session, board=board)
     log.info("%s 목록 %d건 (전체 %s건)", kicpa.BOARDS[board][1], len(postings), total)
 
 
     if not postings and board != kicpa.BOARD_ASSOCIATION:
         raise RuntimeError("목록이 비어 있습니다 — 기존 공고를 유지하고 다시 확인합니다")
 
-    db = None if dry_run else store.Store()
+    db = None if dry_run else (fast_db or store.Store())
     run_id = db.start_run(board) if db else None
 
     try:
@@ -114,45 +120,46 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
         fresh_ids = {p.ij_id for p in fresh}
         db.upsert_postings([store.to_row(p) for p in postings if p.ij_id in fresh_ids])
         analysis_dispatch.dispatch_pending(db)
-        db.upsert_postings([store.to_light_row(p) for p in postings if p.ij_id not in fresh_ids])
+        if not fast:
+            db.upsert_postings([store.to_light_row(p) for p in postings if p.ij_id not in fresh_ids])
 
-        # Refresh at most one existing public document per board/run, without re-notifying.
-        try:
-            present = {p.ij_id for p in postings}
-            for row in db.content_refresh_candidates(source):
-                if row['ij_id'] in present and row['ij_id'] not in fresh_ids:
-                    refreshed = next(p for p in postings if p.ij_id == row['ij_id'])
-                    kicpa.fetch_detail(session, refreshed)
-                    db.update_content(refreshed)
-        except Exception as exc:
-            log.warning('기존 공고 본문 갱신 보류: %s', type(exc).__name__)
-        analysis_dispatch.dispatch_pending(db)
+            # Refresh at most one existing public document per board/run, without re-notifying.
+            try:
+                present = {p.ij_id for p in postings}
+                for row in db.content_refresh_candidates(source):
+                    if row['ij_id'] in present and row['ij_id'] not in fresh_ids:
+                        refreshed = next(p for p in postings if p.ij_id == row['ij_id'])
+                        kicpa.fetch_detail(session, refreshed)
+                        db.update_content(refreshed)
+            except Exception as exc:
+                log.warning('기존 공고 본문 갱신 보류: %s', type(exc).__name__)
+            analysis_dispatch.dispatch_pending(db)
 
-        # 4-0. 한공회 조회수 이력 — 부가 기능이라 실패해도 크롤을 멈추지 않는다
-        try:
-            db.snapshot_views(store.view_snapshot_rows(postings, store.kst_today()))
-        except Exception as exc:  # noqa: BLE001
-            log.warning("조회수 이력 저장 실패: %s", exc)
+            # 4-0. 한공회 조회수 이력 — 부가 기능이라 실패해도 크롤을 멈추지 않는다
+            try:
+                db.snapshot_views(store.view_snapshot_rows(postings, store.kst_today()))
+            except Exception as exc:  # noqa: BLE001
+                log.warning("조회수 이력 저장 실패: %s", exc)
 
-        expired = db.expire_past_deadline(source)
-        if expired:
-            log.info("마감일이 지난 공고 %d건 만료 처리", expired)
+            expired = db.expire_past_deadline(source)
+            if expired:
+                log.info("마감일이 지난 공고 %d건 만료 처리", expired)
 
-        # 4-1. 공고에서 법인을 추려 firms 를 갱신한다.
-        # 사람이 채운 재무 컬럼은 건드리지 않는다.
-        if board != kicpa.BOARD_ASSOCIATION:
-            firms.sync(db, source)
+            # 4-1. 공고에서 법인을 추려 firms 를 갱신한다.
+            # 사람이 채운 재무 컬럼은 건드리지 않는다.
+            if board != kicpa.BOARD_ASSOCIATION:
+                firms.sync(db, source)
 
-        removed = db.mark_removed(source, [p.ij_id for p in postings])
-        if removed:
-            log.info("게시판에서 사라진 공고 %d건에 removed_at 기록", removed)
+            removed = db.mark_removed(source, [p.ij_id for p in postings])
+            if removed:
+                log.info("게시판에서 사라진 공고 %d건에 removed_at 기록", removed)
 
-        # 5. 보유기간이 지난 개인정보 정리 (개인정보처리방침 제3조)
-        _purge_expired_personal_data(db)
+            # 5. 보유기간이 지난 개인정보 정리 (개인정보처리방침 제3조)
+            _purge_expired_personal_data(db)
 
-        # 6. 확인 메일 (Pages Function 이 못 보낸 건을 대신 보낸다)
-        if send_mail:
-            _send_pending_confirmations(db)
+            # 6. 확인 메일 (Pages Function 이 못 보낸 건을 대신 보낸다)
+            if send_mail:
+                _send_pending_confirmations(db)
 
         # 7. 알림 — 구독자별로 보낸다
         # 6 이 보낸 통수는 mark_confirmation_sent 로 이미 DB 에 남았으므로
@@ -175,7 +182,7 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
             log.info("관리자 알림 대상 %d건 (--no-mail 이라 발송 생략)", len(pending))
 
         # 7-1. 커뮤니티 — 새 댓글·신고를 운영자에게
-        if send_mail:
+        if send_mail and not fast:
             _notify_admin_activity(db)
 
         # 8. 정체 감지
@@ -187,6 +194,7 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
             new_count=len(fresh), updated_count=len(postings) - len(fresh),
             notified_count=notified,
         )
+        if not fast:db._request('POST','rpc/crawl_record_full_scan',json={'p_board':board})
         log.info("완료: 수집 %d / 신규 %d / 알림 %d", len(postings), len(fresh), notified)
         return 0
 
@@ -463,6 +471,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="CPAPING 한공회 공고 크롤러")
     parser.add_argument("--dry-run", action="store_true",
                         help="DB 저장과 메일 발송 없이 결과만 출력")
+    parser.add_argument("--fast", action="store_true", help="최신 페이지만 확인; 기존 공고 제거·전체 점검은 생략")
     parser.add_argument("--no-mail", action="store_true", help="저장만 하고 메일은 생략")
     parser.add_argument("--board", default=None,
                         choices=list(kicpa.BOARDS), help="수집할 게시판 (기본: 수습 → 경력 둘 다)")
@@ -481,7 +490,7 @@ def main() -> int:
         boards = [args.board] if args.board else list(kicpa.BOARDS)
         code = 0
         for board in boards:
-            code = crawl(dry_run=args.dry_run, send_mail=not args.no_mail, board=board) or code
+            code = crawl(dry_run=args.dry_run, send_mail=not args.no_mail, board=board, fast=args.fast) or code
         if not args.dry_run:
             notify.ping_healthcheck(ok=code == 0)
         return code
