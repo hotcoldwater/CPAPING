@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'crawler'))
 from store import Store
 import kicpa
+from posting_content import body_cell
 
 log=logging.getLogger('career')
 
@@ -53,18 +54,15 @@ def source_bundle(post):
     if response.status_code!=200:raise ValueError('최신 공고 원문을 확인하지 못했습니다.')
     if len(response.content)>2_000_000:raise ValueError('원문이 너무 커 직접 확인이 필요합니다.')
     response.encoding='utf-8';soup=BeautifulSoup(response.text,'lxml')
-    parts=[];labels={'제목','회사명','마감일','고용형태','근무지역','경력','학력','이메일','지원방법','첨부파일'}
+    body=body_cell(soup)
+    if body is None:raise ValueError('공고 본문을 찾지 못했습니다.')
+    parts=[body.get_text('\n',strip=True)];labels={'제목','회사명','마감일','고용형태','근무지역','경력','학력','이메일','지원방법','첨부파일'}
+    if body.find('img',src=True):parts.append('읽지 못한 이미지: 공고 본문의 이미지 내용을 직접 확인해 주세요.')
     for table in soup.select('table.table_st02'):
-        if not table.find('th',recursive=False) and not any(th.get_text(strip=True) in labels for th in table.select(':scope > tbody > tr > th, :scope > tr > th')):
-            td=table.find('td')
-            if td:parts.append(td.get_text('\n',strip=True))
-        else:
-            for tr in table.select('tr'):
-                cells=tr.find_all(['th','td'])
-                for th,td in zip(cells,cells[1:]):
-                    if th.name=='th' and td.name=='td' and th.get_text(strip=True) in labels:
-                        
-                        if td.get_text(' ',strip=True):parts.append(th.get_text(strip=True)+': '+td.get_text(' ',strip=True))
+        for th in table.find_all('th'):
+            if th.find_parent('table') is not table:continue
+            td=th.find_next_sibling('td');label=th.get_text(strip=True)
+            if td and label in labels and td.get_text(' ',strip=True):parts.append(label+': '+td.get_text(' ',strip=True))
     if not parts or not any(post.get('company_name','') in p for p in parts):raise ValueError('공고의 법인과 원문이 일치하지 않습니다.')
     attachments=[]
     for a in soup.select('a[href]'):
@@ -84,6 +82,7 @@ def source_bundle(post):
             if u.scheme!='https' or u.hostname!='www.kicpa.or.kr' or not re.fullmatch(r'/home/[A-Za-z]+/download\.face',u.path):raise ValueError()
             with session.post(url,data={'fileId':fid,'fileNm':name,'fileMask':mask},headers={'Referer':response.url},timeout=(8,20),allow_redirects=False,stream=True) as attachment_response:
                 if attachment_response.status_code!=200:raise ValueError()
+                if 'html' in attachment_response.headers.get('content-type','').lower():raise ValueError()
                 raw=attachment_response.raw.read(4_000_001)
                 if len(raw)>4_000_000:raise ValueError()
                 from .requirements_ai import extract
