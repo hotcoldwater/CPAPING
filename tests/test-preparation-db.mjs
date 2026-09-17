@@ -137,3 +137,20 @@ test('history deletion cancels unsent work, retains send evidence and blocks oth
  for(const role of ['anon','authenticated'])for(const fn of ['career_delete_history(uuid,uuid,text,integer)','career_restore_history(uuid,uuid)'])assert.equal((await db.query('select has_function_privilege($1,$2,\'EXECUTE\') ok',[role,fn])).rows[0].ok,false);
  }finally{await db.close();}
 });
+test('minute recovery detects approved queues and records private latency without including manual review wait',async()=>{
+ const db=await setup();try{
+ await db.exec('alter table job_postings add column region text,add column work_region text,add column region_group text,add column posted_at date,add column first_seen_at timestamptz,add column recruitment_categories text[],add column body text,add column source_content jsonb;');
+ for(const f of ['027_application_history_workflow.sql','028_immediate_analysis.sql','029_history_deletion.sql','030_fast_delivery.sql'])await db.exec(readFileSync('db/migrations/'+f,'utf8'));await upload(db);
+ assert.equal((await db.query("select crawl_full_scan_due('trainee') due")).rows[0].due,true);await db.query("select crawl_record_full_scan('trainee')");assert.equal((await db.query("select crawl_full_scan_due('trainee') due")).rows[0].due,false);await db.query("update crawl_full_scans set completed_at=now()-interval '11 minutes'");assert.equal((await db.query("select crawl_full_scan_due('trainee') due")).rows[0].due,true);
+ const health=async()=>(await db.query('select career_work_pending() data')).rows[0].data;
+ assert.equal((await health()).delivery,false);
+ await db.query("insert into career_applications(user_id,posting_id,canonical_posting_id,status,created_at,snapshot) values($1,1,1,'review',now()-interval '1 day','{\"flow\":\"uploaded-resume-v1\"}')",[uid]);assert.equal((await health()).overdue_count,0);
+ await db.query("update career_applications set status='queued',approved_at=now()-interval '12 minutes'");let h=await health();assert.equal(h.delivery,true);assert.equal(h.overdue_count,1);assert.ok(h.oldest_delivery_seconds>=720);
+ await db.query("update career_applications set status='cancelled',deleted_at=now()");h=await health();assert.equal(h.delivery,false);assert.equal(h.overdue_count,0);
+ await db.query("insert into job_postings(id,company_name,title,recruitment_categories) values(101,'테스트법인','신입',array['entry_cpa'])");assert.equal((await health()).analysis,true);
+ const job=(await db.query('select * from career_claim_analysis()')).rows[0];assert.ok(job.started_at);await db.query("select career_finish_analysis($1,$2,'{\"state\":\"classified\"}',null)",[job.posting_id,job.lease]);assert.ok((await db.query('select completed_at from career_analysis_jobs where posting_id=101')).rows[0].completed_at);
+ await db.query('select career_enqueue_analysis(101,true)');const fresh=(await db.query('select started_at,completed_at from career_analysis_jobs where posting_id=101')).rows[0];assert.equal(fresh.started_at,null);assert.equal(fresh.completed_at,null);
+ assert.equal((await db.query('select count(*)::int n from career_pipeline_health')).rows[0].n,1);
+ for(const role of ['anon','authenticated']){assert.equal((await db.query("select has_function_privilege($1,'career_work_pending()','EXECUTE') ok",[role])).rows[0].ok,false);assert.equal((await db.query("select has_table_privilege($1,'career_pipeline_health','SELECT') ok",[role])).rows[0].ok,false);}
+ }finally{await db.close();}
+});

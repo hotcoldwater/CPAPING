@@ -35,3 +35,10 @@ class QueueTests(unittest.TestCase):
   with patch.dict('os.environ',{'KIMI_API_KEY':'fake'}),patch.object(ai.requests,'post',return_value=Mock(status_code=503,ok=False)) as send,patch.object(ai.time,'sleep'):
    with self.assertRaises(ValueError):ai.call_ai([],100,max_attempts=1)
    self.assertEqual(send.call_count,1)
+ def test_completed_post_wakes_sender_before_next_analysis(self):
+  events=[];jobs=[self.job,{**self.job,'posting_id':43},None]
+  self.db.rpc.side_effect=lambda name,args=None: ([jobs.pop(0)] if jobs[0] else []) if name=='career_claim_analysis' else True
+  self.db.rows.return_value=[]
+  with patch('career.analysis_queue.analyze_once',side_effect=lambda p:(events.append('analyze') or (self.result,'source'))),patch('career.resume_runner.match_new'),patch('career.resume_runner.prepare_pending',side_effect=lambda *a,**kw:events.append('prepare')),patch('career.dispatch.wake_delivery',side_effect=lambda db:events.append('wake')):
+   self.assertEqual(q.process(self.db),2)
+  self.assertEqual(events,['analyze','prepare','wake','analyze','prepare','wake'])

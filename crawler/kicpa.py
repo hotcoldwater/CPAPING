@@ -498,3 +498,26 @@ def parse_association_list(html, board=BOARD_ASSOCIATION):
         if cells: p.seq = _parse_int(cells[0].get_text())
         result[p.ij_id] = p
     return list(result.values())
+
+
+def fetch_recent_inventory(session, *, board=BOARD_TRAINEE, delay=REQUEST_DELAY_SEC):
+    """Newest page per source scope. Never use this partial result for removals."""
+    if board==BOARD_ASSOCIATION:
+        scopes=[('association',None,None,None)]
+    elif board==BOARD_TRAINEE:
+        scopes=[('trainee',None,None,emp) for emp in ('5','6','7')]
+    else:
+        scopes=[(category,co,job,None) for category,job in [('cpa','1'),('general','-1')] for co in COMPANY_TABS]
+    found={}
+    for category,co,job,emp in scopes:
+        filters={k:v for k,v in dict(co_sep=co,job_sep=job,emp_sep=emp).items() if v is not None}
+        items,total=fetch_list(session,board=board,page=1,list_cnt=20,**filters)
+        if total is None or total<0 or (total>0 and not items) or len(items)>total or len({p.ij_id for p in items})!=len(items) or any(not p.ij_id for p in items):
+            raise RuntimeError('신규 공고 목록을 확인하지 못했습니다 — 다음 회차에 재시도합니다')
+        for p in items:
+            if co:p.source_company_type=COMPANY_TABS[co]
+            p.source_categories=[category]
+            if p.ij_id in found:found[p.ij_id].source_categories=sorted(set(found[p.ij_id].source_categories+[category]))
+            else:found[p.ij_id]=p
+        time.sleep(delay)
+    return list(found.values()),len(found)

@@ -111,7 +111,7 @@ def validate(value,text,missing):
     return value
 
 _last_request=0.0
-def call_ai(messages,max_tokens,max_attempts=3):
+def call_ai(messages,max_tokens,max_attempts=3,timeout_seconds=160):
     global _last_request
     token=os.getenv('KIMI_API_KEY')
     if not token:raise ValueError('AI 분석 연결을 확인해 주세요.')
@@ -121,7 +121,7 @@ def call_ai(messages,max_tokens,max_attempts=3):
         _last_request=time.monotonic()
         response=requests.post('https://api.moonshot.ai/v1/chat/completions',headers={'Authorization':'Bearer '+token},json={
             'model':os.getenv('CAREER_REQUIREMENTS_MODEL','kimi-k2.6'),'thinking':{'type':'disabled'},'response_format':{'type':'json_object'},
-            'messages':messages,'max_tokens':max_tokens},timeout=(10,160))
+            'messages':messages,'max_tokens':max_tokens},timeout=(10,timeout_seconds))
         if response.status_code==429 or response.status_code>=500:
             if attempt<max_attempts-1:time.sleep(25);continue
         if not response.ok:raise ValueError('AI 분석 요청을 완료하지 못했습니다. 직접 지원해 주세요.')
@@ -162,7 +162,7 @@ def analyze_many(db,posts):
         save_result(db,post,key,result);results.append((post,result))
     return results
 
-def analyze(db,post,original):
+def analyze(db,post,original,*,max_attempts=3,timeout_seconds=160):
     text,missing=bundle(original);key=digest(VERSION+'\n'+text+'\n'+json.dumps(missing,ensure_ascii=False))
     cached=db.one('career_requirement_analyses',posting_id=f'eq.{post["id"]}')
     if cached and cached['source_hash']==key and cached['result'].get('state')=='classified':
@@ -171,7 +171,7 @@ def analyze(db,post,original):
     try:
         token=os.getenv('KIMI_API_KEY')
         if not token:raise ValueError('AI 분석 연결을 확인해 주세요.')
-        output=call_ai([{'role':'system','content':PROMPT},{'role':'user','content':text[:160000]}],3000)
+        output=call_ai([{'role':'system','content':PROMPT},{'role':'user','content':text[:160000]}],3000,max_attempts=max_attempts,timeout_seconds=timeout_seconds)
         result=validate(output,text,missing)
     except Exception as e:
         result={'state':'needs_confirmation','version':VERSION,'uncertainty':[str(e) if isinstance(e,ValueError) else 'AI 분석 결과를 확인하지 못했습니다. 직접 지원해 주세요.'],'blockers':[]}

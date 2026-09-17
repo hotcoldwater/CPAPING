@@ -7,6 +7,10 @@ on:
     - cron: "*/10 * * * *"
   workflow_dispatch:
     inputs:
+      fast:
+        description: "최신 공고 우선 확인 (전체 점검 생략)"
+        type: boolean
+        default: false
       dry_run:
         description: "DB 저장/메일 없이 결과만 확인"
         type: boolean
@@ -59,4 +63,4 @@ jobs:
           HEALTHCHECK_PING_URL: ${{ secrets.HEALTHCHECK_PING_URL }}
           HEALTHCHECK_FAIL_FAST: ${{ vars.HEALTHCHECK_FAIL_FAST || 'false' }}
         run: |
-          python crawler/main.py ${{ inputs.dry_run && '--dry-run' || '' }}
+          python crawler/main.py ${{ inputs.dry_run && '--dry-run' || '' }} ${{ inputs.fast && '--fast' || '' }}

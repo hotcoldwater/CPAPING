@@ -183,7 +183,7 @@ def send_one(db,app):
         if snap.get('analysis',{}).get('method')=='website':raise ValueError('사이트 접수 공고는 이메일로 발송할 수 없습니다.')
         original=source(post);deadline_check(original)
         if snap.get('analysis',{}).get('evidence_hash'):
-            latest=requirements_ai.analyze(db,post,original)
+            latest=requirements_ai.analyze(db,post,original,max_attempts=1,timeout_seconds=45)
             if latest.get('method')=='website':raise ValueError('지원 사이트에서 직접 접수해야 합니다.')
             if not snap.get('manual_edit') and (requirements_ai.reasons(latest) or latest.get('evidence_hash')!=snap['analysis']['evidence_hash']):raise ValueError('공고 또는 연결된 양식의 제출 요건이 변경되었습니다. 직접 확인해 주세요.')
         if not snap.get('manual_edit') and digest(original)!=snap.get('source_hash'):raise ValueError('공고 원문이 변경되었습니다. 다시 준비해 주세요.')
@@ -234,14 +234,11 @@ def main():
     db.update('career_mail_deliveries',{'status':'delivery_unknown','reason':'전송 접수 기록 갱신이 중단됐습니다.'},status='eq.sending',created_at='lt.'+cutoff)
     match_new(db)
     prepare_pending(db)
+    from .dispatch import wake_delivery
+    wake_delivery(db)
     from . import review_notices
     try:review_notices.process(db)
     except Exception:log.warning('검수 안내 작업을 완료하지 못했습니다.')
-    if os.getenv('CAREER_SEND_ENABLED')=='true':
-        for _ in range(10):
-            apps=db.rpc('career_claim_resume_send')
-            if not apps:break
-            send_one(db,apps[0])
     from . import failure_notices
     try:failure_notices.process(db)
     except Exception:log.warning('지원 실패 안내를 완료하지 못했습니다.')

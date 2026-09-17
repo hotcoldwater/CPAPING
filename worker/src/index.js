@@ -2,7 +2,7 @@
  * 정시에 한공회 크롤 워크플로를 띄운다.
  *
  * GitHub 의 schedule 이벤트는 부하가 높으면 조용히 건너뛴다. 반면
- * workflow_dispatch 로 띄운 실행은 즉시 시작하므로, 정확한 시계 역할만
+ * workflow_dispatch 도 실행 대기 시간이 생길 수 있으므로, 주기적인 복구 점검은
  * Cloudflare 가 맡고 실행은 그대로 GitHub 에서 한다.
  */
 
@@ -25,10 +25,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * 부르면 이런 일시 오류를 하루에도 몇 번 만난다. 5xx 와 네트워크 오류는 몇 초
  * 뒤 두 번까지 다시 시도한다. 4xx 는 다시 해도 같은 답이라 바로 실패로 본다.
  */
-async function dispatchWorkflow(env) {
+export async function dispatchWorkflow(env,workflow=env.GITHUB_WORKFLOW,inputs) {
   const url =
     `${GITHUB_API}/repos/${env.GITHUB_REPO}` +
-    `/actions/workflows/${env.GITHUB_WORKFLOW}/dispatches`;
+    `/actions/workflows/${workflow}/dispatches`;
 
   let last;
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -36,8 +36,9 @@ async function dispatchWorkflow(env) {
     try {
       const res = await fetch(url, {
         method: "POST",
+        signal: AbortSignal.timeout(10000),
         headers: { ...HEADERS(env), "Content-Type": "application/json" },
-        body: JSON.stringify({ ref: env.GITHUB_REF }),
+        body: JSON.stringify({ ref: env.GITHUB_REF, ...(inputs?{inputs}: {}) }),
       });
       if (res.status === 204) return;
       const detail = (await res.text()).slice(0, 300);
@@ -58,7 +59,7 @@ async function dispatchWorkflow(env) {
 async function recentRunExists(env, withinMs = 120000) {
   try {
     const res = await fetch(
-      `${GITHUB_API}/repos/${env.GITHUB_REPO}/actions/runs?event=workflow_dispatch&per_page=1`,
+      `${GITHUB_API}/repos/${env.GITHUB_REPO}/actions/workflows/${env.GITHUB_WORKFLOW}/runs?event=workflow_dispatch&per_page=1`,
       { headers: HEADERS(env) });
     if (!res.ok) return false;
     const data = await res.json();
@@ -78,7 +79,7 @@ async function recentRunExists(env, withinMs = 120000) {
  * 그 사이의 실패는 로그에만 남는다. 완전히 멈춘 경우는 healthchecks.io 가
  * 따로 잡는다(크롤러가 성공할 때마다 핑을 보낸다).
  */
-async function alertFailure(env, err) {
+async function alertFailure(env, err, topic="크롤 트리거") {
   if (!env.RESEND_API_KEY || !env.ALERT_MAIL_TO) return;
   const status = err.status || 0;
   const transient = status === 0 || status >= 500;
@@ -98,9 +99,9 @@ async function alertFailure(env, err) {
       body: JSON.stringify({
         from: env.MAIL_FROM || "CPAPING <noreply@cpaping.com>",
         to: [env.ALERT_MAIL_TO],
-        subject: transient ? "[CPAPING 경고] 크롤 트리거 일시 실패" : "[CPAPING 경고] 크롤 트리거 거절됨 — 토큰 확인",
+        subject: `[CPAPING 경고] ${topic} 확인 필요`,
         text:
-          `크롤 워크플로를 띄우지 못했습니다.\n\n${err.message}\n\n${why}\n\n` +
+          `작업 상태를 확인해 주세요.\n\n${err.message}\n\n${topic==="크롤 트리거"?why:"1분 점검에서 미처리 작업을 다시 확인합니다."}\n\n` +
           `이 알림은 10분에 한 번만 옵니다. 실행 목록: https://github.com/${env.GITHUB_REPO}/actions`,
       }),
     });
@@ -109,46 +110,50 @@ async function alertFailure(env, err) {
   }
 }
 
+const WORKFLOWS={delivery:'delivery.yml',prepare:'resume.yml',analysis:'application-analysis.yml'};
+// Suppress redundant runs; a new approval arriving during shutdown is recovered next minute.
+export async function wakeWorkflow(env,kind){
+ const workflow=WORKFLOWS[kind];if(!workflow)throw new Error('Unknown workflow');
+ const response=await fetch(`${GITHUB_API}/repos/${env.GITHUB_REPO}/actions/workflows/${workflow}/runs?per_page=5`,{headers:HEADERS(env),signal:AbortSignal.timeout(5000)});
+ if(response.ok){const data=await response.json();if(data.workflow_runs?.some(r=>['queued','pending','in_progress','waiting','requested'].includes(r.status)))return false;}
+ await dispatchWorkflow(env,workflow);return true;
+}
+export async function checkWork(env){
+ const response=await fetch(env.CAREER_PENDING_URL,{method:'POST',headers:{Authorization:'Bearer '+env.CAREER_DISPATCH_SECRET},signal:AbortSignal.timeout(10000)});
+ if(!response.ok)throw new Error('Pending work check failed: '+response.status);
+ const state=await response.json();
+ const outcomes=await Promise.allSettled(Object.keys(WORKFLOWS).filter(k=>state[k]===true).map(k=>wakeWorkflow(env,k)));
+ if(outcomes.some(r=>r.status==='rejected'))throw new Error('One or more career workers could not be started');
+ console.log(JSON.stringify({event:'career-minute-check',warning_7_minutes:Math.max(state.oldest_analysis_seconds||0,state.oldest_delivery_seconds||0)>=420,oldest_analysis_seconds:state.oldest_analysis_seconds,oldest_delivery_seconds:state.oldest_delivery_seconds,overdue_count:state.overdue_count}));
+ return state;
+}
 export default {
-  async scheduled(event, env, ctx) {
-    try {
-      await dispatchWorkflow(env);
-      console.log(`크롤 트리거 완료 (cron: ${event.cron})`);
-    } catch (err) {
-      console.error("크롤 트리거 실패:", err.message);
-      ctx.waitUntil((async () => {
-        // 502 를 받았어도 실행이 만들어졌으면 실패가 아니다
-        if (await recentRunExists(env)) {
-          console.log("실행은 생성됨 — 경고 생략");
-          return;
-        }
-        const minute = new Date(event.scheduledTime).getUTCMinutes();
-        if (minute % 10 !== 0) {
-          console.log("경고는 10분 단위 회차에만 보낸다 — 생략");
-          return;
-        }
-        await alertFailure(env, err);
-      })());
-      throw err;
-    }
-  },
-
-  /**
-   * 상태 확인용. 여기서 크롤을 띄우지는 않는다.
-   * 공개 URL 에 트리거를 열어두면 누구나 워크플로를 돌릴 수 있기 때문이다.
-   */
-  async fetch(request, env) {
-    const body = {
-      worker: "cpaping-cron",
-      repo: env.GITHUB_REPO,
-      workflow: env.GITHUB_WORKFLOW,
-      tokenConfigured: Boolean(env.GITHUB_TOKEN),
-      alertConfigured: Boolean(env.RESEND_API_KEY && env.ALERT_MAIL_TO),
-      note: "크롤은 예약 시각에만 실행됩니다. 수동 실행은 gh workflow run 을 쓰세요.",
-    };
-    return new Response(JSON.stringify(body, null, 2), {
-      status: body.tokenConfigured ? 200 : 503,
-      headers: { "Content-Type": "application/json; charset=utf-8" },
-    });
-  },
+ async scheduled(event,env,ctx){
+  // Career work must still run when the crawling trigger fails, and vice versa.
+  const minute=new Date(event.scheduledTime).getUTCMinutes();
+  const results=await Promise.allSettled([
+   dispatchWorkflow(env,env.GITHUB_WORKFLOW,{fast:minute%10!==0}),
+   env.CAREER_DISPATCH_SECRET&&env.CAREER_PENDING_URL?checkWork(env):Promise.resolve(null)
+  ]);
+  if(minute%10===0){
+   for(let i=0;i<results.length;i++){
+    const r=results[i];
+    if(r.status==='rejected'){
+     console.error(i===0?'Crawl trigger failed':'Career recovery failed',r.reason.message);
+     if(i!==0||!await recentRunExists(env))ctx.waitUntil(alertFailure(env,r.reason,i===0?"크롤 트리거":"지원 작업 복구"));
+    }else if(i===1&&r.value?.overdue_count>0)ctx.waitUntil(alertFailure(env,new Error('지원 처리 10분 초과 '+r.value.overdue_count+'건. 지원현황과 작업 실행을 확인해 주세요.'),'지원 처리 지연'));
+   }
+  }
+  if(results.some(r=>r.status==='rejected'))throw new Error('Scheduled task failed');
+ },
+ async fetch(request,env){
+  const url=new URL(request.url);
+  if(url.pathname==='/wake'){
+   if(request.method!=='POST')return new Response('Method not allowed',{status:405});
+   if(!env.CAREER_DISPATCH_SECRET||request.headers.get('Authorization')!=='Bearer '+env.CAREER_DISPATCH_SECRET)return new Response('Unauthorized',{status:401});
+   try{await wakeWorkflow(env,'delivery');return Response.json({ok:true},{headers:{'Cache-Control':'no-store'}});}
+   catch{return Response.json({error:'Dispatch failed'},{status:503});}
+  }
+  return Response.json({worker:'cpaping-cron',repo:env.GITHUB_REPO,workflow:env.GITHUB_WORKFLOW,tokenConfigured:Boolean(env.GITHUB_TOKEN),careerRecoveryConfigured:Boolean(env.CAREER_DISPATCH_SECRET&&env.CAREER_PENDING_URL),alertConfigured:Boolean(env.RESEND_API_KEY&&env.ALERT_MAIL_TO)});
+ }
 };

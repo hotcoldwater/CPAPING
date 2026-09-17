@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: write
 concurrency:
   group: application-analysis
   cancel-in-progress: false
@@ -21,10 +22,12 @@ jobs:
       - run: python -m career.analysis_queue
         env:
           CAREER_RESUME_ENABLED: ${{ vars.CAREER_RESUME_ENABLED }}
+          CAREER_SEND_ENABLED: ${{ vars.CAREER_SEND_ENABLED }}
+          GH_DELIVERY_TOKEN: ${{ github.token }}
           KIMI_API_KEY: ${{ secrets.KIMI_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-      - name: 분석 완료된 지원내역 갱신 및 승인된 발송 처리
+      - name: 지원내역 복구와 안내 처리
         if: vars.CAREER_RESUME_ENABLED == 'true'
         run: python -m career.resume_runner
         env:
@@ -32,6 +35,7 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           MAIL_FROM: ${{ vars.MAIL_FROM || secrets.MAIL_FROM }}
           CAREER_RESUME_ENABLED: 'true'
+          GH_DELIVERY_TOKEN: ${{ github.token }}
           CAREER_SEND_ENABLED: ${{ vars.CAREER_SEND_ENABLED }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}

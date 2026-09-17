@@ -5,8 +5,8 @@
 # 이 서비스의 핵심이라 스케줄러만 Cloudflare 로 옮긴다.
 #
 # 크롤러 자체(Python)는 그대로 GitHub Actions 에서 돈다. 이 Worker 는 정시에
-# workflow_dispatch 를 호출하는 일만 한다. dispatch 로 띄운 실행은 큐에 걸리지
-# 않고 즉시 시작한다(실측 20초 내 완료).
+# 수집과 지원 작업을 호출한다. dispatch도 실행 대기가 생길 수 있으므로
+# DB 작업을 매분 확인해 놓친 실행을 복구한다.
 
 name = "cpaping-cron"
 main = "src/index.js"
@@ -28,6 +28,7 @@ crons = ["* * * * *"]
 GITHUB_REPO = "hotcoldwater/CPAPING"
 GITHUB_WORKFLOW = "crawl.yml"
 GITHUB_REF = "main"
+CAREER_PENDING_URL = "https://cpaping.com/api/work-pending"
 
 # 시크릿은 파일에 두지 않는다. 배포 후 아래로 등록한다.
 #   npx wrangler secret put GITHUB_TOKEN
