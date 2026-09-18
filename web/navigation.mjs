@@ -11,6 +11,8 @@ export function navigation(page,path='/',versions=assetVersions) {
   page=page.replace(/<header\b[^>]*class="[^"]*\btopbar\b[^\"]*"[^>]*>[\s\S]*?<\/header>/,header);
   page=page.replace(/<script>(?=[\s\S]*?<\/script>)(?:(?!<\/script>)[\s\S])*?getElementById\("auth-link"\)(?:(?!<\/script>)[\s\S])*?<\/script>/g,'');
   page=page.replace('</body>',bottomNav(active,path)+'</body>');
+  page=page.replace(/<a\b([^>]*?)href="(\/(?:resume|applications)\/(?:\?[^"<>]*)?)"([^>]*)>/g,'<a$1data-admin-href="$2"$3 aria-disabled="true" tabindex="-1">');
+  page=page.replace(/(게시판|지원준비|지원현황)(?=<\/(?:a|strong|h1|span)>)/g,'$1 <span class="beta-label">beta</span>');
   return versionAssets(page.replace('</head>','<link rel="stylesheet" href="/navigation.css"><script src="/navigation.js" defer></script></head>'),versions);
 }
 
