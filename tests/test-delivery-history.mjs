@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {createRequire} from 'node:module';import {readFileSync} from 'node:fs';
 import {onRequest as history} from '../functions/api/career/[[path]].js';import {onRequest as pixel} from '../functions/api/mail-open/[[path]].js';import {navigation} from '../web/navigation.mjs';
 const require=createRequire('/tmp/cpaping-career-qa/package.json');const {PGlite}=require('@electric-sql/pglite'),{JSDOM}=require('jsdom');
-const uid='11111111-1111-4111-8111-111111111111',env={CAREER_ENABLED:'true',CAREER_HISTORY_ENABLED:'true',CAREER_JOBS_ENABLED:'false',CAREER_APPLICATIONS_ENABLED:'false',SUPABASE_URL:'https://example.supabase.co',SUPABASE_SECRET_KEY:'fake'};
+const uid='11111111-1111-4111-8111-111111111111',env={CAREER_ENABLED:'true',CAREER_ADMIN_USER_IDS:uid,CAREER_HISTORY_ENABLED:'true',CAREER_JOBS_ENABLED:'false',CAREER_APPLICATIONS_ENABLED:'false',SUPABASE_URL:'https://example.supabase.co',SUPABASE_SECRET_KEY:'fake'};
 const json=x=>new Response(JSON.stringify(x),{headers:{'Content-Type':'application/json'}});
 test('history is owner-scoped and excludes tracking identifiers; background work stays disabled',async(t)=>{
  const calls=[];t.mock.method(globalThis,'fetch',async(url)=>{calls.push(String(url));return String(url).includes('/auth/')?json({id:uid,email_confirmed_at:'yes'}):json([]);});
@@ -28,8 +28,8 @@ test('delivery DB denies public reads, records first signal only and prevents du
 });
 test('navigation has requested order, logged-in menu choices and keyboard close',()=>{
  const html=navigation('<html><head></head><body><header class="topbar"><a>old</a></header></body></html>','/board/');const dom=new JSDOM(html,{url:'https://cpaping.com/essay/',runScripts:'outside-only'});const d=dom.window.document;
- assert.deepEqual([...d.querySelectorAll('.site-tabs a')].map(a=>a.textContent),['공고','법인','게시판']);assert.deepEqual([...d.querySelectorAll('.mobile-nav a')].map(a=>a.textContent),['공고','법인','게시판','내정보']);assert.equal(d.querySelector('.mobile-nav [aria-current]').getAttribute('href'),'/board/');assert.equal(d.querySelector('[aria-current]').getAttribute('href'),'/board/');
- dom.window.localStorage.setItem('sb-test-auth-token',JSON.stringify({access_token:'fake'}));dom.window.eval(readFileSync('web/navigation.js','utf8'));const menu=d.getElementById('account-menu');assert.equal(menu.hidden,false);assert.deepEqual([...menu.querySelectorAll('a')].map(a=>a.textContent),['마이페이지','공고알림','지원준비','지원현황']);menu.open=true;d.dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Escape'}));assert.equal(menu.open,false);dom.window.close();
+ assert.deepEqual([...d.querySelectorAll('.site-tabs a')].map(a=>a.textContent),['공고','법인','게시판 beta']);assert.deepEqual([...d.querySelectorAll('.mobile-nav a')].map(a=>a.textContent),['공고','법인','게시판 beta','내정보']);assert.equal(d.querySelector('.mobile-nav [aria-current]').getAttribute('href'),'/board/');assert.equal(d.querySelector('[aria-current]').getAttribute('href'),'/board/');
+ dom.window.localStorage.setItem('sb-test-auth-token',JSON.stringify({access_token:'fake'}));dom.window.eval(readFileSync('web/navigation.js','utf8'));const menu=d.getElementById('account-menu');assert.equal(menu.hidden,false);assert.deepEqual([...menu.querySelectorAll('a')].map(a=>a.textContent),['마이페이지','공고알림','지원준비 beta','지원현황 beta']);menu.open=true;d.dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Escape'}));assert.equal(menu.open,false);dom.window.close();
 });
 test('history renders email as text, exposes no tracking image and shows uncertainty',async()=>{
  const dom=new JSDOM(readFileSync('web/applications.html','utf8'),{url:'https://cpaping.com/applications/',runScripts:'outside-only'});dom.window.cpAuth={ensure:async()=>({state:'complete'}),client:{auth:{getSession:async()=>({data:{session:{access_token:'fake'}}})}}};

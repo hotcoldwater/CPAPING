@@ -29,7 +29,7 @@
       </div>
     </section>
 
-<p class="tip">풀타임·파트타임 자동지원 설정은 <a href="/resume/">지원준비</a>에서 설정합니다. 이 화면은 새 공고 알림에만 적용됩니다.</p><div id="msg" class="msg" hidden role="status" aria-live="polite"></div><script>
+<div id="msg" class="msg" hidden role="status" aria-live="polite"></div><script>
 (async()=>{const A=window.cpAuth,$=id=>document.getElementById(id);const s=await A.ensure('needs_profile');if(!['complete','needs_profile'].includes(s.state))return;
 const msg=(text,kind)=>{$('msg').textContent=text;$('msg').className='msg '+(kind||'');$('msg').hidden=false;};
 try{  // 알림 구독 — 서버가 사용자 토큰을 확인하고 subscribers 를 대신 만진다

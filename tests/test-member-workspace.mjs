@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import {rea
 import {validateMember,onRequest as profile} from '../functions/api/me/profile.js';import {onRequest as career} from '../functions/api/career/[[path]].js';import {renderPostingPage} from '../web/posting-page.mjs';
 const require=createRequire('/tmp/cpaping-career-qa/package.json'),{JSDOM}=require('jsdom'),{PGlite}=require('@electric-sql/pglite');
 const uid='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222';
-const env={CAREER_ENABLED:'true',CAREER_RESUME_ONLY:'true',CAREER_RESUME_ENABLED:'true',SUPABASE_URL:'https://example.supabase.co',SUPABASE_SECRET_KEY:'fake'};
+const env={CAREER_ENABLED:'true',CAREER_ADMIN_USER_IDS:uid,CAREER_RESUME_ONLY:'true',CAREER_RESUME_ENABLED:'true',SUPABASE_URL:'https://example.supabase.co',SUPABASE_SECRET_KEY:'fake'};
 const json=x=>new Response(JSON.stringify(x),{headers:{'Content-Type':'application/json'}}),pause=()=>new Promise(r=>setTimeout(r,50));
 const valid={nickname:null,full_name:'테스트 이름',birth_date:'1999-02-28',phone:'010-1234-5678',school:'예시대학교',pass_year:2020,research_consent:true};
 test('optional profile accepts blanks but rejects impossible dates, years, invalid types and reserved names',()=>{

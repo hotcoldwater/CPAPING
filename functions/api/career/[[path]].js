@@ -1,3 +1,4 @@
+import {isCareerAdmin,restrictCareerPath} from '../../_access.js';
 import {resumeRequest,renderApplicationMail} from '../../_resume.js';
 import {identity,reply,fail,body,textValue,uuid,owned,patch,insert,enqueue,enc,now,supabase,seal,unseal,provider,callback,random,base64,validateProfile,validateFilters} from '../../_career.js';
 
@@ -36,6 +37,7 @@ export async function onRequest({request,env,params}) {
     if(path==='mail-callback'&&request.method==='GET') { if(env.CAREER_ENABLED!=='true') throw fail('메일 연결 준비 중입니다.',503); return await oauthCallback(request,env); }
     if(env.CAREER_MAIL_ONLY==='true'&&!['GET state','POST mail-connect','DELETE mail'].includes(request.method+' '+path)) throw fail('현재는 개인 메일 연결·해제만 테스트할 수 있습니다.',503);
     const user=await identity(request,env),uid=enc(user.id),method=request.method;
+    if(restrictCareerPath(path)&&!isCareerAdmin(user,env))throw fail('현재 관리자만 이용할 수 있습니다.',403);
     if(path.startsWith('resume')) return await resumeRequest(request,env,user,path);
     if(env.CAREER_RESUME_ONLY==='true'&&['profile','jobs','rules','templates','applications'].some(p=>path===p||path.startsWith(p+'/')))throw fail('자소서 기능은 보류 중입니다. 지원준비 화면에서 완성한 이력서를 업로드해 주세요.',503);
     if(path==='jobs'&&env.CAREER_JOBS_ENABLED==='false') throw fail('AI 작성과 문서 생성은 준비 중입니다. 작성 자료는 저장할 수 있습니다.',503);

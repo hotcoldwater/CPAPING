@@ -71,7 +71,20 @@
   async function ensure(required) {
     const s = await getState();
     const order = ["anon", "needs_email", "needs_terms", "needs_profile", "complete"];
-    if (order.indexOf(s.state) >= order.indexOf(required)) return s;
+    if (order.indexOf(s.state) >= order.indexOf(required)) {
+      const page=document.querySelector('[data-career-admin-page]');
+      if(page){
+        const notice=document.getElementById('career-access-status');
+        try{
+          const response=await fetch('/api/me/nickname',{headers:{Authorization:'Bearer '+s.session.access_token},cache:'no-store'});
+          if(!response.ok)throw new Error('access');
+          const access=await response.json();
+          if(access.career_admin!==true){if(notice)notice.textContent='현재 관리자만 이용할 수 있습니다.';return {...s,state:'restricted'};}
+          page.hidden=false;if(notice)notice.hidden=true;
+        }catch{if(notice)notice.textContent='접근 권한을 확인하지 못했습니다. 새로고침해 주세요.';return {...s,state:'restricted'};}
+      }
+      return s;
+    }
     const to = routeFor(s.state);
     if (to && !location.pathname.startsWith(to)) {
       if (s.state === "anon") rememberReturnTo(location.pathname + location.search);

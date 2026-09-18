@@ -3,7 +3,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import {rea
 import {resumeUpload,mailTemplate,resumeFilters} from '../functions/_resume.js';import {onRequest} from '../functions/api/career/[[path]].js';
 const require=createRequire('/tmp/cpaping-career-qa/package.json'),{PGlite}=require('@electric-sql/pglite'),{JSDOM}=require('jsdom');
 const uid='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222';
-const env={CAREER_ENABLED:'true',CAREER_RESUME_ONLY:'true',CAREER_RESUME_ENABLED:'true',SUPABASE_URL:'https://example.supabase.co',SUPABASE_SECRET_KEY:'fake'};
+const env={CAREER_ENABLED:'true',CAREER_ADMIN_USER_IDS:uid,CAREER_RESUME_ONLY:'true',CAREER_RESUME_ENABLED:'true',SUPABASE_URL:'https://example.supabase.co',SUPABASE_SECRET_KEY:'fake'};
 const json=x=>new Response(JSON.stringify(x),{headers:{'Content-Type':'application/json'}});
 const args=(path,method='GET',data)=>({env,params:{path:path.split('/')},request:new Request('https://cpaping.com/api/career/'+path,{method,headers:{Authorization:'Bearer fake','Content-Type':'application/json'},...(data?{body:JSON.stringify(data)}:{})})});
 test('upload rejects renamed executables, traversal, excess size and malformed base64',()=>{

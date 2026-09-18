@@ -664,8 +664,6 @@ function renderRow(p, options = {}) {
     date.textContent = shortDate(p.deadline);
   }
   due.append(dday, date);
-  const a=p.application_analysis;const formLabel=!['classified','needs_confirmation'].includes(a?.state)?'AI 분석 중':a?.state==='classified'?{free:'자유양식',designated:'지정양식'}[a.documents?.kind]:'확인필요';
-  if(formLabel){const form=document.createElement('small');form.textContent=formLabel+(a?.method==='website'?' · 사이트':a?.method==='email'?' · 메일':'');due.append(form);}
   if(p.history?.length){const history=document.createElement('details');history.className='posting-history';const summary=document.createElement('summary');summary.textContent=`이전 공고 ${p.history.length}건`;history.append(summary);for(const old of p.history){const link=document.createElement('a');link.href='/posting/'+encodeURIComponent(old.ij_id)+'/';link.textContent=(old.posted_at||'등록일 미상')+' · '+old.title;history.append(link);}main.append(history);}
 
   // 한공회 게시판 조회수. 내려간 공고는 마지막으로 본 값이다.
@@ -833,21 +831,6 @@ async function load() {
 
 
 load();
-let analysisRefreshing=false;
-setInterval(async()=>{
- if(document.hidden||analysisRefreshing||SUPABASE_URL.startsWith('__'))return;
- const pending=state.postings.filter(p=>!['classified','needs_confirmation'].includes(p.application_analysis?.state)).slice(0,100);
- if(!pending.length)return;
- analysisRefreshing=true;
- try{
-  const ids=pending.map(p=>p.id).filter(id=>/^\d+$/.test(String(id)));
-  if(!ids.length)return;
-  const res=await fetch(SUPABASE_URL+'/rest/v1/job_postings?select=id,application_analysis&id=in.('+ids.join(',')+')',{headers:{apikey:SUPABASE_KEY}});
-  if(!res.ok)return;const rows=await res.json();if(!Array.isArray(rows))return;
-  const latest=new Map(rows.map(p=>[p.id,p.application_analysis]));
-  state.postings=state.postings.map(p=>latest.has(p.id)?{...p,application_analysis:latest.get(p.id)}:p);renderList();
- }catch{}finally{analysisRefreshing=false;}
-},5000);
 </script>
 
 </body>

@@ -25,9 +25,10 @@ test('missing body and invalid source version show honest fallback instead of in
   const html=renderPostingContent({...p,source_content:{version:9,nodes:['invented']}});
   assert.ok(html.includes('아직 가져온 본문이 없습니다'));assert.ok(!html.includes('invented'));
 });
-test('posting analysis shows pending until completion and labels unresolved results for manual confirmation',()=>{
- const pending=renderPostingPage({posting:{id:1,ij_id:'123',title:'채용',company_name:'예시',application_analysis:null}});
- assert.match(pending,/id="analysis-status">AI 분석 중/);assert.match(pending,/data-pending="1"/);
- const failed=renderPostingPage({posting:{id:1,ij_id:'123',title:'채용',company_name:'예시',application_analysis:{state:'needs_confirmation',uncertainty:['지원 이메일 확인 필요']}}});
- assert.match(failed,/id="analysis-status">확인필요/);assert.match(failed,/지원 이메일 확인 필요/);assert.match(failed,/data-pending="0"/);
+test('public posting details hide analysis for pending, classified and uncertain results',()=>{
+ for(const application_analysis of [null,{state:'classified',documents:{kind:'designated'},subject:{kind:'free'},method:'email'},{state:'needs_confirmation',uncertainty:['지원 이메일 확인 필요']}]){
+  const html=renderPostingPage({posting:{id:1,ij_id:'123',title:'채용',company_name:'예시',application_analysis}});
+  assert.doesNotMatch(html,/analysis-status|analysis-facts|application_analysis|AI 분석 중|지원 이메일 확인 필요|제목양식|파일제목/);
+  assert.match(html,/공고 요약/);
+ }
 });

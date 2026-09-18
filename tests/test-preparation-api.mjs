@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {onRequest} from '../functions/api/career/[[path]].js';import {seal} from '../functions/_career.js';
 const uid='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222';
-const env={CAREER_ENABLED:'true',CAREER_RESUME_ONLY:'true',CAREER_RESUME_ENABLED:'true',SUPABASE_URL:'https://example.supabase.co',SUPABASE_SECRET_KEY:'fake',GOOGLE_MAIL_CLIENT_ID:'client',GOOGLE_MAIL_CLIENT_SECRET:'secret',MAIL_TOKEN_KEY:Buffer.alloc(32,7).toString('base64')};
+const env={CAREER_ENABLED:'true',CAREER_ADMIN_USER_IDS:uid,CAREER_RESUME_ONLY:'true',CAREER_RESUME_ENABLED:'true',SUPABASE_URL:'https://example.supabase.co',SUPABASE_SECRET_KEY:'fake',GOOGLE_MAIL_CLIENT_ID:'client',GOOGLE_MAIL_CLIENT_SECRET:'secret',MAIL_TOKEN_KEY:Buffer.alloc(32,7).toString('base64')};
 const json=x=>new Response(JSON.stringify(x),{headers:{'Content-Type':'application/json'}});
 const call=(path,method='GET',body)=>onRequest({env,params:{path:path.split('?')[0].split('/')},request:new Request('https://cpaping.com/api/career/'+path,{method,headers:{Authorization:'Bearer fake','Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})})});
 test('history and manual result RPCs bind authenticated owner and ignore supplied owner/source',async t=>{
