@@ -161,7 +161,10 @@ export function renderPostingPage({ posting: p, firm, latestFin, others }) {
 <meta property="og:title" content="${esc(p.company_name)} — ${esc(title)}">
 <meta property="og:description" content="${esc(summary)}">
 <meta property="og:url" content="${SITE}/posting/${encodeURIComponent(p.ij_id)}/">
-<meta property="og:image" content="${SITE}/og.png">
+<meta property="og:image" content="${SITE}/og-share-v2.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="CPAPING — 신입 회계사 공고, 한곳에. 새 공고는 메일로 받아보세요.">
 <meta property="og:locale" content="ko_KR">
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">

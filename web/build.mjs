@@ -208,6 +208,7 @@ const ASSETS = [
   "apple-touch-icon.png",
   "icon-512.png",
   "og.png",
+  "og-share-v2.png",
 ];
 for (const name of ASSETS) {
   const from = join(HERE, name);

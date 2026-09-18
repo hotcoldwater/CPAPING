@@ -252,7 +252,7 @@ export function renderFirmsPage({ firms, financials, comments = {} }) {
 <meta property="og:url" content="https://cpaping.com/firms">
 <meta property="og:title" content="회계법인 ${rows.length}곳 비교 — CPAPING">
 <meta property="og:description" content="매출, 회계사 수, 수습회계사 현황을 사업보고서 기준으로 정리했습니다.">
-<meta property="og:image" content="https://cpaping.com/og.png">
+<meta property="og:image" content="https://cpaping.com/og-share-v2.png">
 <meta property="og:locale" content="ko_KR">
 <meta name="theme-color" content="#123A8A">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
