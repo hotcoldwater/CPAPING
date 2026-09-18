@@ -42,7 +42,7 @@ test('new posting renders without any prebuilt asset and preserves metadata, lin
   assert.equal(response.headers.get('cache-control'), 'no-store');
   assert.ok(html.includes(job.title));assert.ok(html.includes(job.detail_url));assert.ok(html.includes(`data-target-id="${id}"`));
   assert.ok(html.includes(`rel="canonical" href="https://cpaping.com/posting/${id}/"`));
-  assert.ok(html.includes('/applications/?posting=job-uuid'));
+  assert.ok(!html.includes('/applications/?posting='));
   assert.ok(html.includes('/firm/'));assert.ok(html.includes('100억'));
   assert.ok(!html.includes('must-not-leak'));assert.ok(!html.includes('__SUPABASE_'));
   assert.ok(calls.every(c => c.init.signal instanceof AbortSignal));
