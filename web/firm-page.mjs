@@ -444,7 +444,7 @@ export function renderFirmPage({ firm, financials, postings, ranks, clients }) {
 <meta property="og:type" content="website">
 <meta property="og:title" content="${esc(firm.name)} — 규모·채용 정보">
 <meta property="og:description" content="${esc(description)}">
-<meta property="og:image" content="${SITE}/og.png">
+<meta property="og:image" content="${SITE}/og-share-v2.png">
 <meta property="og:url" content="${SITE}/firm/${encodeURIComponent(firm.slug)}/">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="/comments.css">
