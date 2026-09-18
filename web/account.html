@@ -22,7 +22,7 @@
   </header>
   <main data-clarity-mask="true">
 
-    <p class="eyebrow">MY WORKSPACE</p><h1>마이페이지</h1><p class="lead">저장한 정보를 확인하고, 바꿀 때에는 수정 버튼을 눌러 주세요.</p>
+    <p class="eyebrow">MY WORKSPACE</p><h1>마이페이지</h1><p class="lead">게시판과 댓글에 표시할 닉네임을 변경할 수 있습니다.</p>
     <div class="who"><span id="nick"></span><span class="chip" id="providers"></span></div>
 
     <section id="recovery" hidden>
@@ -40,16 +40,10 @@
     </dl>
 
     <div class="account-shortcuts"><a href="/resume/"><strong>지원준비</strong><span>파일 · 지원 메일 · 발송 설정 →</span></a><a href="/applications/"><strong>지원현황</strong><span>서류 검수 · 보낸 지원 확인 →</span></a><a href="/notifications/"><strong>공고 알림</strong><span>받고 싶은 채용 소식 설정 →</span></a></div>
-    <section class="profile-card" id="profile-view"><div class="profile-heading"><h2>기본 정보</h2><button class="btn" id="edit-profile" type="button" disabled>수정</button></div><dl id="profile-summary" class="profile-summary"><div><dt>내 정보</dt><dd>불러오는 중…</dd></div></dl><p id="research-state" class="tip"></p><button type="button" class="linkish" id="withdraw-research" hidden>연구 참여 철회·연구정보 삭제</button></section>
-    <form id="profile-form" class="profile-card" hidden><fieldset id="profile-fields" disabled><legend>기본 정보 <span class="optional">선택</span></legend><div class="member-grid">
-<label for="nickname">닉네임<input id="nickname" type="text" minlength="2" maxlength="12" autocomplete="nickname" placeholder="2~12자"></label>
-<label for="full-name">이름<input id="full-name" type="text" maxlength="80" autocomplete="name"></label>
-<label for="birth-date">생년월일<input id="birth-date" type="date" min="1900-01-01" autocomplete="bday"></label>
-<label for="phone">전화번호<input id="phone" type="tel" maxlength="30" autocomplete="tel" placeholder="010-0000-0000"></label>
-<label for="school">출신학교<input id="school" type="text" maxlength="120" autocomplete="organization-title" placeholder="대학교명"></label>
-<label for="pass-year">CPA 합격년도<input id="pass-year" type="number" min="1950" step="1" placeholder="예: 2026"></label></div>
-<p class="tip">닉네임은 게시판·댓글에 표시됩니다. 나머지 정보는 다른 사용자에게 공개되지 않습니다. 닉네임을 비워 두면 메뉴에는 ‘닉네임 설정’이 표시되며, 글·댓글 작성 시에는 닉네임 설정이 필요합니다.</p>
-<div class="research-note"><h2>함께 만드는 채용 인사이트</h2><p>출신학교·연령대·합격년도와 지원 결과를 통해 로컬회계법인별·전체 채용 경향을 연구하고, 향후 집계 결과를 사용자에게 제공할 예정입니다. 합격을 보장하거나 개인별 유불리를 단정하는 자료는 아닙니다.</p><label class="check"><input id="research-consent" type="checkbox" required><span><b>채용 인사이트 연구 참여에 동의합니다. (정보 저장 시 필수)</b><br>동의한 경우 출신학교·생년월일에서 계산한 연령대·합격년도·지원 이력 및 직접 기록한 결과를 연구에 사용합니다. 이름·전화번호·이력서 본문은 연구에 사용하지 않습니다. 기본 정보 항목은 선택 입력이지만, 이 화면에서 정보를 저장하려면 연구 참여 동의가 필요합니다. 자료는 탈퇴 또는 연구정보 삭제 시까지 보관하며, 철회하면 이후 연구에서 제외합니다. 개인을 식별할 수 없는 집계 결과만 공개합니다.</span></label><a href="/privacy">개인정보 처리 안내</a></div>
+    <section class="profile-card" id="profile-view"><div class="profile-heading"><h2>닉네임</h2><button class="btn" id="edit-profile" type="button" disabled>변경</button></div><dl id="profile-summary" class="profile-summary"><div><dt>닉네임</dt><dd>불러오는 중…</dd></div></dl><button type="button" class="linkish" id="withdraw-research" hidden>이전에 저장한 추가정보 삭제·연구 참여 철회</button></section>
+    <form id="profile-form" class="profile-card" hidden><fieldset id="profile-fields" disabled><legend>닉네임 변경</legend>
+<label for="nickname">닉네임<input id="nickname" type="text" minlength="2" maxlength="12" autocomplete="nickname" placeholder="2~12자" required></label>
+<p class="tip">닉네임은 게시판·댓글에 공개됩니다. 2~12자로 입력해 주세요.</p>
 <div class="profile-actions"><button class="btn" id="cancel-profile" type="button">취소</button><button class="btn primary" id="save-profile" type="submit">저장</button></div></fieldset></form>
 
     <div class="msg" id="msg" hidden role="status" aria-live="polite"></div>
@@ -86,29 +80,25 @@
   });
 
   const authHeader = async () => { const {data:{session}}=await A.client.auth.getSession();if(!session)throw new Error('다시 로그인해 주세요.');return {Authorization:'Bearer '+session.access_token}; };
-  const fields={nickname:'nickname',full_name:'full-name',birth_date:'birth-date',phone:'phone',school:'school',pass_year:'pass-year'};
   let savedProfile=null,editing=false;
-  const labels={nickname:'닉네임',full_name:'이름',birth_date:'생년월일',phone:'전화번호',school:'출신학교',pass_year:'CPA 합격년도'};
-  function fill(){for(const [key,id] of Object.entries(fields))$(id).value=savedProfile?.[key]??'';$('research-consent').checked=savedProfile?.research_consent===true;}
+  function fill(){$('nickname').value=savedProfile?.nickname??'';}
   function readView(){
     const list=$('profile-summary');list.replaceChildren();
-    for(const [key,label] of Object.entries(labels)){const row=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=savedProfile?.[key]??'미입력';row.append(dt,dd);list.append(row);}
-    $('research-state').textContent=savedProfile?.research_consent?'채용 인사이트 연구 참여에 동의했습니다.':'정보를 저장할 때 채용 인사이트 연구 참여 동의가 필요합니다.';
-    $('withdraw-research').hidden=!savedProfile?.research_consent;
+    const row=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent='닉네임';dd.textContent=savedProfile?.nickname||'미설정';row.append(dt,dd);list.append(row);
+    $('withdraw-research').hidden=!savedProfile?.has_saved_details;
     $('nick').textContent=savedProfile?.nickname||'닉네임 미설정';
   }
   function editMode(on){editing=on;$('profile-form').hidden=!on;$('profile-view').hidden=on;$('profile-fields').disabled=!on;if(on){fill();$('nickname').focus();}else readView();}
   $('edit-profile').onclick=()=>{if(!savedProfile)return;editMode(true);$('msg').hidden=true;};
   $('cancel-profile').onclick=()=>{editMode(false);$('edit-profile').focus();$('msg').hidden=true;};
-  const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Seoul'});$('birth-date').max=today;$('pass-year').max=today.slice(0,4);
   try{const r=await fetch('/api/me/profile',{headers:await authHeader()});if(!r.ok)throw new Error('정보를 불러오지 못했습니다. 새로고침해 주세요.');savedProfile=await r.json();fill();editMode(false);$('edit-profile').disabled=false;}catch(e){msg(e.message,'err');}
-  $('profile-form').onsubmit=async e=>{e.preventDefault();if(!editing)return;if(!$('research-consent').checked)return msg('정보를 저장하려면 채용 인사이트 연구 참여에 동의해 주세요.','err');$('save-profile').disabled=true;$('cancel-profile').disabled=true;$('profile-fields').disabled=true;try{const values=Object.fromEntries(Object.entries(fields).map(([key,id])=>[key,$(id).value.trim()||null]));if(values.pass_year)values.pass_year=Number(values.pass_year);values.research_consent=$('research-consent').checked;
-    const r=await fetch('/api/me/profile',{method:'PUT',headers:{...(await authHeader()),'Content-Type':'application/json'},body:JSON.stringify(values)});const p=await r.json();if(!r.ok)throw new Error(p.error||'저장하지 못했습니다.');savedProfile=p;editMode(false);$('edit-profile').focus();dispatchEvent(new Event('cpaping:profile-updated'));msg('내 정보를 저장했습니다.','ok');}catch(e){msg(e.message,'err');}finally{$('save-profile').disabled=false;$('cancel-profile').disabled=false;$('profile-fields').disabled=!editing;}};
+  $('profile-form').onsubmit=async e=>{e.preventDefault();if(!editing)return;const nickname=$('nickname').value.trim();if(nickname.length<2||nickname.length>12)return msg('닉네임은 2~12자로 입력해 주세요.','err');$('save-profile').disabled=true;$('cancel-profile').disabled=true;$('profile-fields').disabled=true;try{
+    const r=await fetch('/api/me/profile',{method:'PUT',headers:{...(await authHeader()),'Content-Type':'application/json'},body:JSON.stringify({nickname})});const p=await r.json();if(!r.ok)throw new Error(p.error||'저장하지 못했습니다.');savedProfile={...savedProfile,nickname:p.nickname};editMode(false);$('edit-profile').focus();dispatchEvent(new Event('cpaping:profile-updated'));msg('닉네임을 변경했습니다.','ok');}catch(e){msg(e.message,'err');}finally{$('save-profile').disabled=false;$('cancel-profile').disabled=false;$('profile-fields').disabled=!editing;}};
 
   $('withdraw-research').onclick=async()=>{
     if(!confirm('연구 참여를 철회하고 저장한 이름·생년월일·전화번호·학교·합격년도와 연구 동의를 삭제할까요? 닉네임, 이력서와 지원 이력은 유지됩니다.'))return;
     $('withdraw-research').disabled=true;
-    try{const r=await fetch('/api/me/profile',{method:'DELETE',headers:await authHeader()});if(!r.ok)throw new Error('연구정보를 삭제하지 못했습니다. 다시 시도해 주세요.');savedProfile={nickname:savedProfile?.nickname,research_consent:false};fill();readView();msg('연구 참여를 철회하고 연구정보를 삭제했습니다.','ok');}catch(e){msg(e.message,'err');}finally{$('withdraw-research').disabled=false;}
+    try{const r=await fetch('/api/me/profile',{method:'DELETE',headers:await authHeader()});if(!r.ok)throw new Error('추가정보를 삭제하지 못했습니다. 다시 시도해 주세요.');savedProfile={nickname:savedProfile?.nickname,has_saved_details:false};fill();readView();msg('추가정보와 연구 동의 기록을 삭제했습니다.','ok');}catch(e){msg(e.message,'err');}finally{$('withdraw-research').disabled=false;}
   };
   $("logout").onclick = async () => { await A.signOut(); location.replace("/"); };
 
