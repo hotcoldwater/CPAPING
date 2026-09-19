@@ -40,6 +40,9 @@ export function renderPostingContent(p) {
   const original = safeURL(p.detail_url);
   const html = source ? renderNodes(source.nodes) : '';
   const body = html.trim() || (p.body ? `<div class="source-plain">${esc(p.body)}</div>` : '');
+  const otherHTML = renderNodes(source?.other_nodes);
+  const other = /<img\b|<hr\b/.test(otherHTML) || otherHTML.replace(/<[^>]*>|&nbsp;/g, '').trim()
+    ? otherHTML : '';
   let checked = '';
   if (p.content_fetched_at && !Number.isNaN(Date.parse(p.content_fetched_at))) {
     checked = new Intl.DateTimeFormat('ko-KR',{ timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false }).format(new Date(p.content_fetched_at));
@@ -58,6 +61,7 @@ export function renderPostingContent(p) {
     <div class="sec-head"><h2 id="posting-content-title">채용 내용</h2>${original ? `<a class="more" href="${esc(original)}" target="_blank" rel="noopener noreferrer">한공회 원문 ↗</a>` : ''}</div>
     <div class="source-meta">한국공인회계사회 게시 공고${checked ? ` · 내용 확인 ${esc(checked)}` : ''}</div>
     ${body ? `<div class="source-document">${body}</div>` : `<p class="source-empty">아직 가져온 본문이 없습니다. 한공회 원문에서 채용 내용을 확인해 주세요.</p>`}
+    ${other ? `<div class="source-other" aria-labelledby="posting-other-title"><h2 id="posting-other-title">기타정보</h2><div class="source-document">${other}</div></div>` : ''}
     ${contactRows ? `<div class="source-contacts"><h3>지원·문의</h3><dl>${contactRows}</dl></div>` : ''}
     ${fileRows ? `<div class="source-attachments"><h3>첨부파일</h3><ul>${fileRows}</ul>${files.some(f=>!safeURL(f.url)) ? '<p class="note">한공회 다운로드 절차가 필요한 파일은 원문 페이지에서 받을 수 있습니다.</p>' : ''}</div>` : ''}
     <p class="note">수집 후 내용이 변경될 수 있습니다. 지원 전 원문에서 마감일과 제출 방법을 확인해 주세요.</p>

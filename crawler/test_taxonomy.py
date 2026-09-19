@@ -89,3 +89,18 @@ class FastInventoryTests(unittest.TestCase):
   from kicpa import fetch_recent_inventory
   with patch('kicpa.fetch_list',return_value=([],200)):
    with self.assertRaises(RuntimeError):fetch_recent_inventory(None,delay=0)
+
+class WorkTypeTests(unittest.TestCase):
+ def test_both_types_from_title_body_and_other_info(self):
+  from taxonomy import work_types
+  for kw in [{'title':'[대교회계법인] 파트또는 풀 타임'}, {'body':'함께 근무할 풀타임 또는 파트타임 공인회계사를 초빙합니다.'}, {'source_content':{'other_text':'모집형태 : Part time 또는 Full time'}}]:
+   with self.subTest(kw=kw):self.assertEqual(work_types(Posting(employment_type='Full Time',**kw)),['full_time','part_time'])
+  self.assertEqual(work_types(Posting(employment_type='Part Time',body='풀 타임 또는 파트 타임 모집')),['full_time','part_time'])
+ def test_negative_mentions_and_partner_do_not_add_part_time(self):
+  from taxonomy import work_types
+  for text in ['파트너 모집','파트타임 불가','파트타임은 모집하지 않습니다','파트타임 제외','파트타임 경험자 우대','풀타임 모집, 파트타임 불가능']:
+   with self.subTest(text=text):self.assertEqual(work_types(Posting(employment_type='Full Time',body=text)),['full_time'])
+
+ def test_future_conversion_does_not_mean_current_full_time_opening(self):
+  from taxonomy import work_types
+  self.assertEqual(work_types(Posting(employment_type='Part Time',title='Part-time(시즌 후 Full-time 전환협의가능) 모집')),['part_time'])

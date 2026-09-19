@@ -26,19 +26,31 @@ def safe_url(raw, base, image=False):
         pass
     return None
 
-def body_cell(soup):
+def content_cells(soup):
+    cells = {}
     # Inner content tables may have th cells of their own; only inspect the outer table.
     for table in soup.select('table.table_st02'):
+        if table.find_parent('table') is not None:
+            continue
         if not any(th.find_parent('table') is table for th in table.find_all('th')):
             cell = next((td for td in table.find_all('td') if td.find_parent('table') is table), None)
             if cell is not None:
-                return cell
-    return None
+                heading = table.find_previous_sibling()
+                label = re.sub(r'\s+', '', heading.get_text() if heading and heading.name in {'h2','h3','h4'} else '')
+                if label == '기타정보':
+                    cells['other'] = cell
+                elif label in {'내용','채용내용'} or (not cells and not label):
+                    cells.setdefault('body', cell)
+    return cells
+
+def body_cell(soup):
+    return content_cells(soup).get('body')
 
 def extract_content(soup, base):
     if isinstance(soup, str):
         soup = BeautifulSoup(soup, 'lxml')
-    cell = body_cell(soup)
+    cells = content_cells(soup)
+    cell = cells.get('body')
     if cell is None:
         # Do not turn an upstream error/login page into an empty successful snapshot.
         raise ValueError('채용 공고 본문 영역을 찾을 수 없습니다')
@@ -71,6 +83,9 @@ def extract_content(soup, base):
         if children: item['children'] = children
         return [item]
     nodes = [item for child in cell.children for item in walk(child)]
+    other = cells.get('other')
+    other_nodes = [item for child in other.children for item in walk(child)] if other is not None else []
+    other_text = other.get_text('\n', strip=True) if other is not None else ''
     contacts = []
     for table in soup.select('table.table_st02'):
         for th in table.find_all('th'):
@@ -97,4 +112,5 @@ def extract_content(soup, base):
         key = (name,url)
         if name and key not in seen:
             seen.add(key);attachments.append({'name':name,'url':url})
-    return {'version':1,'nodes':nodes,'contacts':contacts,'attachments':attachments}
+    return {'version':1,'nodes':nodes,'other_nodes':other_nodes,'other_text':other_text,
+            'contacts':contacts,'attachments':attachments}

@@ -16,8 +16,8 @@ class WantedEmployment(unittest.TestCase):
         self.assertIsNone(wanted_employment(C, sub))
 
     def test_정규만_파트만(self):
-        self.assertEqual(wanted_employment(T, {"want_trainee_full": True, "want_trainee_part": False}), "neq.Part Time")
-        self.assertEqual(wanted_employment(T, {"want_trainee_full": False, "want_trainee_part": True}), "eq.Part Time")
+        self.assertEqual(wanted_employment(T, {"want_trainee_full": True, "want_trainee_part": False}), "cs.{full_time}")
+        self.assertEqual(wanted_employment(T, {"want_trainee_full": False, "want_trainee_part": True}), "cs.{part_time}")
 
     def test_경력만(self):
         sub = {"want_trainee_full": False, "want_trainee_part": False, "want_career": True}
@@ -39,3 +39,19 @@ class CareerNote(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class MixedNotifications(unittest.TestCase):
+    def test_uses_frozen_eligibility_and_keeps_subscriber_deduplication(self):
+        from store import Store
+        from unittest.mock import Mock
+        from notify import _format_posting_text, _format_posting_html
+        row = {'id':1,'title':'동시 모집','detail_url':'https://example.com','work_types':['full_time','part_time'],'employment_type':'Full Time'}
+        db=Store(url='https://example.com',key='test')
+        db._request=Mock(side_effect=[[row],[{'posting_id':1}]])
+        self.assertEqual(db.postings_for_subscriber(T,{'id':1,'want_trainee_full':False,'want_trainee_part':True}),[])
+        params=db._request.call_args_list[0].kwargs['params']
+        self.assertEqual(params['notification_work_types'],'cs.{part_time}')
+        self.assertEqual(params['recruitment_categories'],'cs.{entry_cpa}')
+        self.assertNotIn('employment_type',params)
+        self.assertIn('풀타임 · 파트타임',_format_posting_text(row))
+        self.assertIn('풀타임 · 파트타임',_format_posting_html(row))

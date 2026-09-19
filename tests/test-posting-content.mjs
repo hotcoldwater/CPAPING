@@ -32,3 +32,14 @@ test('public posting details hide analysis for pending, classified and uncertain
   assert.match(html,/공고 요약/);
  }
 });
+test('other info is separate, escaped, ordered before contacts, and absent when empty',()=>{
+ const base={version:1,nodes:['본문'],contacts:[{label:'이메일',value:'jobs@example.com'}]};
+ const html=renderPostingContent({...p,source_content:{...base,other_nodes:[{tag:'pre',children:['전형방법\n급여 <조건>']},{tag:'script',children:['attack()']}]}});
+ assert.match(html,/id="posting-other-title">기타정보/);assert.match(html,/전형방법\n급여 &lt;조건&gt;/);
+ assert.ok(html.indexOf('본문')<html.indexOf('기타정보'));assert.ok(html.indexOf('기타정보')<html.indexOf('지원·문의'));
+ assert.ok(!html.includes('attack()'));
+ for(const other_nodes of [undefined,[],['  '],[{tag:'p',children:[{tag:'br'}]}]]){
+  assert.ok(!renderPostingContent({...p,source_content:{...base,other_nodes}}).includes('posting-other-title'));
+ }
+ assert.match(renderPostingContent({...p,source_content:{...base,other_nodes:[{tag:'img',src:'https://example.com/extra.png'}]}}),/posting-other-title/);
+});

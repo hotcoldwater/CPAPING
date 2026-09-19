@@ -227,13 +227,18 @@ def _posting_url(row: dict) -> str:
     return f"{SITE}/posting/{ij}/" if ij else ""
 
 
+def _work_label(row: dict) -> str:
+    labels = {'full_time':'풀타임', 'part_time':'파트타임', 'internship':'인턴십'}
+    return ' · '.join(labels[k] for k in (row.get('work_types') or []) if k in labels) or row.get('employment_type') or ''
+
+
 def _format_posting_text(row: dict) -> str:
     bits = [f"■ {row['title']}"]
     meta = " / ".join(
         str(v) for v in (
             row.get("company_name"),
             row.get("region"),
-            row.get("employment_type"),
+            _work_label(row),
         ) if v
     )
     if meta:
@@ -264,7 +269,7 @@ def _format_posting_html(row: dict) -> str:
         h.escape(str(v)) for v in (
             row.get("company_name"),
             row.get("region"),
-            row.get("employment_type"),
+            _work_label(row),
         ) if v
     )
     deadline = f"<div style='color:#888'>마감 {h.escape(str(row['deadline']))}</div>" if row.get("deadline") else ""
