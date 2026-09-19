@@ -55,3 +55,13 @@ class ContentTests(unittest.TestCase):
         with self.assertRaises(ValueError):db.update_content(Posting(ij_id='123'))
 
 if __name__ == '__main__':unittest.main()
+
+class ExtraContentTests(unittest.TestCase):
+    def test_named_other_section_preserves_content_without_capturing_navigation(self):
+        page = '<h3>내용</h3><table class="table_st02"><tr><td><pre>채용 본문</pre><table class="table_st02"><tr><td>내부 표</td></tr></table></td></tr></table><h3>기타정보</h3><table class="table_st02"><tr><td><pre>전형방법\n급여 및 조건</pre><img src="/extra.png" onerror="bad()"><script>bad()</script></td></tr></table><h3>게시판</h3><table class="table_st02"><tr><td>이전 글</td></tr></table>'
+        p = parse_detail(page, Posting(ij_id='1'))
+        self.assertNotIn('전형방법', p.body)
+        self.assertEqual(p.source_content['other_text'],'전형방법\n급여 및 조건')
+        self.assertIn('extra.png',str(p.source_content['other_nodes']))
+        self.assertNotIn('bad()',str(p.source_content['other_nodes']))
+        self.assertNotIn('이전 글',str(p.source_content))

@@ -279,7 +279,7 @@ class Store:
             return []
 
         params = {
-            "select": "id,ij_id,title,company_name,region,employment_type,deadline,detail_url,"
+            "select": "id,ij_id,title,company_name,region,employment_type,work_types,deadline,detail_url,"
                       "original_posted_at,first_seen_at,career_min_years,career_max_years,is_big4,source",
             "source": f"eq.{source}",
             "is_target": "is.true",
@@ -290,7 +290,7 @@ class Store:
         if subscriber.get("confirmed_at"):
             params["first_seen_at"] = f"gt.{subscriber['confirmed_at']}"
         if employment:
-            params["employment_type"] = employment
+            params["notification_work_types"] = employment
 
         # 지역무관 공고는 어느 필터에도 걸리지 않고 모두에게 나간다.
         # 지역 판정이 틀려서 공고를 감추면 지원자가 기회를 놓치기 때문이다.
@@ -513,6 +513,8 @@ def wanted_employment(source: str, subscriber: dict) -> str | None:
 
     경력 전용 공고는 쿼리의 entry_cpa 조건에서 제외한다. want_career는 사용하지 않는다.
     None은 고용형태 제한 없음, SKIP은 수신 안 함을 뜻한다.
+    나머지는 발견 당시 notification_work_types 배열의 포함 조건이다.
+    기존 공고 보완은 이 배열을 갱신하지 않으므로 소급 알림이 생기지 않는다.
     """
     if source not in ("kicpa:cpa", "kicpa:trainee"):
         return SKIP
@@ -521,9 +523,9 @@ def wanted_employment(source: str, subscriber: dict) -> str | None:
     if full and part:
         return None
     if full:
-        return "neq.Part Time"
+        return "cs.{full_time}"
     if part:
-        return "eq.Part Time"
+        return "cs.{part_time}"
     return SKIP
 
 

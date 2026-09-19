@@ -2,7 +2,7 @@
 import re
 from types import SimpleNamespace
 
-VERSION = 2
+VERSION = 3
 CPA = r'(?:공인\s*회계사(?!무소|회)|(?<![A-Za-z])(?:KI)?CPA(?![A-Za-z])|(?<!공인)회계사(?!무소|회))'
 CPA_RE = re.compile(CPA, re.I)
 PREFERRED = re.compile(CPA + r'[^\n.;。]{0,45}(?:우대|필수\s*아님|자격\s*(?:무관|불문))', re.I)
@@ -21,6 +21,30 @@ def qualification_sections(body):
         if mode=='preferred':preferred.append(line)
         elif mode=='required':required.append(line)
     return '\n'.join(required), '\n'.join(preferred)
+
+
+def work_types(posting):
+    """Registered type plus explicit current recruitment in both source sections."""
+    registered = {'Full Time':'full_time', 'Part Time':'part_time', 'Internship':'internship'}
+    found = {registered[posting.employment_type]} if posting.employment_type in registered else set()
+    source = posting.source_content or {}
+    text = '\n'.join([posting.title or '', posting.body or '', source.get('other_text') or ''])
+    token = re.compile(r'(?P<full_time>full\s*[- ]?time|풀\s*타임)|'
+                       r'(?P<part_time>part\s*[- ]?time|파트\s*타임)|'
+                       r'(?P<internship>\bintern(?:ship)?\b|인턴(?:십)?)', re.I)
+    negative = re.compile(r'불가|불가능|제외|미\s*모집|아님|아니|않|없|'
+                          r'(?:경험|경력).{0,12}우대|모집\s*종료|전환')
+    # Bare 파트/풀 is accepted only when explicitly paired with the other work type.
+    text = re.sub(r'파트\s*(?=(?:또는|혹은|및|/|·)\s*풀\s*타임)', '파트타임 ', text)
+    text = re.sub(r'풀\s*(?=(?:또는|혹은|및|/|·)\s*파트\s*타임)', '풀타임 ', text)
+    for line in re.split(r'[\n;。]', text):
+        matches = list(token.finditer(line))
+        for i, match in enumerate(matches):
+            end = matches[i+1].start() if i+1 < len(matches) else len(line)
+            tail = line[match.end():end].split(',')[0][:30]
+            if not negative.search(tail):
+                found.add(match.lastgroup)
+    return [key for key in ('full_time','part_time','internship') if key in found]
 
 
 def taxonomy_row(p):
@@ -73,10 +97,7 @@ def taxonomy_row(p):
     if general or mixed:
         groups.append('general')
         reasons.append('CPA 우대, 필수 아님' if preferred else '일반 직원 모집')
-    work=[]
-    work_text=(p.employment_type or '')+' '+clean_title+' '+ ' '.join(x for x in body.splitlines() if re.search(r'근무\s*형태|고용\s*형태|채용\s*형태|계약\s*형태',x))
-    for key,pattern in [('full_time',r'full\s*time|풀타임'),('part_time',r'part\s*time|파트\s*타임'),('internship',r'intern|인턴')]:
-        if re.search(pattern,work_text,re.I): work.append(key)
+    work=work_types(p)
     contracts=[key for key in ('정규직','계약직','전환형') if key in (p.employment_type or '')+' '+clean_title]
     names=' '.join(a.get('name','') for a in (p.source_content or {}).get('attachments',[]))
     form = ('designated' if re.search(r'입사\s*지원|지원서|이력서|자사\s*양식',names) or re.search(r'(?:지정|자사|첨부|당사)\s*양식',body)
