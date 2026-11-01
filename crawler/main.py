@@ -86,6 +86,7 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
 
     db = None if dry_run else (fast_db or store.Store())
     run_id = db.start_run(board) if db else None
+    firm_sync_error = None
 
     try:
         known = db.existing_ij_ids(source) if db else set()
@@ -148,7 +149,13 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
             # 4-1. 공고에서 법인을 추려 firms 를 갱신한다.
             # 사람이 채운 재무 컬럼은 건드리지 않는다.
             if board != kicpa.BOARD_ASSOCIATION:
-                firms.sync(db, source)
+                try:
+                    firms.sync(db, source)
+                except Exception as exc:
+                    # 부가 정보 오류가 공고 알림과 다음 게시판 수집까지 막지 않는다.
+                    # 회차는 실패로 기록해 감시가 계속 장애를 감지하도록 한다.
+                    firm_sync_error = f"법인 정보 갱신 실패: {type(exc).__name__}: {exc}"[:2000]
+                    log.error("%s — 공고·알림 처리는 계속합니다", firm_sync_error)
 
             removed = db.mark_removed(source, [p.ij_id for p in postings])
             if removed:
@@ -190,13 +197,14 @@ def crawl(dry_run: bool = False, send_mail: bool = True,
             _alert_if_stale(db, source, board, send_mail)
 
         db.finish_run(
-            run_id, status="success", fetched_count=len(postings),
+            run_id, status="failed" if firm_sync_error else "success",
+            error=firm_sync_error, fetched_count=len(postings),
             new_count=len(fresh), updated_count=len(postings) - len(fresh),
             notified_count=notified,
         )
         if not fast:db._request('POST','rpc/crawl_record_full_scan',json={'p_board':board})
         log.info("완료: 수집 %d / 신규 %d / 알림 %d", len(postings), len(fresh), notified)
-        return 0
+        return 1 if firm_sync_error else 0
 
     except Exception as exc:
         if db:

@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 
@@ -70,6 +71,44 @@ def slugify(name: str) -> str:
     return re.sub(r"[^가-힣A-Za-z0-9]+", "-", name).strip("-")
 
 
+def _assign_available_slugs(db, rows: list[dict]) -> None:
+    """이미 공개한 URL은 보존하고, 다른 이름의 URL 충돌만 구분한다.
+
+    공백과 '&' 같은 문자는 같은 '-'로 바뀌므로 이름이 달라도 slug는
+    같을 수 있다. 다른 법인을 URL만 보고 합치면 수동 입력 자료가 섞인다.
+    """
+    by_name = {}
+    for offset in range(0, 1000000, 1000):
+        page = db._request("GET", "firms", params={
+            "select": "name,slug", "order": "id.asc",
+            "limit": "1000", "offset": str(offset),
+        })
+        by_name.update((row["name"], row["slug"]) for row in page)
+        if len(page) < 1000:
+            break
+    else:
+        raise RuntimeError("법인 URL 목록이 조회 한도를 초과했습니다")
+
+    used = set(by_name.values())
+    # 한 배치 안의 충돌도 입력 공고의 순서와 무관하게 처리한다.
+    for row in sorted(rows, key=lambda row: row["name"]):
+        name = row["name"]
+        if name in by_name:
+            row["slug"] = by_name[name]
+            continue
+        base = row["slug"] or "firm"
+        slug = base
+        if slug in used:
+            suffix = hashlib.sha256(name.encode("utf-8")).hexdigest()[:10]
+            slug = f"{base}-{suffix}"
+            serial = 2
+            while slug in used:
+                slug = f"{base}-{suffix}-{serial}"
+                serial += 1
+        row["slug"] = slug
+        used.add(slug)
+
+
 def build(postings: list[dict], accounting_only: bool = False) -> list[dict]:
     """공고 목록에서 법인 행을 만든다.
 
@@ -128,6 +167,8 @@ def sync(db, source: str) -> int:
     rows = build(postings, accounting_only=source.endswith(":cpa"))
     if not rows:
         return 0
+
+    _assign_available_slugs(db, rows)
 
     # on_conflict 로 이름이 같으면 갱신한다. payload 에 없는 컬럼(재무 등)은
     # PostgREST 가 건드리지 않으므로 사람이 채운 값이 그대로 남는다.
